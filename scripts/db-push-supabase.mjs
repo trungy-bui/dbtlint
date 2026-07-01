@@ -19,26 +19,54 @@ try {
         email text NOT NULL,
         full_name text,
         avatar_url text,
-        stripe_customer_id text,
-        stripe_plan text DEFAULT 'free',
+        plan text DEFAULT 'free' NOT NULL,
+        subscription_status text,
+        lemonsqueezy_customer_id text,
+        lemonsqueezy_subscription_id text,
         created_at timestamp DEFAULT now(),
-        updated_at timestamp DEFAULT now()
+        updated_at timestamp DEFAULT now(),
+        CONSTRAINT users_plan_check CHECK (plan IN ('free', 'team'))
       );
 
       ALTER TABLE public.users
         ADD COLUMN IF NOT EXISTS email text,
         ADD COLUMN IF NOT EXISTS full_name text,
         ADD COLUMN IF NOT EXISTS avatar_url text,
-        ADD COLUMN IF NOT EXISTS stripe_customer_id text,
-        ADD COLUMN IF NOT EXISTS stripe_plan text DEFAULT 'free',
+        ADD COLUMN IF NOT EXISTS plan text DEFAULT 'free',
+        ADD COLUMN IF NOT EXISTS subscription_status text,
+        ADD COLUMN IF NOT EXISTS lemonsqueezy_customer_id text,
+        ADD COLUMN IF NOT EXISTS lemonsqueezy_subscription_id text,
         ADD COLUMN IF NOT EXISTS created_at timestamp DEFAULT now(),
         ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT now();
 
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'users'
+            AND column_name = 'stripe_plan'
+        ) THEN
+          UPDATE public.users
+          SET plan = CASE
+            WHEN stripe_plan IN ('free', 'team') THEN stripe_plan
+            ELSE 'free'
+          END
+          WHERE plan IS NULL OR plan = 'free';
+        END IF;
+      END $$;
+
       ALTER TABLE public.users
         ALTER COLUMN email SET NOT NULL,
-        ALTER COLUMN stripe_plan SET DEFAULT 'free',
+        ALTER COLUMN plan SET DEFAULT 'free',
+        ALTER COLUMN plan SET NOT NULL,
         ALTER COLUMN created_at SET DEFAULT now(),
         ALTER COLUMN updated_at SET DEFAULT now();
+
+      ALTER TABLE public.users
+        DROP COLUMN IF EXISTS stripe_customer_id,
+        DROP COLUMN IF EXISTS stripe_plan;
 
       DO $$
       BEGIN
@@ -50,6 +78,19 @@ try {
         ) THEN
           ALTER TABLE public.users
             ADD CONSTRAINT users_email_unique UNIQUE (email);
+        END IF;
+      END $$;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE connamespace = 'public'::regnamespace
+            AND conname = 'users_plan_check'
+        ) THEN
+          ALTER TABLE public.users
+            ADD CONSTRAINT users_plan_check CHECK (plan IN ('free', 'team'));
         END IF;
       END $$;
 

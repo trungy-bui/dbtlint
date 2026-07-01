@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { Loader2, Terminal } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -46,9 +46,11 @@ export function RegisterForm() {
     [password],
   );
   const meta = strengthMetadata[passwordStrength];
+  const searchParams = useSearchParams();
+  const plan = searchParams.get("plan");
 
   const onSubmit = async (data: RegisterType) => {
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
       options: {
@@ -62,14 +64,23 @@ export function RegisterForm() {
       return;
     }
 
-    router.push("/login");
+    if (signUpData.session) {
+      router.push(
+        plan === "team" ? "/api/lemonsqueezy/checkout" : "/dashboard",
+      );
+      return;
+    }
+
+    router.push(plan ? `/login?plan=${plan}` : "/login");
   };
 
   const handleOAuth = async (provider: OAuthProvider) => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/callback`,
+        redirectTo: plan
+          ? `${window.location.origin}/callback?plan=${plan}`
+          : `${window.location.origin}/callback`,
         skipBrowserRedirect: false,
       },
     });

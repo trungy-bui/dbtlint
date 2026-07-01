@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import {
+  check,
   index,
   integer,
   jsonb,
@@ -45,16 +47,24 @@ export type LintReportJson = {
   score: number;
 };
 
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  fullName: text("full_name"),
-  avatarUrl: text("avatar_url"),
-  stripeCustomerId: text("stripe_customer_id"),
-  stripePlan: text("stripe_plan").default("free"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey(),
+    email: text("email").notNull().unique(),
+    fullName: text("full_name"),
+    avatarUrl: text("avatar_url"),
+    plan: text("plan").notNull().default("free"),
+    subscriptionStatus: text("subscription_status"),
+    lemonsqueezyCustomerId: text("lemonsqueezy_customer_id"),
+    lemonsqueezySubscriptionId: text("lemonsqueezy_subscription_id"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    check("users_plan_check", sql`${table.plan} in ('free', 'team')`),
+  ],
+);
 
 export const scans = pgTable(
   "scans",

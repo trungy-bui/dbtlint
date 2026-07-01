@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { Loader2, Terminal } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,8 @@ export function LoginForm() {
   });
   const hasSubmitted = form.formState.isSubmitting;
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const plan = searchParams.get("plan");
 
   const onSubmit = async (data: LoginType) => {
     const { error } = await supabase.auth.signInWithPassword(data);
@@ -43,14 +45,20 @@ export function LoginForm() {
     }
 
     toast.success("Signed in!");
-    router.push("/");
+    if (plan === "team") {
+      router.push("/api/lemonsqueezy/checkout");
+    } else {
+      router.push("/");
+    }
   };
 
   const handleOAuth = async (provider: OAuthProvider) => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/callback`,
+        redirectTo: plan
+          ? `${window.location.origin}/callback?plan=${plan}`
+          : `${window.location.origin}/callback`,
       },
     });
 
