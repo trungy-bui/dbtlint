@@ -23,7 +23,7 @@ export default defineConfig({
   build: {
     extensions: [
       pythonExtension({
-        requirementsFile: "./reuirements.txt"
+        requirementsFile: "./requirement.txt"
       })
     ]
   }
