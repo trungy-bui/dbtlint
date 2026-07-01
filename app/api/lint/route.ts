@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { auth, tasks } from "@trigger.dev/sdk";
+import { eq } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import db from "@/db";
 import { scans, users } from "@/db/schema";
 import { getUser } from "@/lib/auth";
 import type { dbtLintTask } from "@/trigger/dbtLintTask";
+
+const FREE_PLAN_PROJECT_LIMIT = 1;
 
 export async function POST(request: Request) {
   try {
@@ -43,15 +46,46 @@ export async function POST(request: Request) {
         },
       });
 
+    const project = fileName.replace(".zip", "");
+    const [currentUser] = await db
+      .select({ plan: users.plan })
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1);
+
+    if (currentUser?.plan !== "team") {
+      const existingProjects = await db
+        .selectDistinct({ project: scans.project })
+        .from(scans)
+        .where(eq(scans.userId, user.id));
+      const hasExistingProject = existingProjects.some(
+        ({ project: existingProject }) => existingProject === project,
+      );
+
+      if (
+        !hasExistingProject &&
+        existingProjects.length >= FREE_PLAN_PROJECT_LIMIT
+      ) {
+        return Response.json(
+          {
+            error:
+              "Free plan is limited to 1 dbt project. Upgrade to Team for unlimited projects.",
+            code: "PLAN_LIMIT_REACHED",
+          },
+          { status: 403 },
+        );
+      }
+    }
+
     const [scan] = await db
       .insert(scans)
       .values({
         id: scanId,
         userId: user.id,
-        project: fileName.replace(".zip", ""),
+        project,
         scanId,
         scanPath: filePath,
-        status: "ongoing",
+        status: "processing",
         score: 0,
         errors: 0,
         warnings: 0,
