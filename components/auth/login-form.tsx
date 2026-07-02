@@ -53,12 +53,15 @@ export function LoginForm() {
   };
 
   const handleOAuth = async (provider: OAuthProvider) => {
+    const origin = window.location.origin;
+    const targetUrl = plan
+      ? `${origin}/callback?plan=${encodeURIComponent(plan)}`
+      : `${origin}/callback`;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: plan
-          ? `${window.location.origin}/callback?plan=${plan}`
-          : `${window.location.origin}/callback`,
+        redirectTo: targetUrl,
       },
     });
 

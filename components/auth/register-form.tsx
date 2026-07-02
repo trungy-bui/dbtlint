@@ -78,13 +78,14 @@ export function RegisterForm() {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
     const cleanSiteUrl = siteUrl.replace(/\/$/, "");
 
+    const targetUrl = plan
+      ? `${cleanSiteUrl}/callback?plan=${encodeURIComponent(plan)}`
+      : `${cleanSiteUrl}/callback`;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: plan
-          ? `${cleanSiteUrl}/callback?plan=${plan}`
-          : `${cleanSiteUrl}/callback`,
-        skipBrowserRedirect: false,
+        redirectTo: targetUrl,
       },
     });
 
