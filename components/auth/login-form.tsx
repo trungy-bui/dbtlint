@@ -48,7 +48,7 @@ export function LoginForm() {
     if (plan === "team") {
       router.push("/api/lemonsqueezy/checkout");
     } else {
-      router.push("/");
+      router.push("/dashboard");
     }
   };
 

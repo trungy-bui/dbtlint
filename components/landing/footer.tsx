@@ -1,23 +1,23 @@
-'use client'
+"use client";
 
 import { motion, type Variants } from "framer-motion";
-import { ArrowRight, Terminal } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ArrowRight, Terminal } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const footerLinks = [
   {
-    title: 'Product',
-    links: ['Features', 'Pricing', 'Integrations', 'Changelog'],
+    title: "Product",
+    links: ["Features", "Pricing", "Integrations", "Changelog"],
   },
   {
-    title: 'Resources',
-    links: ['Documentation', 'Rule reference', 'Blog', 'Community'],
+    title: "Resources",
+    links: ["Rule reference", "Blog", "Community"],
   },
   {
-    title: 'Company',
-    links: ['About', 'Careers', 'Contact', 'Security'],
+    title: "Company",
+    links: ["About", "Careers", "Contact", "Security"],
   },
-]
+];
 
 export function Footer() {
   return (
@@ -27,8 +27,8 @@ export function Footer() {
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.6, ease: 'easeOut' }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
             className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-zinc-900 via-zinc-950 to-black px-8 py-16 text-center"
           >
             <div
@@ -36,15 +36,15 @@ export function Footer() {
               className="pointer-events-none absolute inset-0 opacity-[0.06]"
               style={{
                 backgroundImage:
-                  'linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)',
-                backgroundSize: '40px 40px',
+                  "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
+                backgroundSize: "40px 40px",
               }}
             />
             <motion.div
               aria-hidden="true"
               className="pointer-events-none absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-emerald-500/20 blur-3xl"
               animate={{ opacity: [0.4, 0.7, 0.4] }}
-              transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
             />
             <div className="relative z-10">
               <h2 className="mx-auto max-w-2xl text-balance text-3xl font-semibold tracking-tight text-white sm:text-4xl">
@@ -124,5 +124,5 @@ export function Footer() {
         </div>
       </footer>
     </>
-  )
+  );
 }
