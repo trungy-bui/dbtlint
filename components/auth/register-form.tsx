@@ -75,17 +75,16 @@ export function RegisterForm() {
   };
 
   const handleOAuth = async (provider: OAuthProvider) => {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-    const cleanSiteUrl = siteUrl.replace(/\/$/, "");
+    const redirectUrl = new URL("/callback", window.location.origin);
 
-    const targetUrl = plan
-      ? `${cleanSiteUrl}/callback?plan=${encodeURIComponent(plan)}`
-      : `${cleanSiteUrl}/callback`;
+    if (plan) {
+      redirectUrl.searchParams.set("plan", plan);
+    }
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: targetUrl,
+        redirectTo: redirectUrl.toString(),
       },
     });
 

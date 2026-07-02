@@ -16,13 +16,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import type { OAuthProvider } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/client";
 import {
   type LoginForm as LoginType,
   loginSchema,
 } from "@/lib/validation/auth";
 import { GitHubIcon, GoogleIcon } from "../shared/brand-icons";
-import { getUser, type OAuthProvider } from "@/lib/auth";
 
 export function LoginForm() {
   const supabase = createClient();
@@ -53,15 +53,16 @@ export function LoginForm() {
   };
 
   const handleOAuth = async (provider: OAuthProvider) => {
-    const origin = window.location.origin;
-    const targetUrl = plan
-      ? `${origin}/callback?plan=${encodeURIComponent(plan)}`
-      : `${origin}/callback`;
+    const redirectUrl = new URL("/callback", window.location.origin);
+
+    if (plan) {
+      redirectUrl.searchParams.set("plan", plan);
+    }
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: targetUrl,
+        redirectTo: redirectUrl.toString(),
       },
     });
 
