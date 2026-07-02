@@ -61,6 +61,7 @@ export function UploadZone({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const [scans, setScans] = React.useState<ScanItem[]>([]);
+  const [isLintingAll, setIsLintingAll] = React.useState(false);
   const [isLimitBannerDismissed, setIsLimitBannerDismissed] =
     React.useState(false);
   const existingProjectSet = React.useMemo(
@@ -69,6 +70,9 @@ export function UploadZone({
   );
   const hasPlanLimitBlockedScans = scans.some(
     (scan) => scan.blockReason === "plan-limit",
+  );
+  const eligibleQueuedScans = scans.filter(
+    (scan) => scan.blockReason === null && scan.scanId === null,
   );
 
   const handleFiles = (files: FileList | null) => {
@@ -184,6 +188,18 @@ export function UploadZone({
     }
   };
 
+  const handleRunAll = async () => {
+    const eligibleIds = eligibleQueuedScans.map((scan) => scan.id);
+    if (eligibleIds.length === 0) return;
+
+    setIsLintingAll(true);
+    try {
+      await Promise.all(eligibleIds.map((id) => handleRunLint(id)));
+    } finally {
+      setIsLintingAll(false);
+    }
+  };
+
   const handleClear = (id: string) => {
     setScans((prev) => prev.filter((s) => s.id !== id));
   };
@@ -276,6 +292,28 @@ export function UploadZone({
 
   const list = (
     <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          {scans.length} {scans.length === 1 ? "file" : "files"} queued
+        </p>
+        {eligibleQueuedScans.length > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleRunAll}
+            disabled={isLintingAll}
+          >
+            {isLintingAll ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Linting all...
+              </>
+            ) : (
+              "Lint all"
+            )}
+          </Button>
+        )}
+      </div>
       {scans.map((item) => (
         <ScanRow
           key={item.id}
