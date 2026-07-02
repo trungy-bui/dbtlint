@@ -2,13 +2,18 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const plan = searchParams.get("plan");
   const error = searchParams.get("error");
 
+  const requestHeaders = new Headers(request.headers);
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
+  const host = requestHeaders.get("x-forwarded-host") ?? "localhost:3000";
+  const baseUrl = `${protocol}://${host}`;
+
   if (error) {
-    return NextResponse.redirect(`${origin}/login`);
+    return NextResponse.redirect(`${baseUrl}/login`);
   }
 
   if (code) {
@@ -17,11 +22,11 @@ export async function GET(request: Request) {
 
     if (!error) {
       if (plan === "team") {
-        return NextResponse.redirect(`${origin}/api/lemonsqueezy/checkout`);
+        return NextResponse.redirect(`${baseUrl}/api/lemonsqueezy/checkout`);
       }
-      return NextResponse.redirect(`${origin}/dashboard`);
+      return NextResponse.redirect(`${baseUrl}/dashboard`);
     }
   }
 
-  return NextResponse.redirect(`${origin}/dashboard`);
+  return NextResponse.redirect(`${baseUrl}/dashboard`);
 }
