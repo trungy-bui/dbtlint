@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LintReportJson } from "@/db/schema";
+import { motion } from "framer-motion";
 
 type LintCategoryReport =
   LintReportJson["categories"][keyof LintReportJson["categories"]];
@@ -66,6 +67,12 @@ function ScoreGauge({ score, status }: { score: number; status: string }) {
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
   const colorClass = getScoreColor(score);
+  let strokeColor = "#4FBF9F";
+  if (score < 70) strokeColor = "#E3A63E";
+  if (score < 50) strokeColor = "#D65C4B";
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   if (status === "processing") {
     return (
@@ -83,30 +90,40 @@ function ScoreGauge({ score, status }: { score: number; status: string }) {
         <circle
           cx="60"
           cy="60"
-          r={radius}
+          r="45"
           fill="none"
-          stroke="rgba(255, 255, 255, 0.1)"
-          strokeWidth="8"
+          stroke="currentColor"
+          strokeWidth="2"
+          className="text-panel-raised"
         />
-        <circle
+        <motion.circle
           cx="60"
           cy="60"
-          r={radius}
+          r="45"
           fill="none"
-          stroke={
-            colorClass.includes("emerald")
-              ? "#10b981"
-              : colorClass.includes("amber")
-                ? "#f59e0b"
-                : "#ef4444"
-          }
-          strokeWidth="8"
+          stroke={strokeColor}
+          strokeWidth="2"
           strokeDasharray={circumference}
-          strokeDashoffset={offset}
+          strokeDashoffset={prefersReducedMotion ? 0 : offset}
           strokeLinecap="round"
-          style={{ transition: "stroke-dashoffset 0.5s ease-in-out" }}
-          transform="rotate(-90 60 60)"
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: offset }}
+          transition={
+            prefersReducedMotion
+              ? { duration: 0 }
+              : { duration: 0.5, ease: "easeOut" }
+          }
+          className="transform -rotate-90 origin-center"
         />
+        <text
+          x="60"
+          y="60"
+          textAnchor="middle"
+          dy="0.3em"
+          className="fill-ink font-mono text-2xl font-bold"
+        >
+          {score}
+        </text>
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center">
@@ -298,6 +315,12 @@ function generateRecommendations(data: ProjectDetail): string[] {
   return recommendations.slice(0, 3);
 }
 
+function getStatusIcon(status: 'passed' | 'failed' | 'processing'): string {
+  if (status === 'passed') return '✓'
+  if (status === 'failed') return '✗'
+  return '▸'
+}
+
 export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
   const recommendations = useMemo(() => generateRecommendations(data), [data]);
   const relativeTime = getRelativeTime(data.createdAt);
@@ -321,26 +344,17 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
   };
 
   const status = statusConfig[data.status];
-  const StatusIcon = status.icon;
+  const StatusIcon = getStatusIcon(data.status)
 
   return (
-    <div className="space-y-6">
+    <div className="bg-void text-ink font-sans space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-foreground capitalize">
-            {data.project}
-          </h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <Badge className={status.color}>
-            <StatusIcon className="mr-1 size-3" />
-            {status.label}
-          </Badge>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="size-4" />
-            {relativeTime}
-          </div>
+      <div className="flex items-baseline justify-between mb-8 gap-4">
+        <div className="mt-2 text-ink-muted">
+          <span className="ml-2">
+            {data.report?.totals.files || 0} files linted ·{" "}
+            {data.report?.totals.lines} lines scanned · {relativeTime}
+          </span>
         </div>
       </div>
 
@@ -389,28 +403,28 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
       {data.report && (
         <Card className="border border-zinc-800 bg-zinc-900 p-0 overflow-hidden">
           <Tabs defaultValue="models" className="w-full">
-            <TabsList className="w-full justify-start rounded-none border-b border-zinc-800 bg-zinc-900/50 p-0">
+            <TabsList className="border-b border-hairline bg-void rounded-none p-0 h-auto gap-6 w-full justify-start">
               <TabsTrigger
                 value="models"
-                className="rounded-none border-b-2 border-transparent px-6 py-3 data-[state=active]:border-emerald-500"
+                className="px-0 py-3 font-sans text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-code-accent data-[state=active]:bg-transparent"
               >
                 Models
               </TabsTrigger>
               <TabsTrigger
                 value="tests"
-                className="rounded-none border-b-2 border-transparent px-6 py-3 data-[state=active]:border-emerald-500"
+                className="px-0 py-3 font-sans text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-code-accent data-[state=active]:bg-transparent"
               >
                 Tests
               </TabsTrigger>
               <TabsTrigger
                 value="macros"
-                className="rounded-none border-b-2 border-transparent px-6 py-3 data-[state=active]:border-emerald-500"
+                className="px-0 py-3 font-sans text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-code-accent data-[state=active]:bg-transparent"
               >
                 Macros
               </TabsTrigger>
             </TabsList>
             <div className="p-4">
-              <TabsContent value="models" className="m-0">
+              <TabsContent value="models" className="mt-0">
                 <CategorySection
                   category="Models"
                   data={data.report.categories.models}
