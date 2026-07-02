@@ -53,10 +53,7 @@ export function LoginForm() {
   };
 
   const handleOAuth = async (provider: OAuthProvider) => {
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-      window.location.origin;
-    const redirectUrl = new URL("/callback", siteUrl);
+    const redirectUrl = new URL("/callback", window.location.origin);
 
     if (plan) {
       redirectUrl.searchParams.set("plan", plan);
