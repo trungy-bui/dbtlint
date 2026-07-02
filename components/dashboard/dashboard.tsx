@@ -1,6 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 
 import { getDashboardStats, getRecentScans } from "@/lib/dashboard";
+import { getUploadPlanState } from "@/lib/upload-plan";
 import { UploadZone } from "../shared/dropzone";
 import { DashboardOverview } from "./dashboard-overview";
 import { RecentScansTable } from "./recent-scans";
@@ -11,9 +12,10 @@ type DashboardProps = {
 
 export async function Dashboard({ user }: DashboardProps) {
   const fullName = user.user_metadata.full_name ?? user.email ?? "there";
-  const [dashboardStats, recentScans] = await Promise.all([
+  const [dashboardStats, recentScans, uploadPlanState] = await Promise.all([
     getDashboardStats(user.id),
     getRecentScans(user.id),
+    getUploadPlanState(user.id),
   ]);
 
   return (
@@ -24,7 +26,7 @@ export async function Dashboard({ user }: DashboardProps) {
         <div className="xl:col-span-2">
           <RecentScansTable recentScans={recentScans} />
         </div>
-        <UploadZone compact />
+        <UploadZone compact {...uploadPlanState} />
       </div>
     </div>
   );

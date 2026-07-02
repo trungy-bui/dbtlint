@@ -276,7 +276,7 @@ export function RegisterForm() {
                 transition: { duration: 0.5, ease: "easeOut" },
               },
             }}
-            className="flex flex-col gap-3"
+            className="mt-6 flex flex-col gap-4"
           >
             <motion.div
               whileHover={{ scale: hasSubmitted ? 1 : 1.02 }}

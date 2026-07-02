@@ -5,9 +5,8 @@ import { revalidateTag } from "next/cache";
 import db from "@/db";
 import { scans, users } from "@/db/schema";
 import { getUser } from "@/lib/auth";
+import { deriveProjectName, FREE_PLAN_PROJECT_LIMIT } from "@/lib/plan-limits";
 import type { dbtLintTask } from "@/trigger/dbtLintTask";
-
-const FREE_PLAN_PROJECT_LIMIT = 1;
 
 export async function POST(request: Request) {
   try {
@@ -46,7 +45,7 @@ export async function POST(request: Request) {
         },
       });
 
-    const project = fileName.replace(".zip", "");
+    const project = deriveProjectName(fileName);
     const [currentUser] = await db
       .select({ plan: users.plan })
       .from(users)
