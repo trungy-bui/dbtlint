@@ -75,7 +75,10 @@ export function RegisterForm() {
   };
 
   const handleOAuth = async (provider: OAuthProvider) => {
-    const redirectUrl = new URL("/callback", window.location.origin);
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+      window.location.origin;
+    const redirectUrl = new URL("/callback", siteUrl);
 
     if (plan) {
       redirectUrl.searchParams.set("plan", plan);
