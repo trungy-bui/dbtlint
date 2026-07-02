@@ -75,12 +75,15 @@ export function RegisterForm() {
   };
 
   const handleOAuth = async (provider: OAuthProvider) => {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    const cleanSiteUrl = siteUrl.replace(/\/$/, "");
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
         redirectTo: plan
-          ? `${window.location.origin}/callback?plan=${plan}`
-          : `${window.location.origin}/callback`,
+          ? `${cleanSiteUrl}/callback?plan=${plan}`
+          : `${cleanSiteUrl}/callback`,
         skipBrowserRedirect: false,
       },
     });
