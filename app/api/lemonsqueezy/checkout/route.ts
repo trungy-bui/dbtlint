@@ -1,7 +1,10 @@
+import { createCheckout } from "@lemonsqueezy/lemonsqueezy.js";
+import { eq } from "drizzle-orm";
+import { NextResponse } from "next/server";
+import db from "@/db";
+import { users } from "@/db/schema";
 import { getUser } from "@/lib/auth";
 import { configureLemonSqueezy } from "@/lib/lemon-squeezy/client";
-import { createCheckout } from "@lemonsqueezy/lemonsqueezy.js";
-import { NextResponse } from "next/server";
 
 export async function GET() {
   const user = await getUser();
@@ -9,6 +12,31 @@ export async function GET() {
   if (!user) {
     return NextResponse.redirect(
       new URL("/login", process.env.NEXT_PUBLIC_SITE_URL),
+    );
+  }
+
+  try {
+    const [currentUser] = await db
+      .select({ plan: users.plan })
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1);
+
+    if (currentUser?.plan === "team") {
+      return NextResponse.redirect(
+        new URL(
+          "/dashboard?already_subscribed=1",
+          process.env.NEXT_PUBLIC_SITE_URL,
+        ),
+      );
+    }
+  } catch (error) {
+    console.error("Failed to check user plan before checkout", {
+      error,
+      userId: user.id,
+    });
+    return NextResponse.redirect(
+      new URL("/dashboard?checkout_error=1", process.env.NEXT_PUBLIC_SITE_URL),
     );
   }
 

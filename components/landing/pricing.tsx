@@ -6,6 +6,12 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 
+type Plan = "free" | "team";
+
+type UserPlanResponse = {
+  plan: Plan | null;
+};
+
 const plans = [
   {
     name: "Free",
@@ -56,6 +62,17 @@ const plans = [
   },
 ];
 
+async function fetchUserPlan(): Promise<Plan | null> {
+  const response = await fetch("/api/user/plan");
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = (await response.json()) as UserPlanResponse;
+  return data.plan;
+}
+
 const container: Variants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.1 } },
@@ -67,22 +84,53 @@ const item: Variants = {
 };
 
 export function Pricing() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
+  const [isPlanLoading, setIsPlanLoading] = useState(true);
 
   useEffect(() => {
     const supabase = createClient();
+    let isMounted = true;
+    let planRequestId = 0;
+
+    async function updatePlan(sessionExists: boolean) {
+      const requestId = ++planRequestId;
+
+      if (!isMounted) {
+        return;
+      }
+
+      setIsLoggedIn(sessionExists);
+
+      if (!sessionExists) {
+        setCurrentPlan(null);
+        setIsPlanLoading(false);
+        return;
+      }
+
+      setIsPlanLoading(true);
+      const plan = await fetchUserPlan();
+
+      if (!isMounted || requestId !== planRequestId) {
+        return;
+      }
+
+      setCurrentPlan(plan);
+      setIsPlanLoading(false);
+    }
 
     supabase.auth.getSession().then(({ data }) => {
-      setIsLoggedIn(Boolean(data.session));
+      void updatePlan(Boolean(data.session));
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(Boolean(session));
+      void updatePlan(Boolean(session));
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -116,10 +164,20 @@ export function Pricing() {
           className="mt-16 grid grid-cols-1 gap-6 lg:grid-cols-3"
         >
           {plans.map((plan) => {
+            const isTeamPlan = plan.name === "Team";
+            const isCurrentTeamPlan = isTeamPlan && currentPlan === "team";
+            const isTeamPlanLoading =
+              isTeamPlan && (isLoggedIn === null || isPlanLoading);
             const href =
-              plan.name === "Team" && isLoggedIn
+              isTeamPlan && isLoggedIn
                 ? "/api/lemonsqueezy/checkout"
                 : plan.href;
+            const cta = isCurrentTeamPlan
+              ? "Current plan"
+              : isTeamPlanLoading
+                ? "Checking plan..."
+                : plan.cta;
+            const isDisabledCta = isCurrentTeamPlan || isTeamPlanLoading;
 
             return (
               <motion.div
@@ -165,22 +223,33 @@ export function Pricing() {
                 </ul>
 
                 <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={isDisabledCta ? undefined : { scale: 1.02 }}
+                  whileTap={isDisabledCta ? undefined : { scale: 0.98 }}
                   className="mt-8"
                 >
-                  <Button
-                    asChild
-                    size="lg"
-                    variant={plan.highlighted ? "default" : "outline"}
-                    className={`w-full ${
-                      plan.highlighted
-                        ? "bg-emerald-500 text-zinc-950 hover:bg-emerald-400"
-                        : ""
-                    }`}
-                  >
-                    <a href={href}>{plan.cta}</a>
-                  </Button>
+                  {isDisabledCta ? (
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      disabled
+                      className="w-full border-white/10 bg-white/[0.03] text-muted-foreground"
+                    >
+                      {cta}
+                    </Button>
+                  ) : (
+                    <Button
+                      asChild
+                      size="lg"
+                      variant={plan.highlighted ? "default" : "outline"}
+                      className={`w-full ${
+                        plan.highlighted
+                          ? "bg-emerald-500 text-zinc-950 hover:bg-emerald-400"
+                          : ""
+                      }`}
+                    >
+                      <a href={href}>{cta}</a>
+                    </Button>
+                  )}
                 </motion.div>
               </motion.div>
             );
