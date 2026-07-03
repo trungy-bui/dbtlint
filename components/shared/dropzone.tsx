@@ -201,7 +201,7 @@ export function UploadZone({
 
   const handleRunAll = async () => {
     const eligibleIds = eligibleQueuedScans.map((scan) => scan.id);
-    if (eligibleIds.length === 0) return;
+    if (eligibleIds.length <= 1) return;
 
     setIsLintingAll(true);
     try {
@@ -307,7 +307,7 @@ export function UploadZone({
         <p className="text-xs text-muted-foreground">
           {scans.length} {scans.length === 1 ? "file" : "files"} queued
         </p>
-        {eligibleQueuedScans.length > 0 && (
+        {eligibleQueuedScans.length > 1 && (
           <Button
             size="sm"
             variant="outline"
