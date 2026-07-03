@@ -4,6 +4,7 @@ import { getDashboardStats, getProjects } from "@/lib/dashboard";
 
 export default async function ProjectPage() {
   const user = await getUser();
+  if (!user) return;
   const [dashboardStats, dashboardProjects] = await Promise.all([
     getDashboardStats(user.id),
     getProjects(user.id),

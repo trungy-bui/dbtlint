@@ -142,6 +142,7 @@ export function UploadZone({
 
     try {
       const user = await getUser();
+      if (!user) return;
       const supabase = createClient();
       const fileName = item.file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const filePath = `${user.id}/${Date.now()}-${fileName}`;
