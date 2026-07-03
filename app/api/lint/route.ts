@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
+import * as Sentry from "@sentry/nextjs";
 import { auth, tasks } from "@trigger.dev/sdk";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 import { eq } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import db from "@/db";
@@ -7,8 +10,6 @@ import { scans, users } from "@/db/schema";
 import { getUser } from "@/lib/auth";
 import { deriveProjectName, FREE_PLAN_PROJECT_LIMIT } from "@/lib/plan-limits";
 import type { dbtLintTask } from "@/trigger/dbtLintTask";
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 
 const rateLimit = new Ratelimit({
   redis: Redis.fromEnv(),
@@ -136,6 +137,7 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error(error);
+    Sentry.captureException(error);
     return Response.json(
       { error: `Something went wrong, please try again` },
       { status: 500 },

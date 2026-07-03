@@ -10,6 +10,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@supabase/supabase-js";
 import { metadata, schemaTask } from "@trigger.dev/sdk";
 import AdmZip from "adm-zip";
@@ -771,6 +772,7 @@ export const dbtLintTask = schemaTask({
           storageFilePath,
           error: cleanupError,
         });
+        Sentry.captureException(cleanupError);
       }
     }
   },

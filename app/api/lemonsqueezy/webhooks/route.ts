@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import * as Sentry from "@sentry/nextjs";
 import { eq } from "drizzle-orm";
 import db from "@/db";
 import { users } from "@/db/schema";
@@ -68,6 +69,7 @@ export async function POST(req: Request) {
       "Failed to parse verified Lemon Squeezy webhook payload",
       error,
     );
+    Sentry.captureException(error);
     return Response.json({ received: true });
   }
 
@@ -156,6 +158,7 @@ export async function POST(req: Request) {
       subscriptionId,
       customerId,
     });
+    Sentry.captureException(error);
   }
 
   return Response.json({ received: true });
