@@ -754,6 +754,24 @@ export const dbtLintTask = schemaTask({
       throw error;
     } finally {
       rmSync(tmpDirectory, { recursive: true, force: true });
+
+      try {
+        const { error: deleteError } = await supabase.storage
+          .from("dbt-uploads")
+          .remove([storageFilePath]);
+
+        if (deleteError) {
+          console.error("Failed to delete uploaded zip from storage", {
+            storageFilePath,
+            error: deleteError,
+          });
+        }
+      } catch (cleanupError) {
+        console.error("Unexpected error deleting uploaded zip from storage", {
+          storageFilePath,
+          error: cleanupError,
+        });
+      }
     }
   },
 });

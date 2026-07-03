@@ -6,6 +6,7 @@ import { users } from "@/db/schema";
 type LemonSqueezyWebhookPayload = {
   meta?: {
     event_name?: string;
+    test_mode?: boolean;
     custom_data?: {
       user_id?: string;
     };
@@ -71,6 +72,12 @@ export async function POST(req: Request) {
   }
 
   const eventName = payload.meta?.event_name;
+  const { meta } = payload;
+  if (meta?.test_mode && process.env.NODE_ENV === "production") {
+    console.log("Ignoring test-mode webhook in production", { eventName });
+    return Response.json({ received: true });
+  }
+
   const userId = payload.meta?.custom_data?.user_id;
   const subscriptionStatus = payload.data?.attributes?.status;
   const subscriptionId = payload.data?.id;
@@ -104,13 +111,15 @@ export async function POST(req: Request) {
         break;
 
       case "subscription_cancelled":
+        await db
+          .update(users)
+          .set({ subscriptionStatus })
+          .where(eq(users.id, userId));
+        break;
       case "subscription_expired":
         await db
           .update(users)
-          .set({
-            plan: "free",
-            subscriptionStatus,
-          })
+          .set({ plan: "free", subscriptionStatus })
           .where(eq(users.id, userId));
         break;
 
