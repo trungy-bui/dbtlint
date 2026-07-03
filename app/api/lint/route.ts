@@ -7,6 +7,14 @@ import { scans, users } from "@/db/schema";
 import { getUser } from "@/lib/auth";
 import { deriveProjectName, FREE_PLAN_PROJECT_LIMIT } from "@/lib/plan-limits";
 import type { dbtLintTask } from "@/trigger/dbtLintTask";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+const rateLimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(5, "1 m"), // 5 Uploads / Minute
+  prefix: "dbtlint:upload",
+});
 
 export async function POST(request: Request) {
   try {
@@ -17,11 +25,23 @@ export async function POST(request: Request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { success, reset } = await rateLimit.limit(user.id);
+    if (!success) {
+      return Response.json(
+        { error: "Too many uploads, try again shortly", resetAt: reset },
+        { status: 429 },
+      );
+    }
+
     if (!fileName || !filePath) {
       return Response.json(
         { error: "Missing fileName or filePath" },
         { status: 400 },
       );
+    }
+
+    if (!filePath.startsWith(`${user.id}/`)) {
+      return Response.json({ error: "Invalid file path" }, { status: 403 });
     }
 
     const scanId = randomUUID();
@@ -116,6 +136,9 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error(error);
-    return Response.json({ error: String(error) }, { status: 500 });
+    return Response.json(
+      { error: `Something went wrong, please try again` },
+      { status: 500 },
+    );
   }
 }

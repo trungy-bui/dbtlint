@@ -30,6 +30,8 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { LintMetadata } from "@/lib/validation/lint";
 import type { dbtLintTask } from "@/trigger/dbtLintTask";
+import { getUser } from "@/lib/auth";
+import { toast } from "sonner";
 
 const PLAN_LIMIT_REACHED_CODE = "PLAN_LIMIT_REACHED";
 
@@ -139,8 +141,10 @@ export function UploadZone({
     if (!item || item.blockReason) return;
 
     try {
+      const user = await getUser();
       const supabase = createClient();
-      const filePath = `uploads/${Date.now()}-${item.file.name}`;
+      const fileName = item.file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filePath = `${user.id}/${Date.now()}-${fileName}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("dbt-uploads")
         .upload(filePath, item.file);
@@ -167,6 +171,13 @@ export function UploadZone({
           prev.map((s) =>
             s.id === id ? { ...s, blockReason: "plan-limit" } : s,
           ),
+        );
+        return;
+      }
+
+      if (response.status === 429) {
+        toast.error(
+          "You're uploading too quickly. Please wait a moment before trying again.",
         );
         return;
       }
