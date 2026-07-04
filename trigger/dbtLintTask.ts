@@ -337,7 +337,7 @@ async function finalizeScan({
 
 async function notifyScanComplete(scanId: string) {
   try {
-    await fetch(
+    const response = await fetch(
       `${process.env.NEXT_PUBLIC_SITE_URL}/api/scans/${scanId}/complete`,
       {
         method: "POST",
@@ -346,6 +346,15 @@ async function notifyScanComplete(scanId: string) {
         },
       },
     );
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      console.error("Scan completion webhook returned non-OK status", {
+        scanId,
+        status: response.status,
+        body,
+      });
+    }
   } catch (error) {
     console.error("Failed to call scan completion email webhook", {
       scanId,
