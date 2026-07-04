@@ -225,7 +225,7 @@ export function Pricing() {
                 <motion.div
                   whileHover={isDisabledCta ? undefined : { scale: 1.02 }}
                   whileTap={isDisabledCta ? undefined : { scale: 0.98 }}
-                  className="mt-8"
+                  className="mt-auto pt-8"
                 >
                   {isDisabledCta ? (
                     <Button
