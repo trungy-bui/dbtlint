@@ -335,6 +335,25 @@ async function finalizeScan({
   }
 }
 
+async function notifyScanComplete(scanId: string) {
+  try {
+    await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL}/api/scans/${scanId}/complete`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.SCAN_COMPLETE_WEBHOOK_SECRET}`,
+        },
+      },
+    );
+  } catch (error) {
+    console.error("Failed to call scan completion email webhook", {
+      scanId,
+      error,
+    });
+  }
+}
+
 async function lintSqlFile(filePath: string, dialect: string) {
   try {
     const { stdout } = await execFileAsync(
@@ -736,6 +755,10 @@ export const dbtLintTask = schemaTask({
         warnings: report.totals.warnings,
         report,
       });
+
+      if (finalStatus === "PASSED") {
+        await notifyScanComplete(scanId);
+      }
 
       return report;
     } catch (error) {
