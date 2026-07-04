@@ -756,9 +756,7 @@ export const dbtLintTask = schemaTask({
         report,
       });
 
-      if (finalStatus === "PASSED") {
-        await notifyScanComplete(scanId);
-      }
+      await notifyScanComplete(scanId);
 
       return report;
     } catch (error) {
