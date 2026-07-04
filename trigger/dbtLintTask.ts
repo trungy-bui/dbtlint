@@ -338,7 +338,7 @@ async function finalizeScan({
 async function notifyScanComplete(scanId: string) {
   try {
     await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/scans/${scanId}/complete`,
+      `${process.env.NEXT_PUBLIC_SITE_URL}/api/scans/${scanId}/complete`,
       {
         method: "POST",
         headers: {
