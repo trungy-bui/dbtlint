@@ -58,6 +58,9 @@ export function RegisterForm() {
       },
     });
 
+    console.log("signUpData:", signUpData); // add this
+    console.log("session:", signUpData?.session);
+
     if (error) {
       form.setError("root", { message: error.message });
       toast.error(error.message);
