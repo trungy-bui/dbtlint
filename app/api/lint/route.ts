@@ -18,6 +18,8 @@ const rateLimit = new Ratelimit({
 });
 
 export async function POST(request: Request) {
+  const handlerStart = performance.now();
+
   try {
     const user = await getUser().catch(() => null);
     const { fileName, filePath } = await request.json();
@@ -26,7 +28,68 @@ export async function POST(request: Request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { success, reset } = await rateLimit.limit(user.id);
+    let rateLimitMs = 0;
+    let usersUpsertMs = 0;
+    let usersPlanSelectMs = 0;
+    let scansProjectSelectMs = 0;
+    let scansInsertMs = 0;
+    let tasksTriggerMs = 0;
+    let publicTokenMs = 0;
+
+    const rateLimitStart = performance.now();
+    const rateLimitPromise = rateLimit.limit(user.id).finally(() => {
+      rateLimitMs = performance.now() - rateLimitStart;
+    });
+
+    const usersUpsertStart = performance.now();
+    const usersUpsertPromise = db
+      .insert(users)
+      .values({
+        id: user.id,
+        email: user.email ?? "",
+        fullName: user.user_metadata?.full_name ?? user.user_metadata?.name,
+        avatarUrl:
+          user.user_metadata?.avatar_url ?? user.user_metadata?.picture,
+      })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          email: user.email ?? "",
+          fullName: user.user_metadata?.full_name ?? user.user_metadata?.name,
+          avatarUrl:
+            user.user_metadata?.avatar_url ?? user.user_metadata?.picture,
+        },
+      })
+      .finally(() => {
+        usersUpsertMs = performance.now() - usersUpsertStart;
+      });
+
+    const usersPlanSelectStart = performance.now();
+    const usersPlanSelectPromise = db
+      .select({ plan: users.plan })
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1)
+      .finally(() => {
+        usersPlanSelectMs = performance.now() - usersPlanSelectStart;
+      });
+
+    const scansProjectSelectStart = performance.now();
+    const scansProjectSelectPromise = db
+      .selectDistinct({ project: scans.project })
+      .from(scans)
+      .where(eq(scans.userId, user.id))
+      .finally(() => {
+        scansProjectSelectMs = performance.now() - scansProjectSelectStart;
+      });
+
+    const [{ success, reset }, , [currentUser], existingProjects] =
+      await Promise.all([
+        rateLimitPromise,
+        usersUpsertPromise,
+        usersPlanSelectPromise,
+        scansProjectSelectPromise,
+      ]);
     if (!success) {
       return Response.json(
         { error: "Too many uploads, try again shortly", resetAt: reset },
@@ -47,37 +110,9 @@ export async function POST(request: Request) {
 
     const scanId = randomUUID();
 
-    await db
-      .insert(users)
-      .values({
-        id: user.id,
-        email: user.email ?? "",
-        fullName: user.user_metadata?.full_name ?? user.user_metadata?.name,
-        avatarUrl:
-          user.user_metadata?.avatar_url ?? user.user_metadata?.picture,
-      })
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          email: user.email ?? "",
-          fullName: user.user_metadata?.full_name ?? user.user_metadata?.name,
-          avatarUrl:
-            user.user_metadata?.avatar_url ?? user.user_metadata?.picture,
-        },
-      });
-
     const project = deriveProjectName(fileName);
-    const [currentUser] = await db
-      .select({ plan: users.plan })
-      .from(users)
-      .where(eq(users.id, user.id))
-      .limit(1);
 
     if (currentUser?.plan !== "team") {
-      const existingProjects = await db
-        .selectDistinct({ project: scans.project })
-        .from(scans)
-        .where(eq(scans.userId, user.id));
       const hasExistingProject = existingProjects.some(
         ({ project: existingProject }) => existingProject === project,
       );
@@ -97,6 +132,7 @@ export async function POST(request: Request) {
       }
     }
 
+    const scansInsertStart = performance.now();
     const [scan] = await db
       .insert(scans)
       .values({
@@ -111,20 +147,40 @@ export async function POST(request: Request) {
         warnings: 0,
       })
       .returning();
+    scansInsertMs = performance.now() - scansInsertStart;
     revalidateTag("dashboard", "max");
 
     if (!scan) {
       return Response.json({ error: "Failed to create scan" }, { status: 500 });
     }
 
+    const tasksTriggerStart = performance.now();
     const handle = await tasks.trigger<typeof dbtLintTask>("dbt-lint", {
       scanId,
       storageFilePath: filePath,
     });
+    tasksTriggerMs = performance.now() - tasksTriggerStart;
 
+    const publicTokenStart = performance.now();
     const publicAccessToken = await auth.createPublicToken({
       scopes: { read: { runs: [handle.id] } },
     });
+    publicTokenMs = performance.now() - publicTokenStart;
+
+    console.log(
+      JSON.stringify({
+        event: "lint_upload_timing",
+        scanId,
+        rateLimitMs,
+        usersUpsertMs,
+        usersPlanSelectMs,
+        scansProjectSelectMs,
+        scansInsertMs,
+        tasksTriggerMs,
+        publicTokenMs,
+        totalHandlerMs: performance.now() - handlerStart,
+      }),
+    );
 
     return Response.json(
       {
