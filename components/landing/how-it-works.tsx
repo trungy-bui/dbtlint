@@ -122,13 +122,13 @@ export function HowItWorksSection() {
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, margin: "-80px" }}
-          className="mt-16 grid grid-cols-1 gap-6 md:grid-cols-3"
+          className="mt-16 grid grid-cols-1 gap-6 md:grid-cols-3 items-stretch"
         >
           {steps.map((step) => (
             <motion.div
               key={step.step}
               variants={item}
-              className="relative rounded-2xl border border-white/10 bg-white/[0.02] p-7"
+              className="relative flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-7"
             >
               <span className="font-mono text-4xl font-semibold text-emerald-500/30">
                 {step.step}
@@ -139,7 +139,9 @@ export function HowItWorksSection() {
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                 {step.desc}
               </p>
-              <StepPreview preview={step.preview} />
+              <div className="mt-auto pt-5">
+                <StepPreview preview={step.preview} />
+              </div>
             </motion.div>
           ))}
         </motion.div>
