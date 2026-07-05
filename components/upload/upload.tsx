@@ -7,9 +7,10 @@ import { UploadZone } from "../shared/dropzone";
 type UploadProps = {
   plan: Plan;
   existingProjects: string[];
+  scanCount: number;
 };
 
-export function Upload({ plan, existingProjects }: UploadProps) {
+export function Upload({ plan, existingProjects, scanCount }: UploadProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -26,7 +27,11 @@ export function Upload({ plan, existingProjects }: UploadProps) {
           test, and macro against your active rule set.
         </p>
       </div>
-      <UploadZone plan={plan} existingProjects={existingProjects} />
+      <UploadZone
+        plan={plan}
+        existingProjects={existingProjects}
+        scanCount={scanCount}
+      />
     </motion.div>
   );
 }

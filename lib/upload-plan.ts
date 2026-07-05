@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import db from "@/db";
 import { scans, users } from "@/db/schema";
 import type { Plan } from "@/lib/plan-limits";
@@ -6,6 +6,7 @@ import type { Plan } from "@/lib/plan-limits";
 export type UploadPlanState = {
   plan: Plan;
   existingProjects: string[];
+  scanCount: number;
 };
 
 function normalizePlan(plan: string | null | undefined): Plan {
@@ -15,7 +16,7 @@ function normalizePlan(plan: string | null | undefined): Plan {
 export async function getUploadPlanState(
   userId: string,
 ): Promise<UploadPlanState> {
-  const [currentUser, existingProjects] = await Promise.all([
+  const [currentUser, existingProjects, [scanUsage]] = await Promise.all([
     db
       .select({ plan: users.plan })
       .from(users)
@@ -25,10 +26,15 @@ export async function getUploadPlanState(
       .selectDistinct({ project: scans.project })
       .from(scans)
       .where(eq(scans.userId, userId)),
+    db
+      .select({ scanCount: count() })
+      .from(scans)
+      .where(eq(scans.userId, userId)),
   ]);
 
   return {
     plan: normalizePlan(currentUser[0]?.plan),
     existingProjects: existingProjects.map(({ project }) => project),
+    scanCount: scanUsage?.scanCount ?? 0,
   };
 }

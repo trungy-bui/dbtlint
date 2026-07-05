@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,27 +22,29 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getUser } from "@/lib/auth";
 import {
   deriveProjectName,
   FREE_PLAN_PROJECT_LIMIT,
+  FREE_PLAN_SCAN_LIMIT,
   type Plan,
 } from "@/lib/plan-limits";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { LintMetadata } from "@/lib/validation/lint";
 import type { dbtLintTask } from "@/trigger/dbtLintTask";
-import { getUser } from "@/lib/auth";
-import { toast } from "sonner";
 
 const PLAN_LIMIT_REACHED_CODE = "PLAN_LIMIT_REACHED";
+const SCAN_LIMIT_REACHED_CODE = "SCAN_LIMIT_REACHED";
 
-type BlockReason = "plan-limit";
+type BlockReason = "project-limit" | "scan-limit";
 
 type UploadZoneProps = {
   className?: string;
   compact?: boolean;
   plan?: Plan;
   existingProjects?: string[];
+  scanCount?: number;
 };
 
 type ScanItem = {
@@ -59,6 +62,7 @@ export function UploadZone({
   compact = false,
   plan = "free",
   existingProjects = [],
+  scanCount = 0,
 }: UploadZoneProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -66,13 +70,22 @@ export function UploadZone({
   const [isLintingAll, setIsLintingAll] = React.useState(false);
   const [isLimitBannerDismissed, setIsLimitBannerDismissed] =
     React.useState(false);
+  const [usedScanCount, setUsedScanCount] = React.useState(scanCount);
+  React.useEffect(() => {
+    setUsedScanCount(scanCount);
+  }, [scanCount]);
   const existingProjectSet = React.useMemo(
     () => new Set(existingProjects),
     [existingProjects],
   );
-  const hasPlanLimitBlockedScans = scans.some(
-    (scan) => scan.blockReason === "plan-limit",
-  );
+  const blockedReason = scans.find((scan) => scan.blockReason)?.blockReason;
+  const queuedRunnableScanCount = scans.filter(
+    (scan) => scan.blockReason === null && scan.scanId === null,
+  ).length;
+  const hasReachedFreeScanLimit =
+    plan === "free" &&
+    usedScanCount + queuedRunnableScanCount >= FREE_PLAN_SCAN_LIMIT;
+  const hasBlockedScans = scans.some((scan) => scan.blockReason !== null);
   const eligibleQueuedScans = scans.filter(
     (scan) => scan.blockReason === null && scan.scanId === null,
   );
@@ -85,7 +98,7 @@ export function UploadZone({
       scans
         .filter(
           (scan) =>
-            scan.blockReason !== "plan-limit" &&
+            scan.blockReason !== "project-limit" &&
             !existingProjectSet.has(scan.projectName),
         )
         .map((scan) => scan.projectName),
@@ -103,16 +116,18 @@ export function UploadZone({
         queuedProjectNames.add(projectName);
 
         const isNewProject = !existingProjectSet.has(projectName);
-        const wouldExceedFreeLimit =
+        const wouldExceedProjectLimit =
           plan === "free" &&
           isNewProject &&
           existingProjects.length + queuedNewProjectNames.size >=
             FREE_PLAN_PROJECT_LIMIT;
-        const blockReason: BlockReason | null = wouldExceedFreeLimit
-          ? "plan-limit"
-          : null;
+        const blockReason: BlockReason | null = hasReachedFreeScanLimit
+          ? "scan-limit"
+          : wouldExceedProjectLimit
+            ? "project-limit"
+            : null;
 
-        if (!wouldExceedFreeLimit && isNewProject) {
+        if (!blockReason && isNewProject) {
           queuedNewProjectNames.add(projectName);
         }
 
@@ -129,7 +144,7 @@ export function UploadZone({
         ];
       });
 
-    if (newItems.some((item) => item.blockReason === "plan-limit")) {
+    if (newItems.some((item) => item.blockReason !== null)) {
       setIsLimitBannerDismissed(false);
     }
 
@@ -166,11 +181,23 @@ export function UploadZone({
 
       const data = await response.json();
 
-      if (response.status === 403 && data?.code === PLAN_LIMIT_REACHED_CODE) {
+      if (
+        response.status === 403 &&
+        (data?.code === PLAN_LIMIT_REACHED_CODE ||
+          data?.code === SCAN_LIMIT_REACHED_CODE)
+      ) {
         setIsLimitBannerDismissed(false);
         setScans((prev) =>
           prev.map((s) =>
-            s.id === id ? { ...s, blockReason: "plan-limit" } : s,
+            s.id === id
+              ? {
+                  ...s,
+                  blockReason:
+                    data?.code === SCAN_LIMIT_REACHED_CODE
+                      ? "scan-limit"
+                      : "project-limit",
+                }
+              : s,
           ),
         );
         return;
@@ -195,6 +222,7 @@ export function UploadZone({
             : s,
         ),
       );
+      setUsedScanCount((current) => current + 1);
     } catch (error) {
       console.log(error);
     }
@@ -276,17 +304,28 @@ export function UploadZone({
     </Button>
   );
 
-  const limitBanner = hasPlanLimitBlockedScans && !isLimitBannerDismissed && (
+  const limitBannerCopy =
+    blockedReason === "scan-limit"
+      ? {
+          title: "Free plan scan limit reached",
+          body: "Upgrade to Team to rescan this project.",
+          dismissLabel: "Dismiss scan limit warning",
+        }
+      : {
+          title: "Free plan project limit reached",
+          body: "Upgrade to scan another dbt project.",
+          dismissLabel: "Dismiss plan limit warning",
+        };
+
+  const limitBanner = hasBlockedScans && !isLimitBannerDismissed && (
     <div
       role="alert"
       className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-100"
     >
       <AlertTriangle className="mt-0.5 size-4 shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="font-medium">Free plan project limit reached</p>
-        <p className="text-xs opacity-90">
-          Upgrade to scan another dbt project.
-        </p>
+        <p className="font-medium">{limitBannerCopy.title}</p>
+        <p className="text-xs opacity-90">{limitBannerCopy.body}</p>
       </div>
       <Button asChild size="sm">
         <Link href="/billing">Upgrade</Link>
@@ -295,7 +334,7 @@ export function UploadZone({
         variant="ghost"
         size="icon-sm"
         onClick={() => setIsLimitBannerDismissed(true)}
-        aria-label="Dismiss plan limit warning"
+        aria-label={limitBannerCopy.dismissLabel}
       >
         <X />
       </Button>
@@ -432,9 +471,11 @@ function SelectedFile({
         </Button>
       </div>
 
-      {blockReason === "plan-limit" && (
+      {blockReason && (
         <p className="text-xs text-amber-700 dark:text-amber-300">
-          Upgrade required to scan another project{" "}
+          {blockReason === "scan-limit"
+            ? "Upgrade to Team to scan this project again "
+            : "Upgrade required to scan another project "}
           <Link
             href="/billing"
             className="font-medium underline underline-offset-4"

@@ -3,12 +3,16 @@ import * as Sentry from "@sentry/nextjs";
 import { auth, tasks } from "@trigger.dev/sdk";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import db from "@/db";
 import { scans, users } from "@/db/schema";
 import { getUser } from "@/lib/auth";
-import { deriveProjectName, FREE_PLAN_PROJECT_LIMIT } from "@/lib/plan-limits";
+import {
+  deriveProjectName,
+  FREE_PLAN_PROJECT_LIMIT,
+  FREE_PLAN_SCAN_LIMIT,
+} from "@/lib/plan-limits";
 import type { dbtLintTask } from "@/trigger/dbtLintTask";
 
 const rateLimit = new Ratelimit({
@@ -32,6 +36,7 @@ export async function POST(request: Request) {
     let usersUpsertMs = 0;
     let usersPlanSelectMs = 0;
     let scansProjectSelectMs = 0;
+    let scansCountSelectMs = 0;
     let scansInsertMs = 0;
     let tasksTriggerMs = 0;
     let publicTokenMs = 0;
@@ -83,12 +88,22 @@ export async function POST(request: Request) {
         scansProjectSelectMs = performance.now() - scansProjectSelectStart;
       });
 
-    const [{ success, reset }, , [currentUser], existingProjects] =
+    const scansCountSelectStart = performance.now();
+    const scansCountSelectPromise = db
+      .select({ scanCount: count() })
+      .from(scans)
+      .where(eq(scans.userId, user.id))
+      .finally(() => {
+        scansCountSelectMs = performance.now() - scansCountSelectStart;
+      });
+
+    const [{ success, reset }, , [currentUser], existingProjects, [scanUsage]] =
       await Promise.all([
         rateLimitPromise,
         usersUpsertPromise,
         usersPlanSelectPromise,
         scansProjectSelectPromise,
+        scansCountSelectPromise,
       ]);
     if (!success) {
       return Response.json(
@@ -113,6 +128,17 @@ export async function POST(request: Request) {
     const project = deriveProjectName(fileName);
 
     if (currentUser?.plan !== "team") {
+      if ((scanUsage?.scanCount ?? 0) >= FREE_PLAN_SCAN_LIMIT) {
+        return Response.json(
+          {
+            error:
+              "Free plan is limited to 5 scans. Upgrade to Team for unlimited scans.",
+            code: "SCAN_LIMIT_REACHED",
+          },
+          { status: 403 },
+        );
+      }
+
       const hasExistingProject = existingProjects.some(
         ({ project: existingProject }) => existingProject === project,
       );
@@ -175,6 +201,7 @@ export async function POST(request: Request) {
         usersUpsertMs,
         usersPlanSelectMs,
         scansProjectSelectMs,
+        scansCountSelectMs,
         scansInsertMs,
         tasksTriggerMs,
         publicTokenMs,
