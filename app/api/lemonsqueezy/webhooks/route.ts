@@ -17,9 +17,20 @@ type LemonSqueezyWebhookPayload = {
     attributes?: {
       status?: string;
       customer_id?: string | number;
+      renews_at?: string | null;
+      ends_at?: string | null;
     };
   };
 };
+
+function parseLemonDate(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 function isValidSignature({
   body,
@@ -84,6 +95,9 @@ export async function POST(req: Request) {
   const subscriptionStatus = payload.data?.attributes?.status;
   const subscriptionId = payload.data?.id;
   const customerId = payload.data?.attributes?.customer_id;
+  const subscriptionRenewsAt = parseLemonDate(
+    payload.data?.attributes?.ends_at ?? payload.data?.attributes?.renews_at,
+  );
 
   if (!userId) {
     console.warn(
@@ -105,6 +119,7 @@ export async function POST(req: Request) {
           .set({
             plan: "team",
             subscriptionStatus,
+            subscriptionRenewsAt,
             lemonsqueezyCustomerId:
               customerId === undefined ? undefined : String(customerId),
             lemonsqueezySubscriptionId: subscriptionId,
@@ -115,13 +130,13 @@ export async function POST(req: Request) {
       case "subscription_cancelled":
         await db
           .update(users)
-          .set({ subscriptionStatus })
+          .set({ subscriptionStatus, subscriptionRenewsAt })
           .where(eq(users.id, userId));
         break;
       case "subscription_expired":
         await db
           .update(users)
-          .set({ plan: "free", subscriptionStatus })
+          .set({ plan: "free", subscriptionStatus, subscriptionRenewsAt })
           .where(eq(users.id, userId));
         break;
 

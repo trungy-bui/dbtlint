@@ -56,6 +56,7 @@ export const users = pgTable(
     avatarUrl: text("avatar_url"),
     plan: text("plan").notNull().default("free"),
     subscriptionStatus: text("subscription_status"),
+    subscriptionRenewsAt: timestamp("subscription_renews_at"),
     lemonsqueezyCustomerId: text("lemonsqueezy_customer_id"),
     lemonsqueezySubscriptionId: text("lemonsqueezy_subscription_id"),
     createdAt: timestamp("created_at").defaultNow(),
