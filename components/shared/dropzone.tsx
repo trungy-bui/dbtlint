@@ -26,9 +26,9 @@ import { getUser } from "@/lib/auth";
 import {
   deriveProjectName,
   FREE_PLAN_PROJECT_LIMIT,
-  FREE_PLAN_SCAN_LIMIT,
   type Plan,
 } from "@/lib/plan-limits";
+import { usePlanUsage } from "@/lib/plan-usage-context";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { LintMetadata } from "@/lib/validation/lint";
@@ -36,6 +36,7 @@ import type { dbtLintTask } from "@/trigger/dbtLintTask";
 
 const PLAN_LIMIT_REACHED_CODE = "PLAN_LIMIT_REACHED";
 const SCAN_LIMIT_REACHED_CODE = "SCAN_LIMIT_REACHED";
+const TERMINAL_RUN_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELED"]);
 
 type BlockReason = "project-limit" | "scan-limit";
 
@@ -60,20 +61,15 @@ type ScanItem = {
 export function UploadZone({
   className,
   compact = false,
-  plan = "free",
   existingProjects = [],
-  scanCount = 0,
 }: UploadZoneProps) {
+  const { plan, scansUsed, scansLimit, bumpScansUsed } = usePlanUsage();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const [scans, setScans] = React.useState<ScanItem[]>([]);
   const [isLintingAll, setIsLintingAll] = React.useState(false);
   const [isLimitBannerDismissed, setIsLimitBannerDismissed] =
     React.useState(false);
-  const [usedScanCount, setUsedScanCount] = React.useState(scanCount);
-  React.useEffect(() => {
-    setUsedScanCount(scanCount);
-  }, [scanCount]);
   const existingProjectSet = React.useMemo(
     () => new Set(existingProjects),
     [existingProjects],
@@ -83,8 +79,7 @@ export function UploadZone({
     (scan) => scan.blockReason === null && scan.scanId === null,
   ).length;
   const hasReachedFreeScanLimit =
-    plan === "free" &&
-    usedScanCount + queuedRunnableScanCount >= FREE_PLAN_SCAN_LIMIT;
+    plan === "free" && scansUsed + queuedRunnableScanCount >= scansLimit;
   const hasBlockedScans = scans.some((scan) => scan.blockReason !== null);
   const eligibleQueuedScans = scans.filter(
     (scan) => scan.blockReason === null && scan.scanId === null,
@@ -222,7 +217,7 @@ export function UploadZone({
             : s,
         ),
       );
-      setUsedScanCount((current) => current + 1);
+      bumpScansUsed(1);
     } catch (error) {
       console.log(error);
     }
@@ -415,6 +410,22 @@ function ScanRow({
     accessToken: item.accessToken ?? undefined,
     enabled: Boolean(item.scanId && item.accessToken),
   });
+  const { refresh } = usePlanUsage();
+  const settledScanIdRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (
+      item.scanId &&
+      settledScanIdRef.current !== item.scanId &&
+      run?.status &&
+      TERMINAL_RUN_STATUSES.has(run.status)
+    ) {
+      settledScanIdRef.current = item.scanId;
+      void refresh().catch((error) => {
+        console.error("Failed to refresh plan usage after scan settled", error);
+      });
+    }
+  }, [item.scanId, refresh, run?.status]);
 
   const metadata = (run?.metadata as { Lint?: LintMetadata } | undefined)?.Lint;
 

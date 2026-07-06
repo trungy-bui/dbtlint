@@ -2,6 +2,7 @@
 
 import { Crown, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useOptionalPlanUsage } from "@/lib/plan-usage-context";
 
 interface FreePlanCardProps {
   scansUsed?: number;
@@ -14,12 +15,17 @@ interface TeamPlanCardProps {
 }
 
 export function FreePlanCard({
-  scansUsed = 0,
-  scansLimit = 5,
+  scansUsed,
+  scansLimit,
   onUpgrade,
 }: FreePlanCardProps) {
+  const planUsage = useOptionalPlanUsage();
+  const resolvedScansUsed = scansUsed ?? planUsage?.scansUsed ?? 0;
+  const resolvedScansLimit = scansLimit ?? planUsage?.scansLimit ?? 5;
   const usagePercent =
-    scansLimit > 0 ? Math.min((scansUsed / scansLimit) * 100, 100) : 0;
+    resolvedScansLimit > 0
+      ? Math.min((resolvedScansUsed / resolvedScansLimit) * 100, 100)
+      : 0;
   const isNearLimit = usagePercent >= 80;
   const isAtLimit = usagePercent >= 100;
 
@@ -38,7 +44,7 @@ export function FreePlanCard({
       <div className="relative space-y-1.5">
         <div className="flex items-baseline justify-between">
           <p className="text-xs text-ink-muted">
-            {scansUsed} of {scansLimit} scans used
+            {resolvedScansUsed} of {resolvedScansLimit} scans used
           </p>
           <span
             className={`text-xs font-medium ${

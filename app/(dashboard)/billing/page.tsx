@@ -1,7 +1,8 @@
 "use client";
 
+import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { AlertCircle, Check, ExternalLink, Mail, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -55,6 +56,12 @@ type UserPlanResponse = {
 type PortalResponse = {
   url?: string;
   error?: string;
+};
+
+type ScanRealtimeRow = {
+  id: string;
+  user_id: string;
+  status: string | null;
 };
 
 const fallbackBillingStatus: BillingPlanStatus = {
@@ -492,25 +499,60 @@ export default function BillingPage() {
   const [isPortalLoading, setIsPortalLoading] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  async function refreshBillingStatus() {
+  const refreshBillingStatus = useCallback(async () => {
     const nextBillingStatus = await fetchBillingStatus();
     setBillingStatus(nextBillingStatus);
     return nextBillingStatus;
-  }
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
     let isMounted = true;
     let billingRequestId = 0;
+    let scanSubscription: RealtimeChannel | null = null;
 
-    async function updateBillingStatus(sessionExists: boolean) {
+    function unsubscribeFromScanUpdates() {
+      if (!scanSubscription) {
+        return;
+      }
+
+      void supabase.removeChannel(scanSubscription);
+      scanSubscription = null;
+    }
+
+    function subscribeToScanUpdates(userId: string) {
+      unsubscribeFromScanUpdates();
+
+      scanSubscription = supabase
+        .channel(`billing-scan-updates:${userId}`)
+        .on<ScanRealtimeRow>(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "scans",
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload) => {
+            const status = payload.new.status;
+
+            if (status === "passed" || status === "failed") {
+              void refreshBillingStatus();
+            }
+          },
+        )
+        .subscribe();
+    }
+
+    async function updateBillingStatus(session: Session | null) {
       const requestId = ++billingRequestId;
 
       if (!isMounted) {
         return;
       }
 
-      if (!sessionExists) {
+      if (!session) {
+        unsubscribeFromScanUpdates();
         setBillingStatus(fallbackBillingStatus);
         setIsLoading(false);
         return;
@@ -525,23 +567,25 @@ export default function BillingPage() {
 
       setBillingStatus(nextBillingStatus);
       setIsLoading(false);
+      subscribeToScanUpdates(session.user.id);
     }
 
     supabase.auth.getSession().then(({ data }) => {
-      void updateBillingStatus(Boolean(data.session));
+      void updateBillingStatus(data.session);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      void updateBillingStatus(Boolean(session));
+      void updateBillingStatus(session);
     });
 
     return () => {
       isMounted = false;
+      unsubscribeFromScanUpdates();
       subscription.unsubscribe();
     };
-  }, []);
+  }, [refreshBillingStatus]);
 
   const currentPlan = billingStatus.plan;
 
