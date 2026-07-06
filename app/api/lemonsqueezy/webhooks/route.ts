@@ -74,11 +74,11 @@ export async function POST(req: Request) {
   }
 
   const eventName = payload.meta?.event_name;
-  const { meta } = payload;
-  if (meta?.test_mode && process.env.NODE_ENV === "production") {
-    console.log("Ignoring test-mode webhook in production", { eventName });
-    return Response.json({ received: true });
-  }
+  // const { meta } = payload;
+  // if (meta?.test_mode && process.env.NODE_ENV === "production") {
+  //   console.log("Ignoring test-mode webhook in production", { eventName });
+  //   return Response.json({ received: true });
+  // }
 
   const userId = payload.meta?.custom_data?.user_id;
   const subscriptionStatus = payload.data?.attributes?.status;
