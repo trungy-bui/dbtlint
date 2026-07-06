@@ -63,14 +63,19 @@ const plans = [
 ];
 
 async function fetchUserPlan(): Promise<Plan | null> {
-  const response = await fetch("/api/user/plan");
+  try {
+    const response = await fetch("/api/user/plan");
 
-  if (!response.ok) {
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = (await response.json()) as UserPlanResponse;
+    return data.plan;
+  } catch (error) {
+    console.error("fetchUserPlan: network request failed", error);
     return null;
   }
-
-  const data = (await response.json()) as UserPlanResponse;
-  return data.plan;
 }
 
 const container: Variants = {
