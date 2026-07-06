@@ -21,9 +21,22 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LintReportJson } from "@/db/schema";
 import { motion } from "framer-motion";
+import {
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 type LintCategoryReport =
   LintReportJson["categories"][keyof LintReportJson["categories"]];
+
+export type ScoreTrendPoint = {
+  date: string; // ISO date string
+  score: number;
+};
 
 export type ProjectDetail = {
   project: string;
@@ -33,6 +46,7 @@ export type ProjectDetail = {
   warnings: number;
   createdAt: string;
   report?: LintReportJson;
+  scoreHistory?: ScoreTrendPoint[];
 };
 
 type ProjectDetailPanelProps = {
@@ -132,6 +146,69 @@ function ScoreGauge({ score, status }: { score: number; status: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function ScoreTrendChart({ data }: { data: ScoreTrendPoint[] }) {
+  if (data.length < 2) {
+    return (
+      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+        Not enough history yet — check back after a few more runs
+      </div>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={140}>
+      <LineChart
+        data={data}
+        margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
+      >
+        <XAxis
+          dataKey="date"
+          tickFormatter={(d) =>
+            new Date(d).toLocaleTimeString(undefined, {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          }
+          tick={{ fill: "#71717a", fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <YAxis
+          domain={[0, 100]}
+          tick={{ fill: "#71717a", fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          width={28}
+        />
+        <Tooltip
+          contentStyle={{
+            background: "#18181b",
+            border: "1px solid #27272a",
+            borderRadius: 8,
+            fontSize: 12,
+          }}
+          labelFormatter={(d) =>
+            new Date(d).toLocaleString(undefined, {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          }
+        />
+        <Line
+          type="monotone"
+          dataKey="score"
+          stroke="#4FBF9F"
+          strokeWidth={2}
+          dot={{ r: 3, fill: "#4FBF9F" }}
+          activeDot={{ r: 5 }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -315,10 +392,10 @@ function generateRecommendations(data: ProjectDetail): string[] {
   return recommendations.slice(0, 3);
 }
 
-function getStatusIcon(status: 'passed' | 'failed' | 'processing'): string {
-  if (status === 'passed') return '✓'
-  if (status === 'failed') return '✗'
-  return '▸'
+function getStatusIcon(status: "passed" | "failed" | "processing"): string {
+  if (status === "passed") return "✓";
+  if (status === "failed") return "✗";
+  return "▸";
 }
 
 export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
@@ -344,7 +421,7 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
   };
 
   const status = statusConfig[data.status];
-  const StatusIcon = getStatusIcon(data.status)
+  const StatusIcon = getStatusIcon(data.status);
 
   return (
     <div className="bg-void text-ink font-sans space-y-6">
@@ -398,6 +475,37 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
           </div>
         </div>
       </div>
+
+      {/* Score Trend */}
+      {data.scoreHistory && data.scoreHistory.length > 0 && (
+        <Card className="border border-zinc-800 bg-zinc-900 p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              Score trend (weekly)
+            </span>
+            {data.scoreHistory.length >= 2 && (
+              <span
+                className={`text-xs font-medium ${
+                  data.scoreHistory[data.scoreHistory.length - 1].score >=
+                  data.scoreHistory[0].score
+                    ? "text-emerald-400"
+                    : "text-red-400"
+                }`}
+              >
+                {data.scoreHistory[data.scoreHistory.length - 1].score -
+                  data.scoreHistory[0].score >=
+                0
+                  ? "+"
+                  : ""}
+                {data.scoreHistory[data.scoreHistory.length - 1].score -
+                  data.scoreHistory[0].score}{" "}
+                over period
+              </span>
+            )}
+          </div>
+          <ScoreTrendChart data={data.scoreHistory} />
+        </Card>
+      )}
 
       {/* Tabs Section */}
       {data.report && (

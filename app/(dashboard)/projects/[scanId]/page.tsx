@@ -6,6 +6,7 @@ import {
 } from "@/components/projects/project-details-panel";
 import db from "@/db";
 import { scans } from "@/db/schema";
+import { getScoreTrend } from "@/lib/scans";
 
 export default async function ProjectPanelPage({
   params,
@@ -22,6 +23,8 @@ export default async function ProjectPanelPage({
 
   if (!scan) notFound();
 
+  const scoreHistory = await getScoreTrend(scan.userId, scan.project);
+
   const data: ProjectDetail = {
     project: scan.project,
     status: scan.status as ProjectDetail["status"],
@@ -30,6 +33,7 @@ export default async function ProjectPanelPage({
     warnings: scan.warnings,
     createdAt: scan.createdAt.toISOString(),
     ...(scan.report ? { report: scan.report } : {}),
+    scoreHistory,
   };
 
   return <ProjectDetailPanel data={data} />;
