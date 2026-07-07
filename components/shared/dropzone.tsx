@@ -36,6 +36,13 @@ import type { dbtLintTask } from "@/trigger/dbtLintTask";
 
 const PLAN_LIMIT_REACHED_CODE = "PLAN_LIMIT_REACHED";
 const SCAN_LIMIT_REACHED_CODE = "SCAN_LIMIT_REACHED";
+const RECOGNIZED_RUN_STATUSES = new Set([
+  "QUEUED",
+  "EXECUTING",
+  "COMPLETED",
+  "FAILED",
+  "CANCELED",
+]);
 const TERMINAL_RUN_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELED"]);
 
 type BlockReason = "project-limit" | "scan-limit";
@@ -457,7 +464,8 @@ function ScanRow({
     if (
       item.scanId &&
       submittingResolvedScanIdRef.current !== item.scanId &&
-      effectiveRunStatus
+      effectiveRunStatus &&
+      RECOGNIZED_RUN_STATUSES.has(effectiveRunStatus)
     ) {
       submittingResolvedScanIdRef.current = item.scanId;
       onSubmittingResolved(item.id);
@@ -513,8 +521,9 @@ function SelectedFile({
   blockReason: BlockReason | null;
   isSubmitting: boolean;
 }) {
-  const isRunning =
-    isSubmitting || runStatus === "EXECUTING" || runStatus === "QUEUED";
+  const isActivelyRunning =
+    runStatus === "EXECUTING" || runStatus === "QUEUED";
+  const isBusy = isSubmitting || isActivelyRunning;
   const isBlocked = Boolean(blockReason);
 
   return (
@@ -531,7 +540,7 @@ function SelectedFile({
             isSubmitting={isSubmitting}
           />
         </div>
-        <Button onClick={onClick} size="sm" disabled={isRunning || isBlocked}>
+        <Button onClick={onClick} size="sm" disabled={isBusy || isBlocked}>
           Run lint
         </Button>
         <Button
@@ -558,7 +567,7 @@ function SelectedFile({
         </p>
       )}
 
-      {isRunning && <ProgressBar progress={metadata?.progress ?? 0} />}
+      {isActivelyRunning && <ProgressBar progress={metadata?.progress ?? 0} />}
     </div>
   );
 }
@@ -572,7 +581,7 @@ function RunStatusLine({
   metadata?: LintMetadata;
   isSubmitting: boolean;
 }) {
-  if (isSubmitting && !runStatus) {
+  if (isSubmitting && (!runStatus || !RECOGNIZED_RUN_STATUSES.has(runStatus))) {
     return (
       <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
         <Loader2 className="size-3.5 animate-spin" />
