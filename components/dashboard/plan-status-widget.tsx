@@ -1,6 +1,6 @@
 "use client";
 
-import { Crown, Sparkles } from "lucide-react";
+import { Crown, Rocket, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOptionalPlanUsage } from "@/lib/plan-usage-context";
 
@@ -30,7 +30,7 @@ export function FreePlanCard({
   const isAtLimit = usagePercent >= 100;
 
   return (
-    <div className="border border-hairline bg-panel rounded-lg p-4 space-y-3 relative overflow-hidden -translate-y-4">
+    <div className="border border-hairline bg-panel rounded-lg p-4 space-y-3 relative overflow-hidden -translate-y-3">
       <div className="absolute -top-8 -right-8 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
 
       {/* Plan Name */}
@@ -84,7 +84,7 @@ export function FreePlanCard({
         {isNearLimit && (
           <p className="text-[11px] text-signal-warn flex items-center gap-1 pt-0.5">
             <Sparkles className="w-3 h-3" />
-            {isAtLimit ? "You've hit your limit" : "Almost at your limit"}
+            {isAtLimit ? "You've hit your limit!" : "Almost at your limit"}
           </p>
         )}
       </div>
@@ -105,11 +105,11 @@ export function FreePlanCard({
 
 export function TeamPlanCard({ onManageBilling }: TeamPlanCardProps) {
   return (
-    <div className="border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-transparent rounded-lg p-4 space-y-2.5 relative overflow-hidden -translate-y-4">
+    <div className="border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-transparent rounded-lg p-4 space-y-2.5 relative overflow-hidden -translate-y-3">
       {/* Plan Badge with Icon */}
       <div className="flex items-center gap-2">
         <div className="flex items-center justify-center w-6 h-6 rounded-md bg-primary/15">
-          <Crown className="w-3.5 h-3.5 text-primary" />
+          <Rocket className="w-3.5 h-3.5 text-primary" />
         </div>
         <div>
           <h3 className="text-sm font-semibold text-ink leading-none">
