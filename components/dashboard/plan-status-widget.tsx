@@ -105,7 +105,7 @@ export function FreePlanCard({
 
 export function TeamPlanCard({ onManageBilling }: TeamPlanCardProps) {
   return (
-    <div className="border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-transparent rounded-lg p-4 space-y-2.5">
+    <div className="border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-transparent rounded-lg p-4 space-y-2.5 relative overflow-hidden -translate-y-4">
       {/* Plan Badge with Icon */}
       <div className="flex items-center gap-2">
         <div className="flex items-center justify-center w-6 h-6 rounded-md bg-primary/15">
