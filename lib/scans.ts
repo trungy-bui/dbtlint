@@ -48,7 +48,7 @@ export async function getScoreTrend(
 
   const byDay = new Map<string, { score: number; createdAt: Date }>();
   for (const row of rows) {
-    byDay.set(getISOHourKey(row.createdAt), {
+    byDay.set(getISOWeekKey(row.createdAt), {
       score: row.score,
       createdAt: row.createdAt,
     });

@@ -54,6 +54,7 @@ type ScanItem = {
   fileName: string;
   scanId: string | null;
   accessToken: string | null;
+  isSubmitting: boolean;
   projectName: string;
   blockReason: BlockReason | null;
 };
@@ -133,6 +134,7 @@ export function UploadZone({
             fileName: f.name,
             scanId: null,
             accessToken: null,
+            isSubmitting: false,
             projectName,
             blockReason,
           },
@@ -149,10 +151,26 @@ export function UploadZone({
   const handleRunLint = async (id: string) => {
     const item = scans.find((s) => s.id === id);
     if (!item || item.blockReason) return;
+    const setSubmitting = (isSubmitting: boolean) => {
+      setScans((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, isSubmitting } : s)),
+      );
+    };
+
+    setScans((prev) =>
+      prev.map((s) =>
+        s.id === id
+          ? { ...s, isSubmitting: true, scanId: null, accessToken: null }
+          : s,
+      ),
+    );
 
     try {
       const user = await getUser();
-      if (!user) return;
+      if (!user) {
+        setSubmitting(false);
+        return;
+      }
       const supabase = createClient();
       const fileName = item.file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const filePath = `${user.id}/${Date.now()}-${fileName}`;
@@ -162,6 +180,7 @@ export function UploadZone({
 
       if (uploadError || !uploadData) {
         console.error("Upload failed:", uploadError);
+        setSubmitting(false);
         return;
       }
 
@@ -187,6 +206,7 @@ export function UploadZone({
             s.id === id
               ? {
                   ...s,
+                  isSubmitting: false,
                   blockReason:
                     data?.code === SCAN_LIMIT_REACHED_CODE
                       ? "scan-limit"
@@ -202,11 +222,13 @@ export function UploadZone({
         toast.error(
           "You're uploading too quickly. Please wait a moment before trying again.",
         );
+        setSubmitting(false);
         return;
       }
 
       if (!response.ok) {
         console.error("Lint request failed:", data);
+        setSubmitting(false);
         return;
       }
 
@@ -220,6 +242,7 @@ export function UploadZone({
       bumpScansUsed(1);
     } catch (error) {
       console.log(error);
+      setSubmitting(false);
     }
   };
 
@@ -366,6 +389,13 @@ export function UploadZone({
           item={item}
           onRun={() => handleRunLint(item.id)}
           onClear={() => handleClear(item.id)}
+          onSubmittingResolved={(id) =>
+            setScans((prev) =>
+              prev.map((s) =>
+                s.id === id ? { ...s, isSubmitting: false } : s,
+              ),
+            )
+          }
         />
       ))}
     </div>
@@ -401,10 +431,12 @@ function ScanRow({
   item,
   onRun,
   onClear,
+  onSubmittingResolved,
 }: {
   item: ScanItem;
   onRun: () => void;
   onClear: () => void;
+  onSubmittingResolved: (id: string) => void;
 }) {
   const { run } = useRealtimeRun<typeof dbtLintTask>(item.scanId ?? undefined, {
     accessToken: item.accessToken ?? undefined,
@@ -412,31 +444,54 @@ function ScanRow({
   });
   const { refresh } = usePlanUsage();
   const settledScanIdRef = React.useRef<string | null>(null);
+  const submittingResolvedScanIdRef = React.useRef<string | null>(null);
+  const isRunForCurrentScan = Boolean(item.scanId) && run?.id === item.scanId;
+  const effectiveRunStatus = isRunForCurrentScan ? run?.status : undefined;
+  const effectiveMetadata = isRunForCurrentScan
+    ? (run?.metadata as { Lint?: LintMetadata } | undefined)?.Lint
+    : undefined;
 
   React.useEffect(() => {
+    if (!isRunForCurrentScan) return;
+
+    if (
+      item.scanId &&
+      submittingResolvedScanIdRef.current !== item.scanId &&
+      effectiveRunStatus
+    ) {
+      submittingResolvedScanIdRef.current = item.scanId;
+      onSubmittingResolved(item.id);
+    }
+
     if (
       item.scanId &&
       settledScanIdRef.current !== item.scanId &&
-      run?.status &&
-      TERMINAL_RUN_STATUSES.has(run.status)
+      effectiveRunStatus &&
+      TERMINAL_RUN_STATUSES.has(effectiveRunStatus)
     ) {
       settledScanIdRef.current = item.scanId;
       void refresh().catch((error) => {
         console.error("Failed to refresh plan usage after scan settled", error);
       });
     }
-  }, [item.scanId, refresh, run?.status]);
-
-  const metadata = (run?.metadata as { Lint?: LintMetadata } | undefined)?.Lint;
+  }, [
+    item.id,
+    item.scanId,
+    onSubmittingResolved,
+    refresh,
+    effectiveRunStatus,
+    isRunForCurrentScan,
+  ]);
 
   return (
     <SelectedFile
       name={item.fileName}
-      runStatus={run?.status}
-      metadata={metadata}
+      runStatus={effectiveRunStatus}
+      metadata={effectiveMetadata}
       onClick={onRun}
       onClear={onClear}
       blockReason={item.blockReason}
+      isSubmitting={item.isSubmitting}
     />
   );
 }
@@ -448,6 +503,7 @@ function SelectedFile({
   onClick,
   onClear,
   blockReason,
+  isSubmitting,
 }: {
   name: string;
   runStatus?: string;
@@ -455,8 +511,10 @@ function SelectedFile({
   onClick: () => void;
   onClear: () => void;
   blockReason: BlockReason | null;
+  isSubmitting: boolean;
 }) {
-  const isRunning = runStatus === "EXECUTING" || runStatus === "QUEUED";
+  const isRunning =
+    isSubmitting || runStatus === "EXECUTING" || runStatus === "QUEUED";
   const isBlocked = Boolean(blockReason);
 
   return (
@@ -467,7 +525,11 @@ function SelectedFile({
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-sm font-medium">{name}</span>
-          <RunStatusLine runStatus={runStatus} metadata={metadata} />
+          <RunStatusLine
+            runStatus={runStatus}
+            metadata={metadata}
+            isSubmitting={isSubmitting}
+          />
         </div>
         <Button onClick={onClick} size="sm" disabled={isRunning || isBlocked}>
           Run lint
@@ -504,10 +566,21 @@ function SelectedFile({
 function RunStatusLine({
   runStatus,
   metadata,
+  isSubmitting,
 }: {
   runStatus?: string;
   metadata?: LintMetadata;
+  isSubmitting: boolean;
 }) {
+  if (isSubmitting && !runStatus) {
+    return (
+      <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Loader2 className="size-3.5 animate-spin" />
+        Starting lint run...
+      </span>
+    );
+  }
+
   if (
     metadata?.statusMessage &&
     (runStatus === "EXECUTING" || runStatus === "QUEUED")

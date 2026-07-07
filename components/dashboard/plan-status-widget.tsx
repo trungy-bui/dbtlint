@@ -30,7 +30,7 @@ export function FreePlanCard({
   const isAtLimit = usagePercent >= 100;
 
   return (
-    <div className="border border-hairline bg-panel rounded-lg p-4 space-y-3 relative overflow-hidden">
+    <div className="border border-hairline bg-panel rounded-lg p-4 space-y-3 relative overflow-hidden -translate-y-4">
       <div className="absolute -top-8 -right-8 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
 
       {/* Plan Name */}
