@@ -30,7 +30,7 @@ const plans = [
   },
   {
     name: "Team",
-    price: "$29",
+    price: "$19",
     period: "/mo",
     desc: "For data teams shipping together.",
     features: [
