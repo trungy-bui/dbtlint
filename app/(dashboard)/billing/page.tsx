@@ -114,7 +114,7 @@ function normalizeBillingStatus(data: UserPlanResponse): BillingPlanStatus {
     plan: {
       type: isTeam ? "team" : "free",
       name: isTeam ? "Team" : "Free",
-      price: isTeam ? 29 : 0,
+      price: isTeam ? 19 : 0,
       scansUsed: isTeam ? undefined : (data.scansUsed ?? 0),
       scansLimit: isTeam
         ? undefined
@@ -389,7 +389,7 @@ function PlanComparisonTable({ onUpgrade }: { onUpgrade: () => void }) {
           onClick={onUpgrade}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
-          Upgrade to Team - $29/mo
+          Upgrade to Team - $19/mo
         </Button>
       </div>
     </Card>
