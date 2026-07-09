@@ -1,18 +1,20 @@
 import { execFile } from "node:child_process";
 import {
+  existsSync,
   lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
+import { promisify, TextDecoder } from "node:util";
 import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@supabase/supabase-js";
-import { metadata, schemaTask } from "@trigger.dev/sdk";
+import { metadata, retry, schemaTask } from "@trigger.dev/sdk";
 import AdmZip from "adm-zip";
 import { eq } from "drizzle-orm";
 import db from "@/db";
@@ -42,6 +44,11 @@ type FileLintResult = {
   violations: SqlfluffViolation[];
 };
 
+type LineCountResult = {
+  lineCount: number;
+  readError: string | null;
+};
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
   process.env.SUPABASE_SERVICE_ROLE_KEY as string,
@@ -53,6 +60,7 @@ const supabase = createClient(
   },
 );
 const execFileAsync = promisify(execFile);
+const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 
 const DBT_FOLDERS = ["models", "tests", "macros"] as const;
 
@@ -71,13 +79,22 @@ const MAX_SQL_FILES = 1_000;
 const MAX_TOTAL_SQL_LINES = 200_000;
 const MAX_DIRECTORY_DEPTH = 20;
 
-// sqlfluff is CPU-bound and may invoke templating; keep both per-file and task-level fan-out bounded.
+// sqlfluff is CPU-bound and may invoke templating; keep both per-batch and task-level fan-out bounded.
 const SQLFLUFF_TIMEOUT_MS = 60_000;
 const SQLFLUFF_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
+const SQLFLUFF_LOCKED_CONFIG_CONTENTS = `[sqlfluff]
+templater = jinja
+`;
+const SQLFLUFF_BATCH_SIZE = readPositiveIntegerEnv(
+  "DBT_LINT_SQLFLUFF_BATCH_SIZE",
+  40,
+);
 const SQLFLUFF_CONCURRENCY = readPositiveIntegerEnv(
   "DBT_LINT_SQLFLUFF_CONCURRENCY",
-  6,
+  4,
 );
+// Global cap on concurrent lint jobs across all users. Tune this against the
+// Trigger.dev machine preset's CPU/memory before raising it for real traffic.
 const TASK_QUEUE_CONCURRENCY = readPositiveIntegerEnv(
   "DBT_LINT_TASK_QUEUE_CONCURRENCY",
   2,
@@ -99,6 +116,26 @@ type ExecFileFailure = Error & {
   killed?: boolean;
   signal?: NodeJS.Signals | string;
 };
+
+const SQLFLUFF_SUBPROCESS_ENV = Object.fromEntries(
+  [
+    ["NODE_ENV", process.env.NODE_ENV ?? "production"],
+    ["HOME", process.env.HOME ?? "/tmp"],
+    ["LANG", process.env.LANG ?? "C.UTF-8"],
+    ["LC_ALL", process.env.LC_ALL ?? "C.UTF-8"],
+    ["PYTHONUTF8", "1"],
+    ["LOCALAPPDATA", process.env.LOCALAPPDATA],
+    ["PATH", process.env.PATH],
+    ["Path", process.env.Path],
+    ["SystemRoot", process.env.SystemRoot],
+    ["WINDIR", process.env.WINDIR],
+    ["PATHEXT", process.env.PATHEXT],
+  ].filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+) as NodeJS.ProcessEnv;
+let hasLoggedSqlfluffConfigPath = false;
+let hasLoggedSqlfluffPythonExecutable = false;
+let hasWarnedAboutPathBasedPythonDiscovery = false;
+let resolvedPythonExecutablePromise: Promise<string> | null = null;
 
 function readPositiveIntegerEnv(name: string, fallback: number) {
   const rawValue = process.env[name];
@@ -217,6 +254,64 @@ function validateZipEntries(zip: AdmZip, extractedDirectory: string) {
   }
 }
 
+function shouldQuarantineUserControlledConfigFile(fileName: string) {
+  return [
+    ".sqlfluff",
+    "pyproject.toml",
+    "tox.ini",
+    "setup.cfg",
+    "dbt_project.yml",
+    "profiles.yml",
+  ].includes(fileName);
+}
+
+function disabledConfigPath(filePath: string) {
+  let candidatePath = `${filePath}.dbtlint-disabled`;
+  let suffix = 1;
+
+  while (existsSync(candidatePath)) {
+    candidatePath = `${filePath}.dbtlint-disabled-${suffix}`;
+    suffix += 1;
+  }
+
+  return candidatePath;
+}
+
+function quarantineUserControlledSqlfluffConfigFiles(
+  directory: string,
+  depth = 0,
+): string[] {
+  if (depth > MAX_DIRECTORY_DEPTH) {
+    throw new UserFacingLintFailure(
+      `Project directory nesting exceeds the limit of ${MAX_DIRECTORY_DEPTH}`,
+    );
+  }
+
+  const quarantinedConfigFiles: string[] = [];
+  const directoryContent = readdirSync(directory, { withFileTypes: true });
+
+  for (const asset of directoryContent) {
+    const assetPath = path.join(directory, asset.name);
+    const assetStats = lstatSync(assetPath);
+
+    if (assetStats.isSymbolicLink()) continue;
+
+    if (assetStats.isDirectory()) {
+      quarantinedConfigFiles.push(
+        ...quarantineUserControlledSqlfluffConfigFiles(assetPath, depth + 1),
+      );
+      continue;
+    }
+
+    if (shouldQuarantineUserControlledConfigFile(asset.name)) {
+      renameSync(assetPath, disabledConfigPath(assetPath));
+      quarantinedConfigFiles.push(assetPath);
+    }
+  }
+
+  return quarantinedConfigFiles;
+}
+
 function countProjectFiles(directory: string, depth = 0): number {
   if (depth > MAX_DIRECTORY_DEPTH) {
     throw new UserFacingLintFailure(
@@ -242,11 +337,28 @@ function countProjectFiles(directory: string, depth = 0): number {
   return fileCount;
 }
 
-function countLines(filePath: string) {
-  const content = readFileSync(filePath, "utf8");
-  if (!content) return 0;
+function countLines(filePath: string): LineCountResult {
+  let content: string;
+  try {
+    content = UTF8_DECODER.decode(readFileSync(filePath));
+  } catch (error) {
+    return {
+      lineCount: 0,
+      readError: error instanceof Error ? error.message : String(error),
+    };
+  }
 
-  return content.split(/\r\n|\r|\n/).length;
+  if (!content) {
+    return {
+      lineCount: 0,
+      readError: null,
+    };
+  }
+
+  return {
+    lineCount: content.split(/\r\n|\r|\n/).length,
+    readError: null,
+  };
 }
 
 function isErrorViolation(violation: SqlfluffViolation) {
@@ -254,23 +366,33 @@ function isErrorViolation(violation: SqlfluffViolation) {
   return code.startsWith("PRS") || code.startsWith("TMP");
 }
 
-function parseSqlfluffOutput(output: string): SqlfluffViolation[] {
+function parseSqlfluffOutput(
+  output: string,
+): { filePath: string | null; violations: SqlfluffViolation[] }[] {
   const parsed = JSON.parse(output) as unknown;
 
   if (!Array.isArray(parsed)) {
     throw new Error("sqlfluff returned JSON in an unexpected shape");
   }
 
-  return parsed.flatMap((fileResult) => {
+  return parsed.map((fileResult) => {
     if (
       typeof fileResult !== "object" ||
       fileResult === null ||
       !Array.isArray((fileResult as { violations?: unknown }).violations)
     ) {
-      return [];
+      return { filePath: null, violations: [] };
     }
 
-    return (fileResult as { violations: SqlfluffViolation[] }).violations;
+    const result = fileResult as {
+      filepath?: unknown;
+      violations: SqlfluffViolation[];
+    };
+
+    return {
+      filePath: typeof result.filepath === "string" ? result.filepath : null,
+      violations: result.violations,
+    };
   });
 }
 
@@ -337,24 +459,35 @@ async function finalizeScan({
 
 async function notifyScanComplete(scanId: string) {
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SITE_URL}/api/scans/${scanId}/complete`,
+    await retry.onThrow(
+      async () => {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SITE_URL}/api/scans/${scanId}/complete`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.SCAN_COMPLETE_WEBHOOK_SECRET}`,
+            },
+          },
+        );
+
+        if (!response.ok) {
+          const body = await response.text().catch(() => "");
+          throw new Error(
+            `Scan completion webhook returned non-OK status ${response.status}: ${body}`,
+          );
+        }
+
+        return response;
+      },
       {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.SCAN_COMPLETE_WEBHOOK_SECRET}`,
-        },
+        maxAttempts: 3,
+        minTimeoutInMs: 1_000,
+        maxTimeoutInMs: 10_000,
+        factor: 2,
+        randomize: true,
       },
     );
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      console.error("Scan completion webhook returned non-OK status", {
-        scanId,
-        status: response.status,
-        body,
-      });
-    }
   } catch (error) {
     console.error("Failed to call scan completion email webhook", {
       scanId,
@@ -363,59 +496,286 @@ async function notifyScanComplete(scanId: string) {
   }
 }
 
-async function lintSqlFile(filePath: string, dialect: string) {
+function chunkFiles(files: string[], chunkSize: number) {
+  const chunks: string[][] = [];
+  for (let index = 0; index < files.length; index += chunkSize) {
+    chunks.push(files.slice(index, index + chunkSize));
+  }
+  return chunks;
+}
+
+function normalizeSqlfluffFilePath(filePath: string) {
+  return path.resolve(filePath);
+}
+
+function mapSqlfluffOutputToFiles(
+  output: string,
+  files: string[],
+): Map<string, SqlfluffViolation[]> {
+  const violationsByFile = new Map(
+    files.map((filePath) => [
+      normalizeSqlfluffFilePath(filePath),
+      [] as SqlfluffViolation[],
+    ]),
+  );
+
+  for (const fileResult of parseSqlfluffOutput(output)) {
+    if (!fileResult.filePath) continue;
+
+    const normalizedFilePath = normalizeSqlfluffFilePath(fileResult.filePath);
+    if (violationsByFile.has(normalizedFilePath)) {
+      violationsByFile.set(normalizedFilePath, fileResult.violations);
+    }
+  }
+
+  return violationsByFile;
+}
+
+function createBatchExecutionViolations(
+  files: string[],
+  descriptionForFile: (filePath: string) => string,
+  code = "TMP_EXEC_ERROR",
+) {
+  return new Map(
+    files.map((filePath) => [
+      normalizeSqlfluffFilePath(filePath),
+      [createSqlfluffExecutionViolation(descriptionForFile(filePath), code)],
+    ]),
+  );
+}
+
+type PythonExecutableCandidate = {
+  command: string;
+  args: string[];
+  source: string;
+};
+
+function truncateSubprocessOutput(output: string | undefined) {
+  return output?.trim().slice(0, 500) || "(empty)";
+}
+
+async function validatePythonExecutableCandidate({
+  command,
+  args,
+  source,
+}: PythonExecutableCandidate) {
+  await execFileAsync(command, [...args, "-m", "sqlfluff", "--version"], {
+    env: SQLFLUFF_SUBPROCESS_ENV,
+    timeout: 15_000,
+    windowsHide: true,
+  });
+
+  const executablePathScript =
+    "import os, sys; print(os.path.abspath(sys.executable))";
+
+  const { stdout } = await execFileAsync(
+    command,
+    [...args, "-c", executablePathScript],
+    {
+      env: SQLFLUFF_SUBPROCESS_ENV,
+      timeout: 15_000,
+      windowsHide: true,
+    },
+  );
+  const executablePath = stdout.trim().split(/\r?\n/).at(-1)?.trim();
+
+  if (!executablePath || !path.isAbsolute(executablePath)) {
+    throw new Error(
+      `${source} resolved to a non-absolute Python path: ${executablePath || "(empty)"}`,
+    );
+  }
+
+  return executablePath;
+}
+
+async function resolvePythonExecutable() {
+  if (resolvedPythonExecutablePromise) return resolvedPythonExecutablePromise;
+
+  resolvedPythonExecutablePromise = (async () => {
+    const candidates: PythonExecutableCandidate[] = [];
+    if (process.env.PYTHON_EXECUTABLE) {
+      candidates.push({
+        command: process.env.PYTHON_EXECUTABLE,
+        args: [],
+        source: "PYTHON_EXECUTABLE",
+      });
+    }
+
+    if (process.env.PYTHON_BIN_PATH) {
+      candidates.push({
+        command: process.env.PYTHON_BIN_PATH,
+        args: [],
+        source: "Trigger.dev PYTHON_BIN_PATH",
+      });
+    }
+
+    if (candidates.length === 0 && !hasWarnedAboutPathBasedPythonDiscovery) {
+      hasWarnedAboutPathBasedPythonDiscovery = true;
+      console.warn(
+        "No PYTHON_EXECUTABLE or PYTHON_BIN_PATH set. Falling back to PATH-based Python discovery, which is not guaranteed deterministic.",
+      );
+    }
+
+    candidates.push(
+      { command: "python", args: [], source: "python on PATH" },
+      { command: "python3", args: [], source: "python3 on PATH" },
+    );
+
+    if (process.platform === "win32") {
+      candidates.push({
+        command: "py",
+        args: ["-3"],
+        source: "Windows py launcher",
+      });
+    }
+
+    const failures: string[] = [];
+    for (const candidate of candidates) {
+      try {
+        const executablePath =
+          await validatePythonExecutableCandidate(candidate);
+        if (!hasLoggedSqlfluffPythonExecutable) {
+          hasLoggedSqlfluffPythonExecutable = true;
+          console.log("Using Python executable for sqlfluff", {
+            pythonExecutable: executablePath,
+            resolvedFrom: candidate.source,
+            platform: process.platform,
+            localAppDataIncluded:
+              typeof SQLFLUFF_SUBPROCESS_ENV.LOCALAPPDATA === "string",
+          });
+        }
+        return executablePath;
+      } catch (error) {
+        const execError = error as ExecFileFailure;
+        console.warn("Rejected Python executable candidate for sqlfluff", {
+          source: candidate.source,
+          command: candidate.command,
+          args: candidate.args,
+          error: error instanceof Error ? error.message : String(error),
+          stdout: truncateSubprocessOutput(execError.stdout),
+          stderr: truncateSubprocessOutput(execError.stderr),
+        });
+        failures.push(
+          `${candidate.source} (${candidate.command} ${candidate.args.join(" ")}): ${
+            error instanceof Error ? error.message : String(error)
+          }; stdout=${truncateSubprocessOutput(execError.stdout)}; stderr=${truncateSubprocessOutput(
+            execError.stderr,
+          )}`,
+        );
+      }
+    }
+
+    throw new Error(
+      `Unable to resolve a Python executable with sqlfluff importable. Set PYTHON_EXECUTABLE to an absolute interpreter path. Attempts: ${failures.join(" | ")}`,
+    );
+  })();
+
+  return resolvedPythonExecutablePromise;
+}
+
+function logSqlfluffSubprocessOutput({
+  stdout,
+  stderr,
+  parseError,
+}: {
+  stdout?: string;
+  stderr?: string;
+  parseError?: unknown;
+}) {
+  if (stdout?.trim()) {
+    console.error("sqlfluff produced non-JSON stdout", {
+      parseError: parseError instanceof Error ? parseError.message : parseError,
+      stdout: stdout.slice(0, 500),
+    });
+  }
+
+  if (stderr?.trim()) {
+    console.error("sqlfluff subprocess stderr", {
+      stderr: stderr.slice(0, 500),
+    });
+  }
+}
+
+async function lintSqlFiles(
+  files: string[],
+  dialect: string,
+  lockedConfigPath: string,
+  pythonExecutable: string,
+) {
   try {
+    if (!hasLoggedSqlfluffConfigPath) {
+      hasLoggedSqlfluffConfigPath = true;
+      console.log("Using locked sqlfluff config", {
+        configPath: lockedConfigPath,
+        configPathExists: existsSync(lockedConfigPath),
+      });
+    }
+
+    // This subprocess processes untrusted Jinja-bearing SQL and must never inherit
+    // network credentials or app secrets such as Supabase keys.
     const { stdout } = await execFileAsync(
-      "python",
+      pythonExecutable,
       [
         "-m",
         "sqlfluff",
         "lint",
-        filePath,
+        ...files,
         "--format",
         "json",
         "--dialect",
         dialect,
+        "--templater",
+        "jinja",
+        "--config",
+        lockedConfigPath,
       ],
       {
+        env: SQLFLUFF_SUBPROCESS_ENV,
         maxBuffer: SQLFLUFF_MAX_BUFFER_BYTES,
         timeout: SQLFLUFF_TIMEOUT_MS,
         windowsHide: true,
       },
     );
 
-    return parseSqlfluffOutput(stdout);
+    return mapSqlfluffOutputToFiles(stdout, files);
   } catch (error) {
     const execError = error as ExecFileFailure;
 
     if (typeof execError.stdout === "string" && execError.stdout.trim()) {
       try {
-        return parseSqlfluffOutput(execError.stdout);
+        return mapSqlfluffOutputToFiles(execError.stdout, files);
       } catch (parseError) {
-        return [
-          createSqlfluffExecutionViolation(
-            `sqlfluff produced non-JSON output for ${path.basename(filePath)}: ${
-              parseError instanceof Error
-                ? parseError.message
-                : String(parseError)
-            }`,
-          ),
-        ];
+        logSqlfluffSubprocessOutput({
+          stdout: execError.stdout,
+          stderr: execError.stderr,
+          parseError,
+        });
+        return createBatchExecutionViolations(files, (filePath) => {
+          return `sqlfluff produced non-JSON output for ${path.basename(filePath)}: ${
+            parseError instanceof Error
+              ? parseError.message
+              : String(parseError)
+          }`;
+        });
       }
     }
 
-    return [
-      createSqlfluffExecutionViolation(
+    logSqlfluffSubprocessOutput({
+      stderr: execError.stderr,
+    });
+
+    return createBatchExecutionViolations(
+      files,
+      (filePath) =>
         `Failed to run sqlfluff for ${path.basename(filePath)}: ${
           execError.killed || execError.signal === "SIGTERM"
             ? `timed out after ${SQLFLUFF_TIMEOUT_MS / 1000} seconds`
             : execError.stderr?.trim() || execError.message || String(error)
         }`,
-        execError.killed || execError.signal === "SIGTERM"
-          ? "TMP_TIMEOUT"
-          : "TMP_EXEC_ERROR",
-      ),
-    ];
+      execError.killed || execError.signal === "SIGTERM"
+        ? "TMP_TIMEOUT"
+        : "TMP_EXEC_ERROR",
+    );
   }
 }
 
@@ -428,6 +788,34 @@ function createSqlfluffExecutionViolation(
     description,
     line_no: 1,
     line_pos: 1,
+  };
+}
+
+function toReportFilePath(extractedDirectory: string, filePath: string) {
+  return path.relative(extractedDirectory, filePath).split(path.sep).join("/");
+}
+
+function createUnreadableSqlFileResult({
+  filePath,
+  extractedDirectory,
+  readError,
+}: {
+  filePath: string;
+  extractedDirectory: string;
+  readError: string;
+}): FileLintResult {
+  const violations = [
+    createSqlfluffExecutionViolation(
+      `Failed to read SQL file as UTF-8 text for ${path.basename(filePath)}: ${readError}`,
+      "TMP_FILE_READ_ERROR",
+    ),
+  ];
+
+  return {
+    filePath: toReportFilePath(extractedDirectory, filePath),
+    errors: violations.filter(isErrorViolation).length,
+    warnings: 0,
+    violations,
   };
 }
 
@@ -485,31 +873,49 @@ function createProgressUpdater(totalFiles: number) {
 async function lintFilesWithConcurrency({
   files,
   dialect,
+  lockedConfigPath,
+  pythonExecutable,
   extractedDirectory,
   onFileLinted,
 }: {
   files: string[];
   dialect: string;
+  lockedConfigPath: string;
+  pythonExecutable: string;
   extractedDirectory: string;
   onFileLinted: (filePath: string) => void;
 }) {
-  return mapWithConcurrency(files, SQLFLUFF_CONCURRENCY, async (filePath) => {
-    const violations = await lintSqlFile(filePath, dialect);
-    const errors = violations.filter(isErrorViolation).length;
-    const warnings = violations.length - errors;
+  const batches = chunkFiles(files, SQLFLUFF_BATCH_SIZE);
+  const batchResults = await mapWithConcurrency(
+    batches,
+    SQLFLUFF_CONCURRENCY,
+    async (batch) => {
+      const violationsByFile = await lintSqlFiles(
+        batch,
+        dialect,
+        lockedConfigPath,
+        pythonExecutable,
+      );
 
-    onFileLinted(filePath);
+      return batch.map((filePath) => {
+        const violations =
+          violationsByFile.get(normalizeSqlfluffFilePath(filePath)) ?? [];
+        const errors = violations.filter(isErrorViolation).length;
+        const warnings = violations.length - errors;
 
-    return {
-      filePath: path
-        .relative(extractedDirectory, filePath)
-        .split(path.sep)
-        .join("/"),
-      errors,
-      warnings,
-      violations,
-    };
-  });
+        onFileLinted(filePath);
+
+        return {
+          filePath: toReportFilePath(extractedDirectory, filePath),
+          errors,
+          warnings,
+          violations,
+        };
+      });
+    },
+  );
+
+  return batchResults.flat();
 }
 
 function folderInDirectory(
@@ -583,6 +989,7 @@ export const dbtLintTask = schemaTask({
     const tmpDirectory = path.join(os.tmpdir(), "scan", scanId);
     const zipFilePath = path.join(tmpDirectory, "dbt-project.zip");
     const extractedDirectory = path.join(tmpDirectory, "extracted.zip");
+    const lockedConfigPath = path.join(tmpDirectory, "sqlfluff.locked.ini");
 
     try {
       await updateScanStatus(scanId, "processing");
@@ -593,6 +1000,8 @@ export const dbtLintTask = schemaTask({
         progress: 5,
       });
       mkdirSync(tmpDirectory, { recursive: true });
+      writeFileSync(lockedConfigPath, SQLFLUFF_LOCKED_CONFIG_CONTENTS, "utf8");
+      const pythonExecutable = await resolvePythonExecutable();
 
       const { data: storageFile, error: storageDownloadError } =
         await supabase.storage.from("dbt-uploads").download(storageFilePath);
@@ -624,6 +1033,19 @@ export const dbtLintTask = schemaTask({
         MAX_PROJECT_FILES,
         "Project file count",
       );
+      const ignoredConfigFiles =
+        quarantineUserControlledSqlfluffConfigFiles(extractedDirectory);
+      if (ignoredConfigFiles.length > 0) {
+        console.warn("Ignoring user-controlled sqlfluff/dbt config files", {
+          scanId,
+          files: ignoredConfigFiles.map((filePath) =>
+            path
+              .relative(extractedDirectory, filePath)
+              .split(path.sep)
+              .join("/"),
+          ),
+        });
+      }
 
       const { models, tests, macros } = Object.fromEntries(
         DBT_FOLDERS.map((folder) => [
@@ -688,8 +1110,11 @@ export const dbtLintTask = schemaTask({
         });
       }
 
-      report.totals.lines = allFiles.reduce(
-        (total, filePath) => total + countLines(filePath),
+      const lineCountsByFile = new Map(
+        allFiles.map((filePath) => [filePath, countLines(filePath)]),
+      );
+      report.totals.lines = Array.from(lineCountsByFile.values()).reduce(
+        (total, result) => total + result.lineCount,
         0,
       );
       if (report.totals.lines > MAX_TOTAL_SQL_LINES) {
@@ -717,14 +1142,45 @@ export const dbtLintTask = schemaTask({
       });
 
       for (const category of DBT_FOLDERS) {
-        const categoryResults = await lintFilesWithConcurrency({
-          files: filesByCategory[category],
+        const categoryFiles = filesByCategory[category];
+        const lintableFiles = categoryFiles.filter(
+          (filePath) => !lineCountsByFile.get(filePath)?.readError,
+        );
+        const lintedResults = await lintFilesWithConcurrency({
+          files: lintableFiles,
           dialect,
+          lockedConfigPath,
+          pythonExecutable,
           extractedDirectory,
           onFileLinted: (filePath) => {
             lintedFiles += 1;
             updateProgress(lintedFiles, filePath);
           },
+        });
+        const lintedResultsByPath = new Map(
+          lintedResults.map((result) => [result.filePath, result]),
+        );
+
+        const categoryResults = categoryFiles.map((filePath) => {
+          const lineCountResult = lineCountsByFile.get(filePath);
+          if (lineCountResult?.readError) {
+            const result = createUnreadableSqlFileResult({
+              filePath,
+              extractedDirectory,
+              readError: lineCountResult.readError,
+            });
+            lintedFiles += 1;
+            updateProgress(lintedFiles, filePath);
+            return result;
+          }
+
+          const result = lintedResultsByPath.get(
+            toReportFilePath(extractedDirectory, filePath),
+          );
+          if (!result) {
+            throw new Error(`Missing lint result for ${filePath}`);
+          }
+          return result;
         });
 
         report.categories[category].files.push(...categoryResults);
@@ -776,6 +1232,7 @@ export const dbtLintTask = schemaTask({
         return failScan({ scanId, statusMessage: errorMessage });
       }
 
+      Sentry.captureException(error);
       updateLintMetadata({
         statusMessage: errorMessage,
         status: "FAILED",
