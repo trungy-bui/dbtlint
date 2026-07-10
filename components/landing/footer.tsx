@@ -15,7 +15,7 @@ const footerLinks = [
   },
   {
     title: "Company",
-    links: ["About", "Careers", "Contact", "Security"],
+    links: ["About", "Contact", "Security"],
   },
 ];
 
@@ -101,7 +101,11 @@ export function Footer() {
                   {column.links.map((link) => (
                     <li key={link}>
                       <a
-                        href="/"
+                        href={
+                          link === "Community"
+                            ? "https://discord.gg/GrF9hFjTS2"
+                            : "/"
+                        }
                         className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                       >
                         {link}
@@ -116,9 +120,6 @@ export function Footer() {
           <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-8 sm:flex-row">
             <p className="text-xs text-muted-foreground">
               © {new Date().getFullYear()} DBT Lint. All rights reserved.
-            </p>
-            <p className="font-mono text-xs text-muted-foreground/70">
-              $ dbt-lint --version 2.0.0
             </p>
           </div>
         </div>
