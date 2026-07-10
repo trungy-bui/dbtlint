@@ -1018,6 +1018,9 @@ function readDirectoryContent(directory: string, depth = 0) {
 export const dbtLintTask = schemaTask({
   id: "dbt-lint",
   schema: lintPayload,
+  machine: {
+    preset: "medium-2x", // was implicitly "small-1x" (the default)
+  },
   // Keep total task fan-out bounded; raise this only if the worker has enough CPU for concurrent sqlfluff runs.
   queue: {
     concurrencyLimit: TASK_QUEUE_CONCURRENCY,
