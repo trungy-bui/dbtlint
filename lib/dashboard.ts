@@ -2,7 +2,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import db from "@/db";
-import { scans } from "@/db/schema";
+import { notifications, scans } from "@/db/schema";
 
 const DASHBOARD_REVALIDATE_SECONDS = 60;
 
@@ -41,6 +41,10 @@ async function fetchScans(userId: string) {
     .where(eq(scans.userId, userId));
 }
 
+function fetchScanById(scanId: string) {
+  return db.select().from(scans).where(eq(scans.scanId, scanId)).limit(1);
+}
+
 async function fetchRecentScans(userId: string, amountOfScans: number = 5) {
   return db
     .select()
@@ -50,7 +54,16 @@ async function fetchRecentScans(userId: string, amountOfScans: number = 5) {
     .limit(amountOfScans);
 }
 
-export async function fetchProjects(userId: string) {
+function fetchNotifications(userId: string) {
+  return db
+    .select()
+    .from(notifications)
+    .where(eq(notifications.userId, userId))
+    .orderBy(desc(notifications.createdAt))
+    .limit(10);
+}
+
+export async function fetchProjects(userId: string, limit: number = 5) {
   return db
     .selectDistinctOn([scans.project], {
       project: scans.project,
@@ -64,7 +77,8 @@ export async function fetchProjects(userId: string) {
     })
     .from(scans)
     .where(eq(scans.userId, userId))
-    .orderBy(scans.project, desc(scans.createdAt));
+    .orderBy(scans.project, desc(scans.createdAt))
+    .limit(limit);
 }
 
 function getTrendDirection(value: number): DashboardTrendDirection {
@@ -173,6 +187,7 @@ async function fetchDashboardStats(
 }
 
 export const getScans = cache(fetchScans);
+export const getScanById = cache(fetchScanById);
 
 export const getRecentScans = cache(
   unstable_cache(fetchRecentScans, ["dashboard-recent-scans"], {
@@ -188,6 +203,13 @@ export const getProjects = cache(
   }),
 );
 
+export const getNotifications = cache(
+  unstable_cache(fetchNotifications, ["dashboard-notifications"], {
+    tags: ["dashboard-notifications", "dashboard"],
+    revalidate: DASHBOARD_REVALIDATE_SECONDS,
+  }),
+);
+
 export const getDashboardStats = cache(
   unstable_cache(fetchDashboardStats, ["dashboard-stats"], {
     tags: ["dashboard-stats", "dashboard"],
@@ -196,3 +218,4 @@ export const getDashboardStats = cache(
 );
 
 export type RecentScan = Awaited<ReturnType<typeof getRecentScans>>[number];
+export type Notification = Awaited<ReturnType<typeof getNotifications>>[number];

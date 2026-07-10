@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import db from "@/db";
 import { scans, users } from "@/db/schema";
 import { getUser } from "@/lib/auth";
+import { getNotifications, getScanById } from "@/lib/dashboard";
 import { FREE_PLAN_SCAN_LIMIT } from "@/lib/plan-limits";
 import {
   PlanUsageProvider,
@@ -57,7 +58,24 @@ export default async function RootLayout({
 }>) {
   const user = await getUser();
   if (!user) return;
-  const initialPlanUsage = await getInitialPlanUsage(user.id);
+  const [initialPlanUsage, notifications] = await Promise.all([
+    getInitialPlanUsage(user.id),
+    getNotifications(user.id).then((userNotifications) =>
+      Promise.all(
+        userNotifications.map(async (notification) => {
+          if (!notification.scanId) {
+            return { ...notification };
+          }
+
+          const [scanInfo] = await getScanById(notification.scanId);
+          return {
+            ...notification,
+            scanInfo,
+          };
+        }),
+      ),
+    ),
+  ]);
 
   return (
     <SidebarProvider>
@@ -65,7 +83,11 @@ export default async function RootLayout({
         <PlanUsageProvider initial={initialPlanUsage}>
           <DashboardSidebar />
           <SidebarInset>
-            <DashboardNavbar title="Dashboard" user={user} />
+            <DashboardNavbar
+              title="Dashboard"
+              user={user}
+              notifications={notifications}
+            />
             <main className="flex flex-1 flex-col gap-6 p-4 md:p-6">
               {children}
             </main>

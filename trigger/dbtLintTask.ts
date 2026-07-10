@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import {
   existsSync,
   lstatSync,
@@ -18,7 +19,7 @@ import { metadata, retry, schemaTask } from "@trigger.dev/sdk";
 import AdmZip from "adm-zip";
 import { eq } from "drizzle-orm";
 import db from "@/db";
-import { type LintReportJson, scans } from "@/db/schema";
+import { type LintReportJson, notifications, scans } from "@/db/schema";
 import {
   type LintMetadata,
   lintMetadata,
@@ -454,6 +455,43 @@ async function finalizeScan({
 
   if (updatedScans.length === 0) {
     console.warn(`No scan found for scan id: ${scanId}`);
+  }
+}
+
+async function notifyUserScan(scanId: string) {
+  try {
+    const [scan] = await db
+      .select({ id: scans.id, userId: scans.userId })
+      .from(scans)
+      .where(eq(scans.scanId, scanId))
+      .limit(1);
+
+    if (!scan) {
+      console.warn(`No scan found for scan id: ${scanId}`);
+      return;
+    }
+
+    const [existingNotification] = await db
+      .select({ id: notifications.id })
+      .from(notifications)
+      .where(eq(notifications.scanId, scan.id))
+      .limit(1);
+
+    if (existingNotification) {
+      return;
+    }
+
+    await db.insert(notifications).values({
+      id: randomUUID(),
+      userId: scan.userId,
+      scanId: scan.id,
+    });
+  } catch (error) {
+    console.error("Failed to create scan completion notification", {
+      scanId,
+      error,
+    });
+    Sentry.captureException(error);
   }
 }
 
@@ -1221,6 +1259,7 @@ export const dbtLintTask = schemaTask({
         report,
       });
 
+      await notifyUserScan(scanId);
       await notifyScanComplete(scanId);
 
       return report;

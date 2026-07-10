@@ -1,11 +1,18 @@
 "use client";
 
-import { Bell, ChevronsUpDown, LogOut, Settings, User } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import {
+  Bell,
+  Check,
+  ChevronsUpDown,
+  LogOut,
+  Settings,
+  User,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useTransition } from "react";
+import { toast } from "sonner";
 
-import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,18 +27,59 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import type { getScanById, Notification } from "@/lib/dashboard";
+import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
+import { markNotificationsAsRead } from "@/lib/notifications";
+
+type DashboardNotification = Notification & {
+  scanInfo?: Awaited<ReturnType<typeof getScanById>>[number];
+};
 
 type DashboardNavbarProps = {
   title: string;
-  user: SupabaseUser
+  user: SupabaseUser;
+  notifications: DashboardNotification[];
 };
 
-export function DashboardNavbar({ title, user }: DashboardNavbarProps) {
+function formatNotificationTime(date: Date | string | null) {
+  if (!date) return "Just now";
+
+  const timestamp = typeof date === "string" ? new Date(date) : date;
+  const diffInSeconds = Math.max(
+    0,
+    Math.floor((Date.now() - timestamp.getTime()) / 1000),
+  );
+
+  if (diffInSeconds < 60) return "Just now";
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+  if (diffInSeconds < 86_400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+
+  return `${Math.floor(diffInSeconds / 86_400)}d ago`;
+}
+
+function statusTextClass(status: string | undefined) {
+  switch (status) {
+    case "passed":
+      return "text-green-500";
+    case "failed":
+      return "text-red-500";
+    default:
+      return "text-muted-foreground";
+  }
+}
+
+export function DashboardNavbar({
+  title,
+  user,
+  notifications,
+}: DashboardNavbarProps) {
   const router = useRouter();
-  const supabase = createClient()
+  const supabase = createClient();
+  const [isPending, startTransition] = useTransition();
 
   const email = user.email ?? "";
-  const fullName = user.user_metadata.full_name
+  const fullName = user.user_metadata.full_name ?? email;
   const initials = fullName
     .split(" ")
     .map((n: string) => n[0])
@@ -39,10 +87,27 @@ export function DashboardNavbar({ title, user }: DashboardNavbarProps) {
     .toUpperCase()
     .slice(0, 2);
 
+  const unreadNotifications = notifications.filter(({ readAt }) => !readAt);
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     toast.success("Signed out!");
     router.push("/login");
+  };
+
+  const handleMarkAllRead = () => {
+    if (unreadNotifications.length === 0) return;
+    startTransition(async () => {
+      await markNotificationsAsRead();
+      router.refresh();
+    });
+  };
+
+  const handleMarkOneRead = (notificationId: string) => {
+    startTransition(async () => {
+      await markNotificationsAsRead([notificationId]);
+      router.refresh();
+    });
   };
 
   return (
@@ -52,49 +117,96 @@ export function DashboardNavbar({ title, user }: DashboardNavbarProps) {
       <h1 className="text-sm font-medium text-foreground">{title}</h1>
 
       <div className="ml-auto flex items-center gap-1.5">
-        {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell />
               <span className="sr-only">Notifications</span>
-              <span className="absolute right-2 top-2 size-2 rounded-full bg-primary ring-2 ring-background" />
+              {unreadNotifications.length > 0 ? (
+                <span className="absolute right-2 top-2 size-2 rounded-full bg-primary ring-2 ring-background" />
+              ) : null}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
             <DropdownMenuLabel className="flex items-center justify-between">
-              Notifications
-              <Badge variant="secondary">3 new</Badge>
+              <span className="flex items-center gap-2">
+                Notifications
+                <Badge variant="secondary">
+                  {unreadNotifications.length} new
+                </Badge>
+              </span>
+              {unreadNotifications.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleMarkAllRead}
+                  disabled={isPending}
+                  className="text-xs font-normal text-muted-foreground hover:text-foreground disabled:opacity-50"
+                >
+                  Mark all as read
+                </button>
+              ) : null}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem className="flex-col items-start gap-0.5">
-                <span className="text-sm font-medium">
-                  Scan failed · marketing-models
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  5 errors found on feat/attribution · 2h ago
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex-col items-start gap-0.5">
-                <span className="text-sm font-medium">
-                  Scan passed · analytics-core
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  All rules passed on main · 4h ago
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex-col items-start gap-0.5">
-                <span className="text-sm font-medium">New rule available</span>
-                <span className="text-xs text-muted-foreground">
-                  enforce-incremental-strategy · 1d ago
-                </span>
-              </DropdownMenuItem>
+              {notifications.length > 0 ? (
+                notifications.map((notification) => {
+                  const isUnread = !notification.readAt;
+
+                  return (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      onSelect={(e) => e.preventDefault()}
+                      className="flex-col items-start gap-0.5"
+                    >
+                      <div className="flex w-full items-center justify-between gap-2">
+                        <span className="text-sm font-medium">
+                          {notification.scanId && notification.scanInfo
+                            ? `Scan ${notification.scanInfo.project}`
+                            : "General update"}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {notification.scanId && notification.scanInfo && (
+                            <span
+                              className={cn(
+                                "text-xs font-medium capitalize",
+                                statusTextClass(notification.scanInfo.status),
+                              )}
+                            >
+                              {notification.scanInfo.status}
+                            </span>
+                          )}
+                          {isUnread ? (
+                            <button
+                              type="button"
+                              title="Mark as read"
+                              disabled={isPending}
+                              onClick={() => handleMarkOneRead(notification.id)}
+                              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                            >
+                              <Check className="size-3.5" />
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {formatNotificationTime(notification.createdAt)}
+                      </span>
+                    </DropdownMenuItem>
+                  );
+                })
+              ) : (
+                <DropdownMenuItem
+                  className="flex-col items-start gap-0.5 text-muted-foreground"
+                  disabled
+                >
+                  <span className="text-sm font-medium">No notifications</span>
+                  <span className="text-xs">You are all caught up.</span>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* User menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-10 gap-2 px-1.5 md:pr-2.5">

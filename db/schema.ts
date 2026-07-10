@@ -91,3 +91,23 @@ export const scans = pgTable(
     ),
   ],
 );
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").notNull().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // References back to the scans row
+    scanId: uuid("scan_id").references(() => scans.id, { onDelete: "cascade" }),
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => [
+    index("notifications_scan_id_created_at_idx").on(
+      table.scanId,
+      table.createdAt.desc(),
+    ),
+  ],
+);
