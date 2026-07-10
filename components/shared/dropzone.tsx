@@ -12,6 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -445,6 +446,7 @@ function ScanRow({
   onClear: () => void;
   onSubmittingResolved: (id: string) => void;
 }) {
+  const router = useRouter();
   const { run } = useRealtimeRun<typeof dbtLintTask>(item.scanId ?? undefined, {
     accessToken: item.accessToken ?? undefined,
     enabled: Boolean(item.scanId && item.accessToken),
@@ -478,6 +480,7 @@ function ScanRow({
       TERMINAL_RUN_STATUSES.has(effectiveRunStatus)
     ) {
       settledScanIdRef.current = item.scanId;
+      router.refresh();
       void refresh().catch((error) => {
         console.error("Failed to refresh plan usage after scan settled", error);
       });
@@ -486,6 +489,7 @@ function ScanRow({
     item.id,
     item.scanId,
     onSubmittingResolved,
+    router,
     refresh,
     effectiveRunStatus,
     isRunForCurrentScan,
@@ -521,8 +525,7 @@ function SelectedFile({
   blockReason: BlockReason | null;
   isSubmitting: boolean;
 }) {
-  const isActivelyRunning =
-    runStatus === "EXECUTING" || runStatus === "QUEUED";
+  const isActivelyRunning = runStatus === "EXECUTING" || runStatus === "QUEUED";
   const isBusy = isSubmitting || isActivelyRunning;
   const isBlocked = Boolean(blockReason);
 

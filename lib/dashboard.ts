@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import db from "@/db";
@@ -186,6 +186,8 @@ async function fetchDashboardStats(
   };
 }
 
+export const getNotifications = cache(fetchNotifications);
+
 export const getScans = cache(fetchScans);
 export const getScanById = cache(fetchScanById);
 
@@ -199,13 +201,6 @@ export const getRecentScans = cache(
 export const getProjects = cache(
   unstable_cache(fetchProjects, ["dashboard-projects"], {
     tags: ["dashboard-projects", "dashboard"],
-    revalidate: DASHBOARD_REVALIDATE_SECONDS,
-  }),
-);
-
-export const getNotifications = cache(
-  unstable_cache(fetchNotifications, ["dashboard-notifications"], {
-    tags: ["dashboard-notifications", "dashboard"],
     revalidate: DASHBOARD_REVALIDATE_SECONDS,
   }),
 );

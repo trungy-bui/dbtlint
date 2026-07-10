@@ -1,5 +1,6 @@
 import { and, count, eq, gte, lt } from "drizzle-orm";
 import { DashboardNavbar } from "@/components/dashboard/navbar";
+import { NotificationsListener } from "@/components/dashboard/notifications-listener";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -88,6 +89,7 @@ export default async function RootLayout({
               user={user}
               notifications={notifications}
             />
+            <NotificationsListener userId={user.id} />
             <main className="flex flex-1 flex-col gap-6 p-4 md:p-6">
               {children}
             </main>
