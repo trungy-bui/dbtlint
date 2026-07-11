@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -11,6 +12,14 @@ import {
   XCircle,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import {
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
@@ -20,15 +29,11 @@ import {
 } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LintReportJson } from "@/db/schema";
-import { motion } from "framer-motion";
 import {
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+  buildRecommendations,
+  explainFileViolations,
+} from "@/lib/reports/report-recommendations";
+import type { FriendlyExplanation } from "@/lib/reports/rule-explanations";
 
 type LintCategoryReport =
   LintReportJson["categories"][keyof LintReportJson["categories"]];
@@ -51,6 +56,32 @@ export type ProjectDetail = {
 
 type ProjectDetailPanelProps = {
   data: ProjectDetail;
+};
+
+const CATEGORY_STYLES: Record<
+  FriendlyExplanation["category"],
+  { badge: string; dot: string }
+> = {
+  "Broken query": {
+    badge: "bg-red-500/20 text-red-400 hover:bg-red-500/30",
+    dot: "bg-red-500",
+  },
+  "Data risk": {
+    badge: "bg-orange-500/20 text-orange-400 hover:bg-orange-500/30",
+    dot: "bg-orange-500",
+  },
+  Performance: {
+    badge: "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30",
+    dot: "bg-amber-500",
+  },
+  Readability: {
+    badge: "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30",
+    dot: "bg-blue-500",
+  },
+  Formatting: {
+    badge: "bg-zinc-500/20 text-zinc-400 hover:bg-zinc-500/30",
+    dot: "bg-zinc-500",
+  },
 };
 
 function getRelativeTime(isoDate: string): string {
@@ -220,6 +251,9 @@ function CategorySection({
   data: LintCategoryReport;
 }) {
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+  const [expandedViolations, setExpandedViolations] = useState<Set<string>>(
+    new Set(),
+  );
 
   const toggleFile = (filePath: string) => {
     const newExpanded = new Set(expandedFiles);
@@ -229,6 +263,18 @@ function CategorySection({
       newExpanded.add(filePath);
     }
     setExpandedFiles(newExpanded);
+  };
+
+  const toggleViolationDetails = (key: string) => {
+    setExpandedViolations((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
   };
 
   if (data.skipped) {
@@ -248,6 +294,7 @@ function CategorySection({
       {data.files.map((file) => {
         const fileName = file.filePath.split("/").pop() || file.filePath;
         const isExpanded = expandedFiles.has(file.filePath);
+        const friendlyViolations = explainFileViolations(file.violations);
 
         return (
           <Collapsible
@@ -287,38 +334,72 @@ function CategorySection({
               </div>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2 space-y-2 pl-6 border-l border-zinc-800">
-              {file.violations.length === 0 ? (
+              {friendlyViolations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No violations found
                 </p>
               ) : (
-                file.violations.map((violation) => (
-                  <div
-                    key={`${violation.code ?? "violation"}-${violation.line_no ?? "line"}-${violation.line_pos ?? "pos"}-${violation.description ?? "description"}`}
-                    className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3"
-                  >
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="mt-0.5 size-4 flex-shrink-0 text-amber-500" />
-                      <div className="flex-1">
-                        {violation.code && (
-                          <p className="font-mono text-xs text-emerald-400">
-                            {violation.code}
+                friendlyViolations.map((violation, index) => {
+                  const key = `${file.filePath}-${index}-${violation.rawCode ?? "violation"}`;
+                  const showTechnicalDetails = expandedViolations.has(key);
+
+                  return (
+                    <div
+                      key={key}
+                      className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3"
+                    >
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="mt-0.5 size-4 flex-shrink-0 text-amber-500" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-medium text-foreground">
+                              {violation.title}
+                            </p>
+                            <Badge
+                              className={
+                                CATEGORY_STYLES[violation.category].badge
+                              }
+                            >
+                              {violation.category}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 break-words text-sm text-muted-foreground">
+                            {violation.explanation}
                           </p>
-                        )}
-                        <p className="mt-1 text-sm text-foreground">
-                          {violation.description}
-                        </p>
-                        {(violation.line_no !== undefined ||
-                          violation.line_pos !== undefined) && (
-                          <p className="mt-2 font-mono text-xs text-muted-foreground">
-                            Line {violation.line_no || "?"}:
-                            {violation.line_pos || "?"}
-                          </p>
-                        )}
+                          {(violation.lineNo !== undefined ||
+                            violation.linePos !== undefined) && (
+                            <p className="mt-2 font-mono text-xs text-muted-foreground">
+                              Line {violation.lineNo ?? "?"}:
+                              {violation.linePos ?? "?"}
+                            </p>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => toggleViolationDetails(key)}
+                            className="mt-2 text-xs text-emerald-400 hover:underline"
+                          >
+                            {showTechnicalDetails ? "Hide" : "Show"} technical
+                            details
+                          </button>
+                          {showTechnicalDetails && (
+                            <div className="mt-2 space-y-1 rounded border border-zinc-800 bg-zinc-950 p-2">
+                              {violation.rawCode && (
+                                <p className="font-mono text-xs text-emerald-400">
+                                  {violation.rawCode}
+                                </p>
+                              )}
+                              {violation.rawDescription && (
+                                <p className="break-words font-mono text-xs text-muted-foreground">
+                                  {violation.rawDescription}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </CollapsibleContent>
           </Collapsible>
@@ -328,70 +409,6 @@ function CategorySection({
   );
 }
 
-/**
- * Builds the most common violation across the whole report, grouped by code,
- * using the *actual* sqlfluff description text returned for that code rather
- * than a hardcoded lookup table (sqlfluff codes like LT13, CP01, AL02 etc.
- * vary a lot by ruleset/dialect, so a fixed map would constantly drift out
- * of sync with real output).
- */
-function generateRecommendations(data: ProjectDetail): string[] {
-  const recommendations: string[] = [];
-
-  type CodeStats = { count: number; description?: string };
-  const violationsByCode = new Map<string, CodeStats>();
-
-  if (data.report?.categories) {
-    Object.values(data.report.categories).forEach((category) => {
-      category.files.forEach((file) => {
-        file.violations.forEach((violation) => {
-          const code = violation.code ?? "unknown";
-          const existing = violationsByCode.get(code);
-          violationsByCode.set(code, {
-            count: (existing?.count ?? 0) + 1,
-            // Keep the first description we see for this code; sqlfluff's
-            // description text for a given rule code is generally stable.
-            description: existing?.description ?? violation.description,
-          });
-        });
-      });
-    });
-  }
-
-  if (data.errors > 0) {
-    recommendations.push(
-      `Fix ${data.errors} error${data.errors !== 1 ? "s" : ""} to improve project quality`,
-    );
-  }
-
-  const sortedViolations = Array.from(violationsByCode.entries()).sort(
-    (a, b) => b[1].count - a[1].count,
-  );
-
-  for (const [code, { count, description }] of sortedViolations) {
-    if (recommendations.length >= 3) break;
-
-    const label = description
-      ? `${description} (${count} occurrence${count !== 1 ? "s" : ""})`
-      : `Address "${code}" violation${count !== 1 ? "s" : ""}`;
-
-    if (!recommendations.includes(label)) {
-      recommendations.push(label);
-    }
-  }
-
-  // TODO: Replace with LLM-generated recommendations for more intelligent,
-  // context-aware suggestions (e.g. summarizing patterns across files,
-  // prioritizing by severity/effort rather than raw frequency).
-  if (recommendations.length === 0) {
-    recommendations.push(
-      "Continue following dbt best practices for optimal project health",
-    );
-  }
-
-  return recommendations.slice(0, 3);
-}
-
 function getStatusIcon(status: "passed" | "failed" | "processing"): string {
   if (status === "passed") return "✓";
   if (status === "failed") return "✗";
@@ -399,7 +416,10 @@ function getStatusIcon(status: "passed" | "failed" | "processing"): string {
 }
 
 export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
-  const recommendations = useMemo(() => generateRecommendations(data), [data]);
+  const recommendations = useMemo(
+    () => (data.report ? buildRecommendations(data.report) : []),
+    [data.report],
+  );
   const relativeTime = getRelativeTime(data.createdAt);
 
   const statusConfig = {
@@ -561,17 +581,45 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
           <Lightbulb className="size-5 text-amber-500" />
           <h3 className="font-semibold text-foreground">Recommendations</h3>
         </div>
-        <ul className="space-y-3">
-          {recommendations.map((rec) => (
-            <li
-              key={rec}
-              className="flex items-start gap-3 text-sm text-muted-foreground"
-            >
-              <span className="mt-1 inline-block size-1.5 flex-shrink-0 rounded-full bg-emerald-500" />
-              <span>{rec}</span>
-            </li>
-          ))}
-        </ul>
+        {recommendations.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Continue following dbt best practices for optimal project health.
+          </p>
+        ) : (
+          <ul className="space-y-4">
+            {recommendations.map((rec) => (
+              <li
+                key={`${rec.category}-${rec.title}`}
+                className="flex items-start gap-3 text-sm"
+              >
+                <span
+                  className={`mt-1.5 inline-block size-1.5 flex-shrink-0 rounded-full ${CATEGORY_STYLES[rec.category].dot}`}
+                />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-foreground">
+                      {rec.title}
+                    </span>
+                    <Badge className={CATEGORY_STYLES[rec.category].badge}>
+                      {rec.category}
+                    </Badge>
+                    {rec.occurrences > 1 && (
+                      <span className="text-xs text-muted-foreground">
+                        {rec.occurrences} occurrences
+                      </span>
+                    )}
+                  </div>
+                  <p className="break-words text-muted-foreground">
+                    {rec.explanation}
+                  </p>
+                  <p className="break-words text-xs text-muted-foreground/80">
+                    {rec.impact}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
     </div>
   );
