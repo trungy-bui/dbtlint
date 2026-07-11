@@ -7,6 +7,20 @@ import {
 
 type Violation = { code?: string; description?: string };
 
+export type RecommendationGroup = {
+  category: FriendlyExplanation["category"];
+  items: Array<FriendlyExplanation & { occurrences: number }>;
+  totalOccurrences: number;
+};
+
+const RECOMMENDATION_CATEGORY_ORDER: FriendlyExplanation["category"][] = [
+  "Broken query",
+  "Data risk",
+  "Performance",
+  "Readability",
+  "Formatting",
+];
+
 /**
  * Pulls every violation out of every file in every category
  * (models/tests/macros) into one flat list.
@@ -27,6 +41,29 @@ export function buildRecommendations(
   report: LintReportJson,
 ): Array<FriendlyExplanation & { occurrences: number }> {
   return summarizeRecommendations(flattenViolations(report));
+}
+
+export function groupRecommendationsByCategory(
+  recommendations: Array<FriendlyExplanation & { occurrences: number }>,
+): RecommendationGroup[] {
+  return RECOMMENDATION_CATEGORY_ORDER.flatMap((category) => {
+    const items = recommendations.filter(
+      (recommendation) => recommendation.category === category,
+    );
+
+    return items.length > 0
+      ? [
+          {
+            category,
+            items,
+            totalOccurrences: items.reduce(
+              (total, item) => total + item.occurrences,
+              0,
+            ),
+          },
+        ]
+      : [];
+  });
 }
 
 /**

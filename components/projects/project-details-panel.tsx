@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -22,16 +22,13 @@ import {
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LintReportJson } from "@/db/schema";
 import {
   buildRecommendations,
   explainFileViolations,
+  groupRecommendationsByCategory,
+  type RecommendationGroup,
 } from "@/lib/reports/report-recommendations";
 import type { FriendlyExplanation } from "@/lib/reports/rule-explanations";
 
@@ -297,16 +294,22 @@ function CategorySection({
         const friendlyViolations = explainFileViolations(file.violations);
 
         return (
-          <Collapsible
+          <div
             key={file.filePath}
-            open={isExpanded}
-            onOpenChange={() => toggleFile(file.filePath)}
+            className="overflow-hidden rounded-md border border-zinc-800 bg-zinc-900"
           >
-            <CollapsibleTrigger className="group w-full">
+            <button
+              type="button"
+              className="group w-full"
+              onClick={() => toggleFile(file.filePath)}
+            >
               <div className="flex w-full items-center gap-3 rounded-md border border-zinc-800 bg-zinc-900 p-3 hover:bg-zinc-800">
-                <ChevronDown
-                  className={`size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180`}
-                />
+                <motion.span
+                  animate={{ rotate: isExpanded ? 180 : 0 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                >
+                  <ChevronDown className="size-4 text-muted-foreground" />
+                </motion.span>
                 <File className="size-4 text-muted-foreground" />
                 <div className="flex-1 text-left">
                   <p className="text-sm font-medium text-foreground">
@@ -332,79 +335,174 @@ function CategorySection({
                   )}
                 </div>
               </div>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2 space-y-2 pl-6 border-l border-zinc-800">
-              {friendlyViolations.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No violations found
-                </p>
-              ) : (
-                friendlyViolations.map((violation, index) => {
-                  const key = `${file.filePath}-${index}-${violation.rawCode ?? "violation"}`;
-                  const showTechnicalDetails = expandedViolations.has(key);
+            </button>
+            <AnimatePresence initial={false}>
+              {isExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: "easeInOut" }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-2 space-y-2 pl-6 border-l border-zinc-800">
+                    {friendlyViolations.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No violations found
+                      </p>
+                    ) : (
+                      friendlyViolations.map((violation, index) => {
+                        const key = `${file.filePath}-${index}-${violation.rawCode ?? "violation"}`;
+                        const showTechnicalDetails =
+                          expandedViolations.has(key);
 
-                  return (
-                    <div
-                      key={key}
-                      className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3"
-                    >
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="mt-0.5 size-4 flex-shrink-0 text-amber-500" />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-medium text-foreground">
-                              {violation.title}
-                            </p>
-                            <Badge
-                              className={
-                                CATEGORY_STYLES[violation.category].badge
-                              }
-                            >
-                              {violation.category}
-                            </Badge>
-                          </div>
-                          <p className="mt-1 break-words text-sm text-muted-foreground">
-                            {violation.explanation}
-                          </p>
-                          {(violation.lineNo !== undefined ||
-                            violation.linePos !== undefined) && (
-                            <p className="mt-2 font-mono text-xs text-muted-foreground">
-                              Line {violation.lineNo ?? "?"}:
-                              {violation.linePos ?? "?"}
-                            </p>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => toggleViolationDetails(key)}
-                            className="mt-2 text-xs text-emerald-400 hover:underline"
+                        return (
+                          <div
+                            key={key}
+                            className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3"
                           >
-                            {showTechnicalDetails ? "Hide" : "Show"} technical
-                            details
-                          </button>
-                          {showTechnicalDetails && (
-                            <div className="mt-2 space-y-1 rounded border border-zinc-800 bg-zinc-950 p-2">
-                              {violation.rawCode && (
-                                <p className="font-mono text-xs text-emerald-400">
-                                  {violation.rawCode}
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="mt-0.5 size-4 flex-shrink-0 text-amber-500" />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-medium text-foreground">
+                                    {violation.title}
+                                  </p>
+                                  <Badge
+                                    className={
+                                      CATEGORY_STYLES[violation.category].badge
+                                    }
+                                  >
+                                    {violation.category}
+                                  </Badge>
+                                </div>
+                                <p className="mt-1 break-words text-sm text-muted-foreground">
+                                  {violation.explanation}
                                 </p>
-                              )}
-                              {violation.rawDescription && (
-                                <p className="break-words font-mono text-xs text-muted-foreground">
-                                  {violation.rawDescription}
-                                </p>
-                              )}
+                                {(violation.lineNo !== undefined ||
+                                  violation.linePos !== undefined) && (
+                                  <p className="mt-2 font-mono text-xs text-muted-foreground">
+                                    Line {violation.lineNo ?? "?"}:
+                                    {violation.linePos ?? "?"}
+                                  </p>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => toggleViolationDetails(key)}
+                                  className="mt-2 text-xs text-emerald-400 hover:underline"
+                                >
+                                  {showTechnicalDetails ? "Hide" : "Show"}{" "}
+                                  technical details
+                                </button>
+                                {showTechnicalDetails && (
+                                  <div className="mt-2 space-y-1 rounded border border-zinc-800 bg-zinc-950 p-2">
+                                    {violation.rawCode && (
+                                      <p className="font-mono text-xs text-emerald-400">
+                                        {violation.rawCode}
+                                      </p>
+                                    )}
+                                    {violation.rawDescription && (
+                                      <p className="break-words font-mono text-xs text-muted-foreground">
+                                        {violation.rawDescription}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </motion.div>
               )}
-            </CollapsibleContent>
-          </Collapsible>
+            </AnimatePresence>
+          </div>
         );
       })}
+    </div>
+  );
+}
+
+function RecommendationGroupSection({
+  group,
+  defaultOpen,
+}: {
+  group: RecommendationGroup;
+  defaultOpen: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="overflow-hidden rounded-md border border-zinc-800 bg-zinc-900">
+      <button
+        type="button"
+        className="group w-full"
+        onClick={() => setIsOpen((open) => !open)}
+      >
+        <div className="flex w-full items-center gap-3 rounded-md border border-zinc-800 bg-zinc-900 p-3 hover:bg-zinc-800">
+          <motion.span
+            animate={{ rotate: isOpen ? 180 : 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            <ChevronDown className="size-4 text-muted-foreground" />
+          </motion.span>
+          <span
+            className={`inline-block size-2 flex-shrink-0 rounded-full ${CATEGORY_STYLES[group.category].dot}`}
+          />
+          <span className="flex-1 text-left text-sm font-medium text-foreground">
+            {group.category} ({group.items.length})
+          </span>
+          <Badge className={CATEGORY_STYLES[group.category].badge}>
+            {group.totalOccurrences}
+          </Badge>
+        </div>
+      </button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="mt-2 border-l border-zinc-800 pl-6">
+              <ul className="space-y-4 py-2">
+                {group.items.map((rec) => (
+                  <li
+                    key={`${rec.category}-${rec.title}`}
+                    className="flex items-start gap-3 text-sm"
+                  >
+                    <span
+                      className={`mt-1.5 inline-block size-1.5 flex-shrink-0 rounded-full ${CATEGORY_STYLES[rec.category].dot}`}
+                    />
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-foreground">
+                          {rec.title}
+                        </span>
+                        {rec.occurrences > 1 && (
+                          <span className="text-xs text-muted-foreground">
+                            {rec.occurrences} occurrences
+                          </span>
+                        )}
+                      </div>
+                      <p className="break-words text-muted-foreground">
+                        {rec.explanation}
+                      </p>
+                      <p className="break-words text-xs text-muted-foreground/80">
+                        {rec.impact}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -419,6 +517,10 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
   const recommendations = useMemo(
     () => (data.report ? buildRecommendations(data.report) : []),
     [data.report],
+  );
+  const recommendationGroups = useMemo(
+    () => groupRecommendationsByCategory(recommendations),
+    [recommendations],
   );
   const relativeTime = getRelativeTime(data.createdAt);
 
@@ -586,39 +688,15 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
             Continue following dbt best practices for optimal project health.
           </p>
         ) : (
-          <ul className="space-y-4">
-            {recommendations.map((rec) => (
-              <li
-                key={`${rec.category}-${rec.title}`}
-                className="flex items-start gap-3 text-sm"
-              >
-                <span
-                  className={`mt-1.5 inline-block size-1.5 flex-shrink-0 rounded-full ${CATEGORY_STYLES[rec.category].dot}`}
-                />
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-foreground">
-                      {rec.title}
-                    </span>
-                    <Badge className={CATEGORY_STYLES[rec.category].badge}>
-                      {rec.category}
-                    </Badge>
-                    {rec.occurrences > 1 && (
-                      <span className="text-xs text-muted-foreground">
-                        {rec.occurrences} occurrences
-                      </span>
-                    )}
-                  </div>
-                  <p className="break-words text-muted-foreground">
-                    {rec.explanation}
-                  </p>
-                  <p className="break-words text-xs text-muted-foreground/80">
-                    {rec.impact}
-                  </p>
-                </div>
-              </li>
+          <div className="space-y-2">
+            {recommendationGroups.map((group, index) => (
+              <RecommendationGroupSection
+                key={group.category}
+                group={group}
+                defaultOpen={index === 0}
+              />
             ))}
-          </ul>
+          </div>
         )}
       </Card>
     </div>
