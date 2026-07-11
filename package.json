@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "biome check",
-    "trigger:dev": "npx trigger.dev@4.5.0 dev",
+    "trigger:dev": "npx trigger.dev@4.5.3 dev",
     "format": "biome format --write",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

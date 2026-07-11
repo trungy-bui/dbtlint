@@ -320,6 +320,22 @@ export function RegisterForm() {
           </motion.div>
         </Form>
       </motion.div>
+
+      <motion.p
+        variants={{
+          hidden: { opacity: 0, y: 20 },
+          show: { opacity: 1, y: 0 },
+        }}
+        className="mt-8 text-center text-sm text-muted-foreground"
+      >
+        Already have an account?{" "}
+        <a
+          href="/login"
+          className="font-medium text-emerald-400 hover:text-emerald-300"
+        >
+          Log in
+        </a>
+      </motion.p>
     </motion.div>
   );
 }
