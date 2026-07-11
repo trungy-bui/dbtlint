@@ -15,7 +15,7 @@ import path from "node:path";
 import { promisify, TextDecoder } from "node:util";
 import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@supabase/supabase-js";
-import { metadata, retry, schemaTask } from "@trigger.dev/sdk";
+import { metadata, retry, schemaTask, task } from "@trigger.dev/sdk";
 import AdmZip from "adm-zip";
 import { eq } from "drizzle-orm";
 import db from "@/db";
@@ -92,7 +92,7 @@ const SQLFLUFF_BATCH_SIZE = readPositiveIntegerEnv(
 );
 const SQLFLUFF_CONCURRENCY = readPositiveIntegerEnv(
   "DBT_LINT_SQLFLUFF_CONCURRENCY",
-  4,
+  1,
 );
 // Global cap on concurrent lint jobs across all users. Tune this against the
 // Trigger.dev machine preset's CPU/memory before raising it for real traffic.
@@ -144,6 +144,23 @@ function readPositiveIntegerEnv(name: string, fallback: number) {
 
   const parsed = Number.parseInt(rawValue, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function elapsedMilliseconds(startedAt: number) {
+  return Math.round((performance.now() - startedAt) * 100) / 100;
+}
+
+async function measurePhase<T>(
+  timings: Record<string, number>,
+  phase: string,
+  operation: () => Promise<T> | T,
+) {
+  const startedAt = performance.now();
+  try {
+    return await operation();
+  } finally {
+    timings[phase] = elapsedMilliseconds(startedAt);
+  }
 }
 
 function updateLintMetadata(lintData: LintMetadata) {
@@ -461,8 +478,13 @@ async function finalizeScan({
 async function notifyUserScan(scanId: string) {
   try {
     const [scan] = await db
-      .select({ id: scans.id, userId: scans.userId })
+      .select({
+        id: scans.id,
+        userId: scans.userId,
+        notificationId: notifications.id,
+      })
       .from(scans)
+      .leftJoin(notifications, eq(notifications.scanId, scans.id))
       .where(eq(scans.scanId, scanId))
       .limit(1);
 
@@ -471,13 +493,7 @@ async function notifyUserScan(scanId: string) {
       return;
     }
 
-    const [existingNotification] = await db
-      .select({ id: notifications.id })
-      .from(notifications)
-      .where(eq(notifications.scanId, scan.id))
-      .limit(1);
-
-    if (existingNotification) {
+    if (scan.notificationId) {
       return;
     }
 
@@ -496,42 +512,35 @@ async function notifyUserScan(scanId: string) {
 }
 
 async function notifyScanComplete(scanId: string) {
-  try {
-    await retry.onThrow(
-      async () => {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SITE_URL}/api/scans/${scanId}/complete`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.SCAN_COMPLETE_WEBHOOK_SECRET}`,
-            },
+  await retry.onThrow(
+    async () => {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SITE_URL}/api/scans/${scanId}/complete`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.SCAN_COMPLETE_WEBHOOK_SECRET}`,
           },
+        },
+      );
+
+      if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        throw new Error(
+          `Scan completion webhook returned non-OK status ${response.status}: ${body}`,
         );
+      }
 
-        if (!response.ok) {
-          const body = await response.text().catch(() => "");
-          throw new Error(
-            `Scan completion webhook returned non-OK status ${response.status}: ${body}`,
-          );
-        }
-
-        return response;
-      },
-      {
-        maxAttempts: 3,
-        minTimeoutInMs: 1_000,
-        maxTimeoutInMs: 10_000,
-        factor: 2,
-        randomize: true,
-      },
-    );
-  } catch (error) {
-    console.error("Failed to call scan completion email webhook", {
-      scanId,
-      error,
-    });
-  }
+      return response;
+    },
+    {
+      maxAttempts: 3,
+      minTimeoutInMs: 1_000,
+      maxTimeoutInMs: 10_000,
+      factor: 2,
+      randomize: true,
+    },
+  );
 }
 
 function chunkFiles(files: string[], chunkSize: number) {
@@ -630,6 +639,25 @@ async function resolvePythonExecutable() {
   if (resolvedPythonExecutablePromise) return resolvedPythonExecutablePromise;
 
   resolvedPythonExecutablePromise = (async () => {
+    const configuredPythonExecutable =
+      process.env.PYTHON_EXECUTABLE ?? process.env.PYTHON_BIN_PATH;
+    if (
+      configuredPythonExecutable &&
+      path.isAbsolute(configuredPythonExecutable)
+    ) {
+      if (!hasLoggedSqlfluffPythonExecutable) {
+        hasLoggedSqlfluffPythonExecutable = true;
+        console.log("Using configured Python executable for sqlfluff", {
+          pythonExecutable: configuredPythonExecutable,
+          resolvedFrom: process.env.PYTHON_EXECUTABLE
+            ? "PYTHON_EXECUTABLE"
+            : "Trigger.dev PYTHON_BIN_PATH",
+          validationSkipped: true,
+        });
+      }
+      return configuredPythonExecutable;
+    }
+
     const candidates: PythonExecutableCandidate[] = [];
     if (process.env.PYTHON_EXECUTABLE) {
       candidates.push({
@@ -1015,6 +1043,63 @@ function readDirectoryContent(directory: string, depth = 0) {
   return directoryFiles;
 }
 
+export const scanCompletionEmailTask = task({
+  id: "send-scan-completion-email",
+  retry: {
+    maxAttempts: 3,
+    minTimeoutInMs: 1_000,
+    maxTimeoutInMs: 10_000,
+    factor: 2,
+    randomize: true,
+  },
+  run: async ({ scanId }: { scanId: string }) => {
+    await notifyScanComplete(scanId);
+    return { scanId, sent: true };
+  },
+});
+
+async function deleteUploadedZip(storageFilePath: string) {
+  const { error } = await supabase.storage
+    .from("dbt-uploads")
+    .remove([storageFilePath]);
+
+  if (error) {
+    throw new Error(`Failed to delete uploaded zip: ${error.message}`);
+  }
+}
+
+export const uploadedZipCleanupTask = task({
+  id: "cleanup-dbt-upload",
+  retry: {
+    maxAttempts: 5,
+    minTimeoutInMs: 1_000,
+    maxTimeoutInMs: 30_000,
+    factor: 2,
+    randomize: true,
+  },
+  run: async ({ storageFilePath }: { storageFilePath: string }) => {
+    await deleteUploadedZip(storageFilePath);
+    return { storageFilePath, deleted: true };
+  },
+});
+
+async function dispatchScanCompletionWork(scanId: string) {
+  const results = await Promise.allSettled([
+    notifyUserScan(scanId),
+    scanCompletionEmailTask.trigger({ scanId }),
+  ]);
+
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.error("Failed to dispatch scan completion work", {
+        scanId,
+        error: result.reason,
+      });
+      Sentry.captureException(result.reason);
+    }
+  }
+}
+
 export const dbtLintTask = schemaTask({
   id: "dbt-lint",
   schema: lintPayload,
@@ -1026,6 +1111,10 @@ export const dbtLintTask = schemaTask({
     concurrencyLimit: TASK_QUEUE_CONCURRENCY,
   },
   run: async ({ scanId, storageFilePath, dialect }) => {
+    const taskStartedAt = performance.now();
+    const timings: Record<string, number> = {};
+    let sqlFileCount = 0;
+    let sqlBatchCount = 0;
     // Creates a temporary directory: temp/scan/123
     const tmpDirectory = path.join(os.tmpdir(), "scan", scanId);
     const zipFilePath = path.join(tmpDirectory, "dbt-project.zip");
@@ -1033,7 +1122,9 @@ export const dbtLintTask = schemaTask({
     const lockedConfigPath = path.join(tmpDirectory, "sqlfluff.locked.ini");
 
     try {
-      await updateScanStatus(scanId, "processing");
+      await measurePhase(timings, "initialScanUpdateMs", () =>
+        updateScanStatus(scanId, "processing"),
+      );
 
       updateLintMetadata({
         statusMessage: "Downloading files...",
@@ -1042,10 +1133,16 @@ export const dbtLintTask = schemaTask({
       });
       mkdirSync(tmpDirectory, { recursive: true });
       writeFileSync(lockedConfigPath, SQLFLUFF_LOCKED_CONFIG_CONTENTS, "utf8");
-      const pythonExecutable = await resolvePythonExecutable();
+      const pythonExecutable = await measurePhase(
+        timings,
+        "pythonResolutionMs",
+        resolvePythonExecutable,
+      );
 
       const { data: storageFile, error: storageDownloadError } =
-        await supabase.storage.from("dbt-uploads").download(storageFilePath);
+        await measurePhase(timings, "storageDownloadMs", () =>
+          supabase.storage.from("dbt-uploads").download(storageFilePath),
+        );
 
       if (storageDownloadError || !storageFile) {
         throw new Error(
@@ -1053,14 +1150,17 @@ export const dbtLintTask = schemaTask({
         );
       }
 
-      const buffer = Buffer.from(await storageFile.arrayBuffer());
+      const buffer = await measurePhase(timings, "downloadBufferMs", async () =>
+        Buffer.from(await storageFile.arrayBuffer()),
+      );
       ensureWithinLimit(buffer.byteLength, MAX_ZIP_BYTES, "Zip file size");
 
-      writeFileSync(zipFilePath, buffer);
-
-      const zip = new AdmZip(zipFilePath);
-      validateZipEntries(zip, extractedDirectory);
-      zip.extractAllTo(extractedDirectory);
+      await measurePhase(timings, "zipExtractionMs", () => {
+        writeFileSync(zipFilePath, buffer);
+        const zip = new AdmZip(zipFilePath);
+        validateZipEntries(zip, extractedDirectory);
+        zip.extractAllTo(extractedDirectory);
+      });
 
       updateLintMetadata({
         statusMessage: "Extracting files from the zip...",
@@ -1068,14 +1168,21 @@ export const dbtLintTask = schemaTask({
         progress: 15,
       });
 
-      const projectFileCount = countProjectFiles(extractedDirectory);
-      ensureWithinLimit(
-        projectFileCount,
-        MAX_PROJECT_FILES,
-        "Project file count",
+      const ignoredConfigFiles = await measurePhase(
+        timings,
+        "projectValidationMs",
+        () => {
+          const projectFileCount = countProjectFiles(extractedDirectory);
+          ensureWithinLimit(
+            projectFileCount,
+            MAX_PROJECT_FILES,
+            "Project file count",
+          );
+          return quarantineUserControlledSqlfluffConfigFiles(
+            extractedDirectory,
+          );
+        },
       );
-      const ignoredConfigFiles =
-        quarantineUserControlledSqlfluffConfigFiles(extractedDirectory);
       if (ignoredConfigFiles.length > 0) {
         console.warn("Ignoring user-controlled sqlfluff/dbt config files", {
           scanId,
@@ -1088,12 +1195,17 @@ export const dbtLintTask = schemaTask({
         });
       }
 
-      const { models, tests, macros } = Object.fromEntries(
-        DBT_FOLDERS.map((folder) => [
-          folder,
-          folderInDirectory(extractedDirectory, folder),
-        ]),
-      ) as Record<DbtFolder, string | null>;
+      const { models, tests, macros } = await measurePhase(
+        timings,
+        "folderDiscoveryMs",
+        () =>
+          Object.fromEntries(
+            DBT_FOLDERS.map((folder) => [
+              folder,
+              folderInDirectory(extractedDirectory, folder),
+            ]),
+          ) as Record<DbtFolder, string | null>,
+      );
 
       const report = {
         categories: {
@@ -1142,6 +1254,8 @@ export const dbtLintTask = schemaTask({
       );
 
       const allFiles = Object.values(filesByCategory).flat();
+      sqlFileCount = allFiles.length;
+      sqlBatchCount = Math.ceil(sqlFileCount / SQLFLUFF_BATCH_SIZE);
       report.totals.files = allFiles.length;
       if (report.totals.files > MAX_SQL_FILES) {
         return failScan({
@@ -1151,8 +1265,11 @@ export const dbtLintTask = schemaTask({
         });
       }
 
-      const lineCountsByFile = new Map(
-        allFiles.map((filePath) => [filePath, countLines(filePath)]),
+      const lineCountsByFile = await measurePhase(
+        timings,
+        "lineCountingMs",
+        () =>
+          new Map(allFiles.map((filePath) => [filePath, countLines(filePath)])),
       );
       report.totals.lines = Array.from(lineCountsByFile.values()).reduce(
         (total, result) => total + result.lineCount,
@@ -1182,12 +1299,13 @@ export const dbtLintTask = schemaTask({
         progress: 20,
       });
 
-      for (const category of DBT_FOLDERS) {
-        const categoryFiles = filesByCategory[category];
-        const lintableFiles = categoryFiles.filter(
-          (filePath) => !lineCountsByFile.get(filePath)?.readError,
-        );
-        const lintedResults = await lintFilesWithConcurrency({
+      // Lint one global batch stream so small models/tests/macros directories do
+      // not each pay for a separate Python/sqlfluff process startup.
+      const lintableFiles = allFiles.filter(
+        (filePath) => !lineCountsByFile.get(filePath)?.readError,
+      );
+      const lintedResults = await measurePhase(timings, "sqlfluffLintMs", () =>
+        lintFilesWithConcurrency({
           files: lintableFiles,
           dialect,
           lockedConfigPath,
@@ -1197,11 +1315,14 @@ export const dbtLintTask = schemaTask({
             lintedFiles += 1;
             updateProgress(lintedFiles, filePath);
           },
-        });
-        const lintedResultsByPath = new Map(
-          lintedResults.map((result) => [result.filePath, result]),
-        );
+        }),
+      );
+      const lintedResultsByPath = new Map(
+        lintedResults.map((result) => [result.filePath, result]),
+      );
 
+      for (const category of DBT_FOLDERS) {
+        const categoryFiles = filesByCategory[category];
         const categoryResults = categoryFiles.map((filePath) => {
           const lineCountResult = lineCountsByFile.get(filePath);
           if (lineCountResult?.readError) {
@@ -1253,17 +1374,20 @@ export const dbtLintTask = schemaTask({
         report,
       });
 
-      await finalizeScan({
-        scanId,
-        status: finalStatus === "PASSED" ? "passed" : "failed",
-        score: report.score,
-        errors: report.totals.errors,
-        warnings: report.totals.warnings,
-        report,
-      });
+      await measurePhase(timings, "finalScanUpdateMs", () =>
+        finalizeScan({
+          scanId,
+          status: finalStatus === "PASSED" ? "passed" : "failed",
+          score: report.score,
+          errors: report.totals.errors,
+          warnings: report.totals.warnings,
+          report,
+        }),
+      );
 
-      await notifyUserScan(scanId);
-      await notifyScanComplete(scanId);
+      await measurePhase(timings, "completionDispatchMs", () =>
+        dispatchScanCompletionWork(scanId),
+      );
 
       return report;
     } catch (error) {
@@ -1283,25 +1407,55 @@ export const dbtLintTask = schemaTask({
       await updateScanStatus(scanId, "failed");
       throw error;
     } finally {
+      const localCleanupStartedAt = performance.now();
       rmSync(tmpDirectory, { recursive: true, force: true });
+      timings.localCleanupMs = elapsedMilliseconds(localCleanupStartedAt);
 
+      const storageCleanupDispatchStartedAt = performance.now();
       try {
-        const { error: deleteError } = await supabase.storage
-          .from("dbt-uploads")
-          .remove([storageFilePath]);
-
-        if (deleteError) {
-          console.error("Failed to delete uploaded zip from storage", {
-            storageFilePath,
-            error: deleteError,
-          });
-        }
-      } catch (cleanupError) {
-        console.error("Unexpected error deleting uploaded zip from storage", {
+        await uploadedZipCleanupTask.trigger({ storageFilePath });
+      } catch (dispatchError) {
+        console.error("Failed to dispatch uploaded zip cleanup task", {
           storageFilePath,
-          error: cleanupError,
+          error: dispatchError,
         });
-        Sentry.captureException(cleanupError);
+        Sentry.captureException(dispatchError);
+
+        try {
+          await deleteUploadedZip(storageFilePath);
+        } catch (cleanupError) {
+          console.error("Fallback uploaded zip cleanup failed", {
+            storageFilePath,
+            error: cleanupError,
+          });
+          Sentry.captureException(cleanupError);
+        }
+      } finally {
+        timings.storageCleanupDispatchMs = elapsedMilliseconds(
+          storageCleanupDispatchStartedAt,
+        );
+        const totalTaskMs = elapsedMilliseconds(taskStartedAt);
+        const measuredPhaseMs =
+          Math.round(
+            Object.values(timings).reduce((total, value) => total + value, 0) *
+              100,
+          ) / 100;
+        console.log(
+          JSON.stringify({
+            event: "dbt_lint_task_timing",
+            scanId,
+            sqlFileCount,
+            sqlBatchCount,
+            sqlfluffBatchSize: SQLFLUFF_BATCH_SIZE,
+            sqlfluffConcurrency: SQLFLUFF_CONCURRENCY,
+            machinePreset: "small-2x",
+            ...timings,
+            measuredPhaseMs,
+            unmeasuredOverheadMs:
+              Math.round((totalTaskMs - measuredPhaseMs) * 100) / 100,
+            totalTaskMs,
+          }),
+        );
       }
     }
   },
