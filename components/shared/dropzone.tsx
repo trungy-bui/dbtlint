@@ -45,6 +45,17 @@ const RECOGNIZED_RUN_STATUSES = new Set([
   "CANCELED",
 ]);
 const TERMINAL_RUN_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELED"]);
+const SCAN_STATUS_POLL_INTERVAL_MS = 9_000;
+const SCAN_STATUS_STALL_TIMEOUT_MS = 15_000;
+
+type ScanStatusResponse = {
+  scanId: string;
+  status: "processing" | "passed" | "failed";
+  score: number;
+  errors: number;
+  warnings: number;
+  report: LintMetadata["report"] | null;
+};
 
 type BlockReason = "project-limit" | "scan-limit";
 
@@ -60,6 +71,7 @@ type ScanItem = {
   id: string;
   file: File;
   fileName: string;
+  runId: string | null;
   scanId: string | null;
   accessToken: string | null;
   isSubmitting: boolean;
@@ -85,13 +97,13 @@ export function UploadZone({
   );
   const blockedReason = scans.find((scan) => scan.blockReason)?.blockReason;
   const queuedRunnableScanCount = scans.filter(
-    (scan) => scan.blockReason === null && scan.scanId === null,
+    (scan) => scan.blockReason === null && scan.runId === null,
   ).length;
   const hasReachedFreeScanLimit =
     plan === "free" && scansUsed + queuedRunnableScanCount >= scansLimit;
   const hasBlockedScans = scans.some((scan) => scan.blockReason !== null);
   const eligibleQueuedScans = scans.filter(
-    (scan) => scan.blockReason === null && scan.scanId === null,
+    (scan) => scan.blockReason === null && scan.runId === null,
   );
 
   const handleFiles = (files: FileList | null) => {
@@ -140,6 +152,7 @@ export function UploadZone({
             id: `${Date.now()}-${f.name}-${Math.random().toString(36).slice(2)}`,
             file: f,
             fileName: f.name,
+            runId: null,
             scanId: null,
             accessToken: null,
             isSubmitting: false,
@@ -168,7 +181,13 @@ export function UploadZone({
     setScans((prev) =>
       prev.map((s) =>
         s.id === id
-          ? { ...s, isSubmitting: true, scanId: null, accessToken: null }
+          ? {
+              ...s,
+              isSubmitting: true,
+              runId: null,
+              scanId: null,
+              accessToken: null,
+            }
           : s,
       ),
     );
@@ -243,7 +262,12 @@ export function UploadZone({
       setScans((prev) =>
         prev.map((s) =>
           s.id === id
-            ? { ...s, scanId: data.runId, accessToken: data.publicAccessToken }
+            ? {
+                ...s,
+                runId: data.runId,
+                scanId: data.scanId,
+                accessToken: data.publicAccessToken,
+              }
             : s,
         ),
       );
@@ -447,39 +471,160 @@ function ScanRow({
   onSubmittingResolved: (id: string) => void;
 }) {
   const router = useRouter();
-  const { run } = useRealtimeRun<typeof dbtLintTask>(item.scanId ?? undefined, {
-    accessToken: item.accessToken ?? undefined,
-    enabled: Boolean(item.scanId && item.accessToken),
-  });
+  const { run, error: realtimeError } = useRealtimeRun<typeof dbtLintTask>(
+    item.runId ?? undefined,
+    {
+      accessToken: item.accessToken ?? undefined,
+      enabled: Boolean(item.runId && item.accessToken),
+    },
+  );
   const { refresh } = usePlanUsage();
-  const settledScanIdRef = React.useRef<string | null>(null);
-  const submittingResolvedScanIdRef = React.useRef<string | null>(null);
-  const isRunForCurrentScan = Boolean(item.scanId) && run?.id === item.scanId;
-  const effectiveRunStatus = isRunForCurrentScan ? run?.status : undefined;
-  const effectiveMetadata = isRunForCurrentScan
+  const [dbScan, setDbScan] = React.useState<ScanStatusResponse | null>(null);
+  const requestRef = React.useRef<AbortController | null>(null);
+  const settledRunIdRef = React.useRef<string | null>(null);
+  const submittingResolvedRunIdRef = React.useRef<string | null>(null);
+  const isRunForCurrentScan = Boolean(item.runId) && run?.id === item.runId;
+  const realtimeRunStatus = isRunForCurrentScan ? run?.status : undefined;
+  const realtimeMetadata = isRunForCurrentScan
     ? (run?.metadata as { Lint?: LintMetadata } | undefined)?.Lint
     : undefined;
 
-  React.useEffect(() => {
-    if (!isRunForCurrentScan) return;
+  const fetchDbScan = React.useCallback(async () => {
+    if (!item.scanId || requestRef.current) return;
 
+    const controller = new AbortController();
+    requestRef.current = controller;
+
+    try {
+      const response = await fetch(
+        `/api/scans/${encodeURIComponent(item.scanId)}`,
+        {
+          cache: "no-store",
+          signal: controller.signal,
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Scan status request failed with ${response.status}`);
+      }
+
+      const scan = (await response.json()) as ScanStatusResponse;
+      if (scan.scanId === item.scanId) setDbScan(scan);
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        console.error(
+          "Failed to reconcile scan status from the database",
+          error,
+        );
+      }
+    } finally {
+      if (requestRef.current === controller) requestRef.current = null;
+    }
+  }, [item.scanId]);
+
+  React.useEffect(() => {
+    void item.scanId;
+    return () => {
+      requestRef.current?.abort();
+      requestRef.current = null;
+    };
+  }, [item.scanId]);
+
+  const currentDbScan = dbScan?.scanId === item.scanId ? dbScan : null;
+
+  const dbRunStatus =
+    currentDbScan?.status === "passed"
+      ? "COMPLETED"
+      : currentDbScan?.status === "failed"
+        ? "FAILED"
+        : currentDbScan?.status === "processing"
+          ? "EXECUTING"
+          : undefined;
+
+  // A terminal DB row is authoritative. While processing, realtime remains the
+  // primary, richer source because it carries live progress metadata.
+  const effectiveRunStatus =
+    dbRunStatus && TERMINAL_RUN_STATUSES.has(dbRunStatus)
+      ? dbRunStatus
+      : (realtimeRunStatus ?? dbRunStatus);
+  const effectiveMetadata: LintMetadata | undefined =
+    dbRunStatus && TERMINAL_RUN_STATUSES.has(dbRunStatus)
+      ? {
+          status: currentDbScan?.status === "passed" ? "PASSED" : "FAILED",
+          statusMessage:
+            currentDbScan?.status === "passed"
+              ? "Lint complete"
+              : "Lint failed",
+          progress: 100,
+          ...(currentDbScan?.report ? { report: currentDbScan.report } : {}),
+        }
+      : realtimeMetadata;
+  const isNonTerminal = Boolean(
+    item.scanId &&
+      (item.isSubmitting ||
+        !effectiveRunStatus ||
+        !TERMINAL_RUN_STATUSES.has(effectiveRunStatus)),
+  );
+
+  // Polling is a low-frequency backstop. It is stopped as soon as either
+  // realtime or the DB reports a terminal state.
+  React.useEffect(() => {
+    if (!isNonTerminal) return;
+    const interval = window.setInterval(
+      () => void fetchDbScan(),
+      SCAN_STATUS_POLL_INTERVAL_MS,
+    );
+    return () => window.clearInterval(interval);
+  }, [fetchDbScan, isNonTerminal]);
+
+  // Every realtime status/metadata change resets this timer. If the stream is
+  // silent for 15 seconds, reconcile immediately instead of waiting forever.
+  const realtimeUpdateKey = `${realtimeRunStatus ?? ""}:${JSON.stringify(realtimeMetadata ?? null)}`;
+  React.useEffect(() => {
+    if (!isNonTerminal) return;
+    void realtimeUpdateKey;
+    const timeout = window.setTimeout(
+      () => void fetchDbScan(),
+      SCAN_STATUS_STALL_TIMEOUT_MS,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [fetchDbScan, isNonTerminal, realtimeUpdateKey]);
+
+  React.useEffect(() => {
+    if (!realtimeError || !isNonTerminal) return;
+    console.error("Trigger.dev realtime subscription failed", realtimeError);
+    void fetchDbScan();
+  }, [fetchDbScan, isNonTerminal, realtimeError]);
+
+  React.useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && isNonTerminal) {
+        void fetchDbScan();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [fetchDbScan, isNonTerminal]);
+
+  React.useEffect(() => {
     if (
-      item.scanId &&
-      submittingResolvedScanIdRef.current !== item.scanId &&
+      item.runId &&
+      submittingResolvedRunIdRef.current !== item.runId &&
       effectiveRunStatus &&
       RECOGNIZED_RUN_STATUSES.has(effectiveRunStatus)
     ) {
-      submittingResolvedScanIdRef.current = item.scanId;
+      submittingResolvedRunIdRef.current = item.runId;
       onSubmittingResolved(item.id);
     }
 
     if (
-      item.scanId &&
-      settledScanIdRef.current !== item.scanId &&
+      item.runId &&
+      settledRunIdRef.current !== item.runId &&
       effectiveRunStatus &&
       TERMINAL_RUN_STATUSES.has(effectiveRunStatus)
     ) {
-      settledScanIdRef.current = item.scanId;
+      settledRunIdRef.current = item.runId;
       router.refresh();
       void refresh().catch((error) => {
         console.error("Failed to refresh plan usage after scan settled", error);
@@ -487,12 +632,11 @@ function ScanRow({
     }
   }, [
     item.id,
-    item.scanId,
+    item.runId,
     onSubmittingResolved,
     router,
     refresh,
     effectiveRunStatus,
-    isRunForCurrentScan,
   ]);
 
   return (
