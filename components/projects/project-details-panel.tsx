@@ -318,7 +318,7 @@ function CategorySection({
                   <ChevronDown className="size-4 text-muted-foreground" />
                 </motion.span>
                 <File className="size-4 flex-shrink-0 text-muted-foreground" />
-                <div className="min-w-[140px] flex-1 text-left">
+                <div className="flex-1 text-left">
                   <p className="whitespace-nowrap text-sm font-medium text-foreground">
                     {fileName}
                   </p>
@@ -368,21 +368,17 @@ function CategorySection({
                             key={key}
                             className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3"
                           >
-                            <div
-                              className="scrollbar-hide flex items-start gap-2 overflow-x-auto"
-                              style={{
-                                WebkitOverflowScrolling: "touch",
-                                touchAction: "pan-x",
-                              }}
-                            >
+                            <div className="flex items-start gap-2">
                               <AlertTriangle className="mt-0.5 size-4 flex-shrink-0 text-amber-500" />
                               <div className="min-w-0 flex-1">
-                                <div className="flex flex-nowrap items-center gap-2">
-                                  <p className="whitespace-nowrap text-sm font-medium text-foreground">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-medium text-foreground">
                                     {violation.title}
                                   </p>
                                   <Badge
-                                    className={`flex-shrink-0 whitespace-nowrap ${CATEGORY_STYLES[violation.category].badge}`}
+                                    className={
+                                      CATEGORY_STYLES[violation.category].badge
+                                    }
                                   >
                                     {violation.category}
                                   </Badge>
