@@ -98,7 +98,7 @@ const SQLFLUFF_CONCURRENCY = readPositiveIntegerEnv(
 // Trigger.dev machine preset's CPU/memory before raising it for real traffic.
 const TASK_QUEUE_CONCURRENCY = readPositiveIntegerEnv(
   "DBT_LINT_TASK_QUEUE_CONCURRENCY",
-  2,
+  4,
 );
 const METADATA_UPDATE_INTERVAL_MS = 1_500;
 const METADATA_UPDATE_FILE_STEP = 25;
