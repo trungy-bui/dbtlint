@@ -319,27 +319,27 @@ function CategorySection({
                 </motion.span>
                 <File className="size-4 flex-shrink-0 text-muted-foreground" />
                 <div className="flex-1 text-left">
-                  <p className="whitespace-nowrap text-sm font-medium text-foreground">
-                    {fileName}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="whitespace-nowrap text-sm font-medium text-foreground">
+                      {fileName}
+                    </p>
+                    {file.errors > 0 && (
+                      <Badge
+                        variant="destructive"
+                        className="whitespace-nowrap bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                      >
+                        {file.errors} error{file.errors !== 1 ? "s" : ""}
+                      </Badge>
+                    )}
+                    {file.warnings > 0 && (
+                      <Badge className="whitespace-nowrap bg-amber-500/20 text-amber-400 hover:bg-amber-500/30">
+                        {file.warnings} warning{file.warnings !== 1 ? "s" : ""}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="whitespace-nowrap text-xs text-muted-foreground">
                     {file.filePath}
                   </p>
-                </div>
-                <div className="flex flex-shrink-0 gap-2">
-                  {file.errors > 0 && (
-                    <Badge
-                      variant="destructive"
-                      className="whitespace-nowrap bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                    >
-                      {file.errors} error{file.errors !== 1 ? "s" : ""}
-                    </Badge>
-                  )}
-                  {file.warnings > 0 && (
-                    <Badge className="whitespace-nowrap bg-amber-500/20 text-amber-400 hover:bg-amber-500/30">
-                      {file.warnings} warning{file.warnings !== 1 ? "s" : ""}
-                    </Badge>
-                  )}
                 </div>
               </div>
             </button>
