@@ -62,7 +62,7 @@ const lineItem: Variants = {
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden pt-32 pb-20">
+    <section className="relative overflow-hidden pt-30 pb-20">
       {/* Background gradient + blobs */}
       <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 via-zinc-950 to-background" />
       <motion.div
