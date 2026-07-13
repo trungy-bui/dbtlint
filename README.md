@@ -146,19 +146,19 @@ The uncompressed-size, batch-size, per-task sqlfluff concurrency, and task concu
 
 ### Dashboard
 
-![Dashboard overview](public/screenshots/dashboard.png)
+![Dashboard overview](public/dashboard.png)
 
 _Overview cards, recent scans, plan usage, notifications, and quick upload._
 
 ### Upload flow
 
-![dbt ZIP upload flow](public/screenshots/upload-flow.png)
+![dbt ZIP upload flow](public/upload-flow.png)
 
 _Multi-file queue with plan checks, Trigger.dev progress, and completion state._
 
 ### Scan detail
 
-![Scan detail report](public/screenshots/scan-detail.png)
+![Scan detail report](public/scan-detail.png)
 
 _Score, trends, categorized violations, friendly explanations, and recommendations._
 
