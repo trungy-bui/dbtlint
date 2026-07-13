@@ -22,6 +22,7 @@ import {
 import type { RecentScan } from "@/lib/dashboard";
 import { cn } from "@/lib/utils";
 import { getTimeAgo } from "@/lib/utils/time";
+import { TimeAgo } from "../ui/time-ago";
 
 interface RecentScansProps {
   recentScans: RecentScan[];
@@ -72,7 +73,7 @@ export function RecentScansTable({ recentScans }: RecentScansProps) {
                 </div>
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">
-                {getTimeAgo(scan.createdAt)}
+                <TimeAgo date={scan.createdAt} />
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 <span

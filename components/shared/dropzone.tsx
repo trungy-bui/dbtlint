@@ -383,7 +383,10 @@ export function UploadZone({
       <Button
         variant="ghost"
         size="icon-sm"
-        onClick={() => setIsLimitBannerDismissed(true)}
+        onClick={() => {
+          setScans((prev) => prev.filter((s) => s.blockReason === null));
+          setIsLimitBannerDismissed(true);
+        }}
         aria-label={limitBannerCopy.dismissLabel}
       >
         <X />
