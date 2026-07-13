@@ -303,33 +303,40 @@ function CategorySection({
               className="group w-full"
               onClick={() => toggleFile(file.filePath)}
             >
-              <div className="flex w-full items-center gap-3 rounded-md border border-zinc-800 bg-zinc-900 p-3 hover:bg-zinc-800">
+              <div
+                className="scrollbar-hide flex w-full items-center gap-3 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-900 p-3 hover:bg-zinc-800"
+                style={{
+                  WebkitOverflowScrolling: "touch",
+                  touchAction: "pan-x",
+                }}
+              >
                 <motion.span
                   animate={{ rotate: isExpanded ? 180 : 0 }}
                   transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="flex-shrink-0"
                 >
                   <ChevronDown className="size-4 text-muted-foreground" />
                 </motion.span>
-                <File className="size-4 text-muted-foreground" />
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-medium text-foreground">
+                <File className="size-4 flex-shrink-0 text-muted-foreground" />
+                <div className="min-w-[140px] flex-1 text-left">
+                  <p className="whitespace-nowrap text-sm font-medium text-foreground">
                     {fileName}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="whitespace-nowrap text-xs text-muted-foreground">
                     {file.filePath}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-shrink-0 gap-2">
                   {file.errors > 0 && (
                     <Badge
                       variant="destructive"
-                      className="bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                      className="whitespace-nowrap bg-red-500/20 text-red-400 hover:bg-red-500/30"
                     >
                       {file.errors} error{file.errors !== 1 ? "s" : ""}
                     </Badge>
                   )}
                   {file.warnings > 0 && (
-                    <Badge className="bg-amber-500/20 text-amber-400 hover:bg-amber-500/30">
+                    <Badge className="whitespace-nowrap bg-amber-500/20 text-amber-400 hover:bg-amber-500/30">
                       {file.warnings} warning{file.warnings !== 1 ? "s" : ""}
                     </Badge>
                   )}
@@ -361,17 +368,21 @@ function CategorySection({
                             key={key}
                             className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3"
                           >
-                            <div className="flex items-start gap-2">
+                            <div
+                              className="scrollbar-hide flex items-start gap-2 overflow-x-auto"
+                              style={{
+                                WebkitOverflowScrolling: "touch",
+                                touchAction: "pan-x",
+                              }}
+                            >
                               <AlertTriangle className="mt-0.5 size-4 flex-shrink-0 text-amber-500" />
                               <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="text-sm font-medium text-foreground">
+                                <div className="flex flex-nowrap items-center gap-2">
+                                  <p className="whitespace-nowrap text-sm font-medium text-foreground">
                                     {violation.title}
                                   </p>
                                   <Badge
-                                    className={
-                                      CATEGORY_STYLES[violation.category].badge
-                                    }
+                                    className={`flex-shrink-0 whitespace-nowrap ${CATEGORY_STYLES[violation.category].badge}`}
                                   >
                                     {violation.category}
                                   </Badge>
@@ -631,7 +642,7 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
 
       {/* Tabs Section */}
       {data.report && (
-        <Card className="border border-zinc-800 bg-zinc-900 p-0 overflow-hidden">
+        <Card className="border border-zinc-800 bg-zinc-900 p-0 overflow-x-hidden">
           <Tabs defaultValue="models" className="w-full">
             <TabsList className="border-b border-hairline bg-void rounded-none p-0 h-auto gap-6 w-full justify-start">
               <TabsTrigger
