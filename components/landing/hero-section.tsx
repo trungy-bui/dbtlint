@@ -19,7 +19,6 @@ const item: Variants = {
 };
 
 const terminalLines = [
-  { id: "command", text: "$ dbt-lint run --strict", tone: "prompt" },
   { id: "scan", text: "Scanning models/ ...", tone: "muted" },
   { id: "stg-orders", text: "✔ staging/stg_orders.sql", tone: "pass" },
   { id: "stg-customers", text: "✔ staging/stg_customers.sql", tone: "pass" },
