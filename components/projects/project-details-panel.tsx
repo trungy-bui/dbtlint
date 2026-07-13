@@ -307,7 +307,7 @@ function CategorySection({
                 className="scrollbar-hide flex w-full items-center gap-3 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-900 p-3 hover:bg-zinc-800"
                 style={{
                   WebkitOverflowScrolling: "touch",
-                  touchAction: "pan-x",
+                  touchAction: "pan-x pan-y",
                 }}
               >
                 <motion.span
