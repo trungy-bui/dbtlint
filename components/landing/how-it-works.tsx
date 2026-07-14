@@ -1,150 +1,134 @@
 "use client";
 
-import { motion, type Variants } from "framer-motion";
-import { Upload, Loader2, CheckCircle2 } from "lucide-react";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
+import {
+  CheckCircle2,
+  FileCode2,
+  GitPullRequest,
+  ScanSearch,
+} from "lucide-react";
 
 const steps = [
   {
-    step: "01",
-    title: "Upload your project",
-    desc: "Drag in your dbt project as a zip or folder. No config, no CLI, no terminal — just drop it in.",
-    preview: {
-      kind: "upload",
-      label: "jaffle-shop-main.zip",
-      sub: "Uploading…",
-    },
+    number: "01",
+    icon: FileCode2,
+    eyebrow: "Connect",
+    title: "Point DBTLint at your project",
+    description:
+      "Upload a dbt project or run the checker from your existing developer workflow. Your folder structure and config stay intact.",
+    code: "$ dbtlint check ./analytics",
+    status: "Project discovered",
   },
   {
-    step: "02",
-    title: "We lint it for you",
-    desc: "A background job runs SQLFluff against every model, test, and macro in your project — automatically.",
-    preview: {
-      kind: "processing",
-      label: "Running lint…",
-      sub: "5 files · 200 lines scanned",
-    },
+    number: "02",
+    icon: ScanSearch,
+    eyebrow: "Inspect",
+    title: "Scan every relevant asset",
+    description:
+      "Models, tests, sources, macros, and YAML are checked against the rule set your team selected.",
+    code: "42 models · 18 tests · 6 sources",
+    status: "66 assets checked",
   },
   {
-    step: "03",
-    title: "See results in seconds",
-    desc: "Get a project score, errors, warnings, and file-by-file recommendations — ready in about 6 seconds.",
-    preview: {
-      kind: "result",
-      label: "94 score",
-      sub: "0 errors · 10 warnings",
-    },
+    number: "03",
+    icon: GitPullRequest,
+    eyebrow: "Resolve",
+    title: "Fix findings before they merge",
+    description:
+      "Review exact files, line numbers, severity, and remediation guidance. Re-run locally or let CI verify the patch.",
+    code: "quality_score: 94 / 100",
+    status: "Ready for review",
   },
 ];
 
 const container: Variants = {
   hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.12 } },
+  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
 };
 
 const item: Variants = {
-  hidden: { opacity: 0, y: 24 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
+  hidden: { opacity: 0, y: 18 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.38, ease: [0.16, 1, 0.3, 1] },
+  },
 };
 
-function StepPreview({
-  preview,
-}: {
-  preview: (typeof steps)[number]["preview"];
-}) {
-  if (preview.kind === "upload") {
-    return (
-      <div className="mt-5 flex items-center gap-3 rounded-lg border border-dashed border-white/15 bg-zinc-950/70 px-3 py-2.5">
-        <Upload className="h-4 w-4 shrink-0 text-emerald-400" />
-        <div className="min-w-0">
-          <p className="truncate font-mono text-xs text-foreground">
-            {preview.label}
-          </p>
-          <p className="font-mono text-[11px] text-muted-foreground">
-            {preview.sub}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (preview.kind === "processing") {
-    return (
-      <div className="mt-5 flex items-center gap-3 rounded-lg border border-white/10 bg-zinc-950/70 px-3 py-2.5">
-        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-emerald-400" />
-        <div className="min-w-0">
-          <p className="font-mono text-xs text-foreground">{preview.label}</p>
-          <p className="font-mono text-[11px] text-muted-foreground">
-            {preview.sub}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-5 flex items-center gap-3 rounded-lg border border-white/10 bg-zinc-950/70 px-3 py-2.5">
-      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
-      <div className="min-w-0">
-        <p className="font-mono text-xs text-foreground">{preview.label}</p>
-        <p className="font-mono text-[11px] text-muted-foreground">
-          {preview.sub}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export function HowItWorksSection() {
+  const reduceMotion = useReducedMotion();
+
   return (
-    <section id="how-it-works" className="relative py-24">
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-gradient-to-b from-transparent via-zinc-950/50 to-transparent"
-      />
-      <div className="relative z-10 mx-auto w-full max-w-6xl px-6">
+    <section
+      id="how-it-works"
+      className="scroll-mt-20 bg-slate-950 py-20 sm:py-24 lg:py-28"
+    >
+      <div className="mx-auto grid w-full max-w-[1200px] gap-12 px-4 sm:px-6 lg:grid-cols-[0.7fr_1.3fr] lg:gap-20">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={reduceMotion ? false : { opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.5 }}
-          className="mx-auto max-w-2xl text-center"
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          className="lg:sticky lg:top-28 lg:self-start"
         >
-          <span className="font-mono text-sm text-emerald-400">
-            no terminal required
-          </span>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            From upload to clean models in three steps
+          <p className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-emerald-400">
+            From code to confidence
+          </p>
+          <h2 className="mt-4 max-w-md text-balance text-3xl font-semibold tracking-[-0.035em] text-slate-50 sm:text-4xl lg:text-5xl">
+            A quality gate, not another workflow.
           </h2>
+          <p className="mt-5 max-w-md text-pretty text-base leading-7 text-slate-400">
+            Bring DBTLint to the way your team already ships. The feedback stays
+            fast, scoped, and close to the code that caused it.
+          </p>
+          <div className="mt-8 hidden h-px w-24 bg-gradient-to-r from-emerald-400 to-transparent lg:block" />
         </motion.div>
 
-        <motion.div
+        <motion.ol
           variants={container}
-          initial="hidden"
+          initial={reduceMotion ? false : "hidden"}
           whileInView="show"
-          viewport={{ once: true, margin: "-80px" }}
-          className="mt-16 grid grid-cols-1 gap-6 md:grid-cols-3 items-stretch"
+          viewport={{ once: true, margin: "-70px" }}
+          className="relative space-y-4 before:absolute before:bottom-10 before:left-7 before:top-10 before:w-px before:bg-slate-800 sm:before:left-9"
         >
           {steps.map((step) => (
-            <motion.div
-              key={step.step}
+            <motion.li
+              key={step.number}
               variants={item}
-              className="relative flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-7"
+              className="group relative rounded-2xl border border-slate-800 bg-slate-900/55 p-5 transition-colors duration-200 hover:border-slate-700 sm:p-7"
             >
-              <span className="font-mono text-4xl font-semibold text-emerald-500/30">
-                {step.step}
-              </span>
-              <h3 className="mt-4 text-lg font-medium text-foreground">
-                {step.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {step.desc}
-              </p>
-              <div className="mt-auto pt-5">
-                <StepPreview preview={step.preview} />
+              <div className="grid gap-5 sm:grid-cols-[3.5rem_1fr]">
+                <span className="relative z-10 flex size-14 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 font-mono text-xs font-semibold text-emerald-400 shadow-[0_0_0_6px_#020617] sm:size-[4.5rem]">
+                  {step.number}
+                </span>
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.15em] text-slate-500">
+                      <step.icon
+                        aria-hidden="true"
+                        className="size-4 text-emerald-400"
+                      />
+                      {step.eyebrow}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 text-xs text-emerald-300">
+                      <CheckCircle2 aria-hidden="true" className="size-3.5" />
+                      {step.status}
+                    </span>
+                  </div>
+                  <h3 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-100">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    {step.description}
+                  </p>
+                  <div className="mt-5 overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/80 px-4 py-3 font-mono text-xs text-slate-300">
+                    <span className="text-emerald-400">›</span> {step.code}
+                  </div>
+                </div>
               </div>
-            </motion.div>
+            </motion.li>
           ))}
-        </motion.div>
+        </motion.ol>
       </div>
     </section>
   );

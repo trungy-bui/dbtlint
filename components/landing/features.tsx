@@ -1,108 +1,149 @@
-'use client'
+"use client";
 
-import { motion, type Variants } from "framer-motion";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import {
-  Zap,
-  Code2,
-  GitBranch,
-  Users,
-  ShieldCheck,
+  Braces,
   Gauge,
-} from 'lucide-react'
+  GitPullRequest,
+  Layers3,
+  ShieldCheck,
+  UsersRound,
+} from "lucide-react";
 
 const features = [
   {
-    icon: Zap,
-    title: 'Instant dbt project linting',
-    desc: 'Scan your entire dbt project in seconds. Get actionable feedback on models, sources, and tests before they hit production.',
+    icon: GitPullRequest,
+    label: "CI native",
+    title: "Make quality part of every pull request",
+    description:
+      "Run the same rule set locally and in CI. Annotate failures where your team already reviews code and block only what matters.",
+    detail: "GitHub Actions · GitLab CI · any pipeline",
+    span: "lg:col-span-2",
   },
   {
-    icon: Code2,
-    title: 'SQL style checks',
-    desc: 'Enforce consistent formatting, naming conventions, and indentation across every model with configurable rules.',
+    icon: Braces,
+    label: "SQL aware",
+    title: "Rules that understand dbt",
+    description:
+      "Check models, sources, tests, macros, naming, and formatting with context—not brittle text matching.",
+    detail: "Models · YAML · Jinja",
+    span: "",
   },
   {
-    icon: GitBranch,
-    title: 'CI/CD integration',
-    desc: 'Drop into GitHub Actions, GitLab CI, or any pipeline. Block merges that break your style guide automatically.',
+    icon: Layers3,
+    label: "Configurable",
+    title: "Standards that fit your stack",
+    description:
+      "Start from sensible presets, tune severity by rule, and extend the system with conventions unique to your warehouse.",
+    detail: "Presets · overrides · custom packs",
+    span: "",
   },
   {
-    icon: Users,
-    title: 'Team collaboration',
-    desc: 'Share rule sets across your org. Keep every analytics engineer aligned on the same standards.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Custom rule packs',
-    desc: 'Author your own rules or extend community presets. Tailor linting to match your warehouse and conventions.',
+    icon: UsersRound,
+    label: "Team aligned",
+    title: "One rule set, fewer review loops",
+    description:
+      "Share configuration across projects so reviewers can focus on business logic instead of whitespace and naming debates.",
+    detail: "Shared config · consistent output",
+    span: "",
   },
   {
     icon: Gauge,
-    title: 'Performance insights',
-    desc: 'Surface expensive models and anti-patterns early so your warehouse bill stays predictable.',
+    label: "Fast feedback",
+    title: "Built for the inner loop",
+    description:
+      "Scan projects in seconds and return file-level findings with line numbers, severity, and a clear path to resolution.",
+    detail: "Fast scans · precise locations",
+    span: "",
   },
-]
+];
 
 const container: Variants = {
   hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
-}
+  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+};
 
 const item: Variants = {
-  hidden: { opacity: 0, y: 24 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
-}
+  hidden: { opacity: 0, y: 16 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+  },
+};
 
 export function FeaturesSection() {
+  const reduceMotion = useReducedMotion();
+
   return (
-    <section id="features" className="relative py-24">
-      <div className="mx-auto w-full max-w-6xl px-6">
+    <section
+      id="features"
+      className="scroll-mt-20 border-y border-slate-800/80 bg-slate-950 py-20 sm:py-24 lg:py-28"
+    >
+      <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={reduceMotion ? false : { opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-100px' }}
-          transition={{ duration: 0.5 }}
-          className="mx-auto max-w-2xl text-center"
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          className="grid gap-6 lg:grid-cols-[0.72fr_1fr] lg:items-end"
         >
-          <span className="font-mono text-sm text-emerald-400">
-            everything you need
-          </span>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Quality checks built for the modern data stack
-          </h2>
-          <p className="mt-4 text-pretty text-muted-foreground">
-            DBT Lint plugs into your workflow and keeps your transformations
-            clean, consistent, and review-ready.
+          <div>
+            <p className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-emerald-400">
+              Built for the review loop
+            </p>
+            <h2 className="mt-4 max-w-xl text-balance text-3xl font-semibold tracking-[-0.035em] text-slate-50 sm:text-4xl lg:text-5xl">
+              Quality checks your team will actually keep enabled.
+            </h2>
+          </div>
+          <p className="max-w-2xl text-pretty text-base leading-7 text-slate-400 lg:justify-self-end lg:text-lg lg:leading-8">
+            DBTLint turns your team&apos;s standards into fast, repeatable
+            feedback—from the first local check to the final merge gate.
           </p>
         </motion.div>
 
         <motion.div
           variants={container}
-          initial="hidden"
+          initial={reduceMotion ? false : "hidden"}
           whileInView="show"
-          viewport={{ once: true, margin: '-80px' }}
-          className="mt-16 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+          viewport={{ once: true, margin: "-70px" }}
+          className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
         >
           {features.map((feature) => (
-            <motion.div
+            <motion.article
               key={feature.title}
               variants={item}
-              whileHover={{ y: -4 }}
-              className="group rounded-2xl border border-white/10 bg-white/[0.02] p-6 transition-colors hover:border-emerald-500/30 hover:bg-white/[0.04]"
+              className={`group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/55 p-6 transition-colors duration-200 hover:border-slate-700 hover:bg-slate-900 ${feature.span}`}
             >
-              <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20 transition-colors group-hover:bg-emerald-500/15">
-                <feature.icon className="size-5 text-emerald-400" />
+              <div
+                aria-hidden="true"
+                className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              />
+              <div className="flex items-start justify-between gap-4">
+                <span className="flex size-10 items-center justify-center rounded-lg border border-slate-700 bg-slate-950 text-emerald-400">
+                  <feature.icon aria-hidden="true" className="size-4.5" />
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">
+                  {feature.label}
+                </span>
               </div>
-              <h3 className="mt-5 text-lg font-medium text-foreground">
+              <h3 className="mt-8 max-w-md text-xl font-semibold tracking-[-0.02em] text-slate-100">
                 {feature.title}
               </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {feature.desc}
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
+                {feature.description}
               </p>
-            </motion.div>
+              <div className="mt-6 flex items-center gap-2 border-t border-slate-800 pt-4 font-mono text-[11px] text-slate-500">
+                <ShieldCheck
+                  aria-hidden="true"
+                  className="size-3.5 text-emerald-400/80"
+                />
+                {feature.detail}
+              </div>
+            </motion.article>
           ))}
         </motion.div>
       </div>
     </section>
-  )
+  );
 }

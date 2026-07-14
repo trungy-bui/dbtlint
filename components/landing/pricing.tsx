@@ -1,7 +1,8 @@
 "use client";
 
-import { motion, type Variants } from "framer-motion";
-import { Check } from "lucide-react";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { Check, Minus } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
@@ -16,8 +17,8 @@ const plans = [
   {
     name: "Free",
     price: "$0",
-    period: "/mo",
-    desc: "For solo analysts and side projects.",
+    period: "forever",
+    description: "For individual analytics engineers building better habits.",
     features: [
       "1 dbt project",
       "Core SQL style checks",
@@ -31,8 +32,8 @@ const plans = [
   {
     name: "Team",
     price: "$19",
-    period: "/mo",
-    desc: "For data teams shipping together.",
+    period: "per month",
+    description: "For data teams that want one standard across every project.",
     features: [
       "Unlimited dbt projects",
       "CI/CD integration",
@@ -40,15 +41,15 @@ const plans = [
       "Custom rule packs",
       "Priority support",
     ],
-    cta: "Start free trial",
+    cta: "Start team trial",
     href: "/register?plan=team",
     highlighted: true,
   },
   {
     name: "Enterprise",
     price: "Custom",
-    period: "",
-    desc: "For organizations at scale.",
+    period: "built around your org",
+    description: "For governed data platforms with security requirements.",
     features: [
       "SSO & SAML",
       "Audit logs",
@@ -65,11 +66,7 @@ const plans = [
 async function fetchUserPlan(): Promise<Plan | null> {
   try {
     const response = await fetch("/api/user/plan");
-
-    if (!response.ok) {
-      return null;
-    }
-
+    if (!response.ok) return null;
     const data = (await response.json()) as UserPlanResponse;
     return data.plan;
   } catch (error) {
@@ -80,15 +77,20 @@ async function fetchUserPlan(): Promise<Plan | null> {
 
 const container: Variants = {
   hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } },
+  show: { opacity: 1, transition: { staggerChildren: 0.07 } },
 };
 
 const item: Variants = {
-  hidden: { opacity: 0, y: 24 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
+  hidden: { opacity: 0, y: 16 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.36, ease: [0.16, 1, 0.3, 1] },
+  },
 };
 
 export function Pricing() {
+  const reduceMotion = useReducedMotion();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
   const [isPlanLoading, setIsPlanLoading] = useState(true);
@@ -100,11 +102,7 @@ export function Pricing() {
 
     async function updatePlan(sessionExists: boolean) {
       const requestId = ++planRequestId;
-
-      if (!isMounted) {
-        return;
-      }
-
+      if (!isMounted) return;
       setIsLoggedIn(sessionExists);
 
       if (!sessionExists) {
@@ -115,11 +113,7 @@ export function Pricing() {
 
       setIsPlanLoading(true);
       const plan = await fetchUserPlan();
-
-      if (!isMounted || requestId !== planRequestId) {
-        return;
-      }
-
+      if (!isMounted || requestId !== planRequestId) return;
       setCurrentPlan(plan);
       setIsPlanLoading(false);
     }
@@ -141,32 +135,36 @@ export function Pricing() {
   }, []);
 
   return (
-    <section id="pricing" className="relative py-24">
-      <div className="mx-auto w-full max-w-6xl px-6">
+    <section
+      id="pricing"
+      className="scroll-mt-20 border-y border-slate-800/80 bg-slate-900/35 py-20 sm:py-24 lg:py-28"
+    >
+      <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={reduceMotion ? false : { opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.5 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
           className="mx-auto max-w-2xl text-center"
         >
-          <span className="font-mono text-sm text-emerald-400">
-            simple pricing
-          </span>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Plans that scale with your data team
+          <p className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-emerald-400">
+            Clear pricing, clean code
+          </p>
+          <h2 className="mt-4 text-balance text-3xl font-semibold tracking-[-0.035em] text-slate-50 sm:text-4xl lg:text-5xl">
+            Start small. Standardize when your team is ready.
           </h2>
-          <p className="mt-4 text-pretty text-muted-foreground">
-            Start free, upgrade when you need CI and collaboration.
+          <p className="mt-5 text-pretty text-base leading-7 text-slate-400">
+            Every plan includes the core linting experience. Upgrade for shared
+            governance and CI automation.
           </p>
         </motion.div>
 
         <motion.div
           variants={container}
-          initial="hidden"
+          initial={reduceMotion ? false : "hidden"}
           whileInView="show"
-          viewport={{ once: true, margin: "-80px" }}
-          className="mt-16 grid grid-cols-1 gap-6 lg:grid-cols-3"
+          viewport={{ once: true, margin: "-70px" }}
+          className="mt-12 grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3"
         >
           {plans.map((plan) => {
             const isTeamPlan = plan.name === "Team";
@@ -180,86 +178,91 @@ export function Pricing() {
             const cta = isCurrentTeamPlan
               ? "Current plan"
               : isTeamPlanLoading
-                ? "Checking plan..."
+                ? "Checking plan…"
                 : plan.cta;
             const isDisabledCta = isCurrentTeamPlan || isTeamPlanLoading;
 
             return (
-              <motion.div
+              <motion.article
                 key={plan.name}
                 variants={item}
-                whileHover={{ y: -4 }}
-                className={`relative flex flex-col rounded-2xl border p-7 ${
+                className={`relative flex flex-col rounded-2xl border p-6 sm:p-7 ${
                   plan.highlighted
-                    ? "border-emerald-500/40 bg-emerald-500/[0.04]"
-                    : "border-white/10 bg-white/[0.02]"
+                    ? "border-emerald-400/40 bg-slate-900 shadow-[0_20px_60px_rgba(2,6,23,0.3),inset_0_1px_0_rgba(255,255,255,0.04)]"
+                    : "border-slate-800 bg-slate-950/65"
                 }`}
               >
                 {plan.highlighted ? (
-                  <span className="absolute -top-3 left-7 rounded-full bg-emerald-500 px-3 py-0.5 text-xs font-medium text-zinc-950">
-                    Most popular
+                  <span className="absolute right-5 top-5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.13em] text-emerald-300">
+                    Recommended
                   </span>
                 ) : null}
-                <h3 className="text-lg font-medium text-foreground">
-                  {plan.name}
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {plan.desc}
-                </p>
-                <div className="mt-5 flex items-end gap-1">
-                  <span className="text-4xl font-semibold tracking-tight text-foreground">
-                    {plan.price}
-                  </span>
-                  <span className="mb-1 text-sm text-muted-foreground">
-                    {plan.period}
-                  </span>
+
+                <div className="pr-24">
+                  <h3 className="text-base font-semibold text-slate-100">
+                    {plan.name}
+                  </h3>
+                  <p className="mt-2 min-h-12 text-sm leading-6 text-slate-400">
+                    {plan.description}
+                  </p>
                 </div>
 
-                <ul className="mt-6 flex flex-col gap-3">
+                <div className="mt-7 border-b border-slate-800 pb-7">
+                  <span
+                    className={`font-mono font-semibold tracking-[-0.04em] text-slate-50 ${plan.price === "Custom" ? "text-3xl" : "text-5xl"}`}
+                  >
+                    {plan.price}
+                  </span>
+                  <p className="mt-2 text-xs text-slate-500">{plan.period}</p>
+                </div>
+
+                <ul className="mt-7 space-y-3">
                   {plan.features.map((feature) => (
                     <li
                       key={feature}
-                      className="flex items-center gap-2 text-sm text-zinc-300"
+                      className="flex items-start gap-2.5 text-sm text-slate-300"
                     >
-                      <Check className="size-4 shrink-0 text-emerald-400" />
+                      <Check
+                        aria-hidden="true"
+                        className="mt-0.5 size-4 shrink-0 text-emerald-400"
+                      />
                       {feature}
                     </li>
                   ))}
                 </ul>
 
-                <motion.div
-                  whileHover={isDisabledCta ? undefined : { scale: 1.02 }}
-                  whileTap={isDisabledCta ? undefined : { scale: 0.98 }}
-                  className="mt-auto pt-8"
-                >
+                <div className="mt-auto pt-8">
                   {isDisabledCta ? (
                     <Button
-                      size="lg"
-                      variant="outline"
                       disabled
-                      className="w-full border-white/10 bg-white/[0.03] text-muted-foreground"
+                      className="h-11 w-full border border-slate-700 bg-slate-800 text-slate-400"
                     >
                       {cta}
                     </Button>
                   ) : (
                     <Button
                       asChild
-                      size="lg"
                       variant={plan.highlighted ? "default" : "outline"}
-                      className={`w-full ${
-                        plan.highlighted
-                          ? "bg-emerald-500 text-zinc-950 hover:bg-emerald-400"
-                          : ""
-                      }`}
+                      className={`h-11 w-full cursor-pointer font-semibold ${plan.highlighted ? "bg-emerald-400 text-slate-950 hover:bg-emerald-300" : "border-slate-700 bg-transparent text-slate-100 hover:bg-slate-800 hover:text-white"}`}
                     >
-                      <a href={href}>{cta}</a>
+                      {href.startsWith("/") ? (
+                        <Link href={href}>{cta}</Link>
+                      ) : (
+                        <a href={href}>{cta}</a>
+                      )}
                     </Button>
                   )}
-                </motion.div>
-              </motion.div>
+                </div>
+              </motion.article>
             );
           })}
         </motion.div>
+
+        <div className="mt-8 flex items-center justify-center gap-2 text-center text-xs text-slate-500">
+          <Minus aria-hidden="true" className="size-3.5" />
+          Plans are billed monthly. Cancel or change tiers at any time.
+          <Minus aria-hidden="true" className="size-3.5" />
+        </div>
       </div>
     </section>
   );

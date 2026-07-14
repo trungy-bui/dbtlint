@@ -1,129 +1,164 @@
 "use client";
 
-import { motion, type Variants } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Terminal } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 const footerLinks = [
   {
     title: "Product",
-    links: ["Features", "Pricing", "Integrations", "Changelog"],
+    links: [
+      { label: "Features", href: "#features" },
+      { label: "Workflow", href: "#how-it-works" },
+      { label: "Pricing", href: "#pricing" },
+    ],
   },
   {
     title: "Resources",
-    links: ["Rule reference", "Blog", "Community"],
+    links: [
+      { label: "Rule reference", href: "/" },
+      { label: "Community", href: "https://discord.gg/GrF9hFjTS2" },
+      { label: "Sign in", href: "/login" },
+    ],
   },
   {
     title: "Company",
-    links: ["About", "Contact", "Security"],
+    links: [
+      { label: "Security", href: "/" },
+      { label: "Contact", href: "/" },
+      { label: "Get started", href: "/register" },
+    ],
   },
 ];
 
 export function Footer() {
+  const reduceMotion = useReducedMotion();
+
   return (
-    <>
-      <section className="relative py-24">
-        <div className="mx-auto w-full max-w-5xl px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-zinc-900 via-zinc-950 to-black px-8 py-16 text-center"
-          >
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 opacity-[0.06]"
-              style={{
-                backgroundImage:
-                  "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
-                backgroundSize: "40px 40px",
-              }}
-            />
-            <motion.div
-              aria-hidden="true"
-              className="pointer-events-none absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-emerald-500/20 blur-3xl"
-              animate={{ opacity: [0.4, 0.7, 0.4] }}
-              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <div className="relative z-10">
-              <h2 className="mx-auto max-w-2xl text-balance text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                Ship cleaner dbt models, starting today
-              </h2>
-              <p className="mx-auto mt-4 max-w-lg text-pretty text-zinc-400">
-                Join thousands of data engineers who lint with confidence. Free
-                to start, no credit card required.
+    <footer className="bg-slate-950">
+      <section
+        className="px-4 py-20 sm:px-6 sm:py-24"
+        aria-labelledby="footer-cta-title"
+      >
+        <motion.div
+          initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative mx-auto max-w-[1200px] overflow-hidden rounded-3xl border border-slate-700/80 bg-slate-900 px-6 py-12 shadow-[0_30px_90px_rgba(2,6,23,0.35)] sm:px-10 sm:py-14 lg:px-14"
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 opacity-[0.04] [background-image:linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:36px_36px]"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-20 -top-28 size-80 rounded-full bg-emerald-400/10 blur-3xl"
+          />
+          <div className="relative grid items-center gap-8 lg:grid-cols-[1fr_auto]">
+            <div>
+              <p className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-emerald-400">
+                Your next PR can be cleaner
               </p>
-              <motion.div
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                className="mt-8 inline-block"
+              <h2
+                id="footer-cta-title"
+                className="mt-4 max-w-2xl text-balance text-3xl font-semibold tracking-[-0.035em] text-slate-50 sm:text-4xl"
               >
-                <Button
-                  asChild
-                  size="lg"
-                  className="bg-emerald-500 text-zinc-950 hover:bg-emerald-400"
-                >
-                  <a href="/register">
-                    Get started free
-                    <ArrowRight className="size-4" />
-                  </a>
-                </Button>
-              </motion.div>
+                Turn your dbt standards into an automatic quality gate.
+              </h2>
+              <p className="mt-4 max-w-xl text-pretty text-sm leading-6 text-slate-400 sm:text-base">
+                Start with one project, see every finding in context, and give
+                your team a faster path to review-ready models.
+              </p>
             </div>
-          </motion.div>
-        </div>
+            <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+              <Button
+                asChild
+                size="lg"
+                className="h-12 cursor-pointer bg-emerald-400 px-6 font-semibold text-slate-950 hover:bg-emerald-300"
+              >
+                <Link href="/register">
+                  Start linting free
+                  <ArrowRight aria-hidden="true" className="size-4" />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="ghost"
+                size="lg"
+                className="h-12 cursor-pointer text-slate-300 hover:bg-slate-800 hover:text-white"
+              >
+                <Link href="/login">Sign in to your workspace</Link>
+              </Button>
+            </div>
+          </div>
+        </motion.div>
       </section>
 
-      <footer className="border-t border-white/5 py-14">
-        <div className="mx-auto w-full max-w-6xl px-6">
-          <div className="grid grid-cols-2 gap-10 md:grid-cols-4">
-            <div className="col-span-2 md:col-span-1">
-              <a href="/" className="flex items-center gap-2">
-                <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/15 ring-1 ring-emerald-500/30">
-                  <Terminal className="size-4 text-emerald-400" />
-                </div>
-                <span className="font-mono text-base font-semibold tracking-tight text-foreground">
-                  DBT Lint
-                </span>
-              </a>
-              <p className="mt-4 max-w-xs text-sm text-muted-foreground">
-                Lint your dbt projects. Ship with confidence.
-              </p>
-            </div>
+      <div className="border-t border-slate-800/80">
+        <div className="mx-auto grid w-full max-w-[1200px] gap-12 px-4 py-12 sm:px-6 md:grid-cols-[1.25fr_2fr] lg:gap-20 lg:py-16">
+          <div>
+            <Link
+              href="/"
+              aria-label="DBTLint home"
+              className="inline-flex min-h-11 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+            >
+              <span className="flex size-9 items-center justify-center rounded-lg border border-emerald-400/25 bg-emerald-400/10">
+                <Terminal
+                  aria-hidden="true"
+                  className="size-4.5 text-emerald-400"
+                />
+              </span>
+              <span className="font-mono text-sm font-semibold text-slate-50">
+                dbt<span className="text-emerald-400">lint</span>
+              </span>
+            </Link>
+            <p className="mt-4 max-w-xs text-sm leading-6 text-slate-500">
+              Reliable linting and shared standards for teams building with dbt.
+            </p>
+          </div>
 
+          <nav
+            aria-label="Footer navigation"
+            className="grid grid-cols-2 gap-8 sm:grid-cols-3"
+          >
             {footerLinks.map((column) => (
               <div key={column.title}>
-                <h4 className="text-sm font-medium text-foreground">
+                <h3 className="text-sm font-semibold text-slate-200">
                   {column.title}
-                </h4>
-                <ul className="mt-4 flex flex-col gap-3">
+                </h3>
+                <ul className="mt-4 space-y-2">
                   {column.links.map((link) => (
-                    <li key={link}>
-                      <a
-                        href={
-                          link === "Community"
-                            ? "https://discord.gg/GrF9hFjTS2"
-                            : "/"
-                        }
-                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        {link}
-                      </a>
+                    <li key={link.label}>
+                      {link.href.startsWith("/") ? (
+                        <Link
+                          href={link.href}
+                          className="inline-flex min-h-10 cursor-pointer items-center text-sm text-slate-500 transition-colors duration-200 hover:text-slate-200 focus-visible:outline-none focus-visible:text-emerald-300"
+                        >
+                          {link.label}
+                        </Link>
+                      ) : (
+                        <a
+                          href={link.href}
+                          className="inline-flex min-h-10 cursor-pointer items-center text-sm text-slate-500 transition-colors duration-200 hover:text-slate-200 focus-visible:outline-none focus-visible:text-emerald-300"
+                        >
+                          {link.label}
+                        </a>
+                      )}
                     </li>
                   ))}
                 </ul>
               </div>
             ))}
-          </div>
-
-          <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-8 sm:flex-row">
-            <p className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} DBT Lint. All rights reserved.
-            </p>
-          </div>
+          </nav>
         </div>
-      </footer>
-    </>
+
+        <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-3 border-t border-slate-800/80 px-4 py-6 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <p>© {new Date().getFullYear()} DBTLint. All rights reserved.</p>
+          <p className="font-mono">Built for reliable data work.</p>
+        </div>
+      </div>
+    </footer>
   );
 }
