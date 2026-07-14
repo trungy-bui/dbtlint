@@ -58,6 +58,20 @@ function formatNotificationTime(date: Date | string | null) {
   return `${Math.floor(diffInSeconds / 86_400)}d ago`;
 }
 
+function getNotificationGroup(
+  date: Date | string | null,
+): "New" | "Earlier" | "Older" {
+  if (!date) return "New";
+
+  const timestamp = typeof date === "string" ? new Date(date) : date;
+  const diffInMilliseconds = Math.max(0, Date.now() - timestamp.getTime());
+
+  if (diffInMilliseconds < 60_000) return "New";
+  if (diffInMilliseconds < 86_400_000) return "Earlier";
+
+  return "Older";
+}
+
 function statusTextClass(status: string | undefined) {
   switch (status) {
     case "passed":
@@ -147,51 +161,68 @@ export function DashboardNavbar({
               ) : null}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
+            <DropdownMenuGroup className="max-h-80 overflow-y-auto">
               {notifications.length > 0 ? (
-                notifications.map((notification) => {
+                notifications.map((notification, index) => {
                   const isUnread = !notification.readAt;
+                  const currentGroup = getNotificationGroup(
+                    notification.createdAt,
+                  );
+                  const previousGroup =
+                    index > 0
+                      ? getNotificationGroup(notifications[index - 1].createdAt)
+                      : null;
+                  const showLabel =
+                    index === 0 || previousGroup !== currentGroup;
 
                   return (
-                    <DropdownMenuItem
-                      key={notification.id}
-                      onSelect={(e) => e.preventDefault()}
-                      className="flex-col items-start gap-0.5"
-                    >
-                      <div className="flex w-full items-center justify-between gap-2">
-                        <span className="text-sm font-medium">
-                          {notification.scanId && notification.scanInfo
-                            ? `Scan ${notification.scanInfo.project}`
-                            : "General update"}
+                    <div key={notification.id}>
+                      {showLabel ? (
+                        <span className="px-2 pb-1 pt-2 text-[11px] text-muted-foreground">
+                          {currentGroup}
                         </span>
-                        <div className="flex shrink-0 items-center gap-2">
-                          {notification.scanId && notification.scanInfo && (
-                            <span
-                              className={cn(
-                                "text-xs font-medium capitalize",
-                                statusTextClass(notification.scanInfo.status),
-                              )}
-                            >
-                              {notification.scanInfo.status}
-                            </span>
-                          )}
-                          {isUnread ? (
-                            <button
-                              type="button"
-                              title="Mark as read"
-                              disabled={isPending}
-                              onClick={() => handleMarkOneRead(notification.id)}
-                              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-                            >
-                              <Check className="size-3.5" />
-                            </button>
-                          ) : null}
+                      ) : null}
+                      <DropdownMenuItem
+                        onSelect={(e) => e.preventDefault()}
+                        className="flex-col items-start gap-0.5"
+                      >
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span className="text-sm font-medium">
+                            {notification.scanId && notification.scanInfo
+                              ? `Scan ${notification.scanInfo.project}`
+                              : "General update"}
+                          </span>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {notification.scanId && notification.scanInfo && (
+                              <span
+                                className={cn(
+                                  "text-xs font-medium capitalize",
+                                  statusTextClass(notification.scanInfo.status),
+                                )}
+                              >
+                                {notification.scanInfo.status}
+                              </span>
+                            )}
+                            {isUnread ? (
+                              <button
+                                type="button"
+                                title="Mark as read"
+                                disabled={isPending}
+                                onClick={() =>
+                                  handleMarkOneRead(notification.id)
+                                }
+                                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                              >
+                                <Check className="size-3.5" />
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {formatNotificationTime(notification.createdAt)}
-                      </span>
-                    </DropdownMenuItem>
+                        <span className="text-xs text-muted-foreground">
+                          {formatNotificationTime(notification.createdAt)}
+                        </span>
+                      </DropdownMenuItem>
+                    </div>
                   );
                 })
               ) : (
