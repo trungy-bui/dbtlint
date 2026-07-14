@@ -3,7 +3,7 @@ import * as Sentry from "@sentry/nextjs";
 import { auth, tasks } from "@trigger.dev/sdk";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { count, eq } from "drizzle-orm";
+import { and, count, eq, gte, lt } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import db from "@/db";
 import { scans, users } from "@/db/schema";
@@ -13,6 +13,7 @@ import {
   FREE_PLAN_PROJECT_LIMIT,
   FREE_PLAN_SCAN_LIMIT,
 } from "@/lib/plan-limits";
+import { getCalendarMonthRange } from "@/lib/utils/time";
 import type { dbtLintTask } from "@/trigger/dbtLintTask";
 
 const rateLimit = new Ratelimit({
@@ -89,10 +90,17 @@ export async function POST(request: Request) {
       });
 
     const scansCountSelectStart = performance.now();
+    const { monthStart, nextMonthStart } = getCalendarMonthRange();
     const scansCountSelectPromise = db
       .select({ scanCount: count() })
       .from(scans)
-      .where(eq(scans.userId, user.id))
+      .where(
+        and(
+          eq(scans.userId, user.id),
+          gte(scans.createdAt, monthStart),
+          lt(scans.createdAt, nextMonthStart),
+        ),
+      )
       .finally(() => {
         scansCountSelectMs = performance.now() - scansCountSelectStart;
       });

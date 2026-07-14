@@ -13,11 +13,10 @@ import {
   PlanUsageProvider,
   type PlanUsageState,
 } from "@/lib/plan-usage-context";
+import { getCalendarMonthRange } from "@/lib/utils/time";
 
 async function getInitialPlanUsage(userId: string): Promise<PlanUsageState> {
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const { monthStart, nextMonthStart } = getCalendarMonthRange();
 
   const [[currentUser], [scanUsage]] = await Promise.all([
     db

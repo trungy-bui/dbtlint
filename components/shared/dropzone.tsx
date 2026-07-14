@@ -101,10 +101,29 @@ export function UploadZone({
   ).length;
   const hasReachedFreeScanLimit =
     plan === "free" && scansUsed + queuedRunnableScanCount >= scansLimit;
+  const hasReachedFreeScanLimitStrict =
+    plan === "free" && scansUsed >= scansLimit;
   const hasBlockedScans = scans.some((scan) => scan.blockReason !== null);
   const eligibleQueuedScans = scans.filter(
     (scan) => scan.blockReason === null && scan.runId === null,
   );
+
+  React.useEffect(() => {
+    if (!hasReachedFreeScanLimitStrict) return;
+
+    setScans((prev) => {
+      let hasChanged = false;
+      const next = prev.map((scan) => {
+        if (scan.blockReason !== null || scan.runId !== null) return scan;
+
+        hasChanged = true;
+        return { ...scan, blockReason: "scan-limit" as const };
+      });
+
+      return hasChanged ? next : prev;
+    });
+    setIsLimitBannerDismissed(false);
+  }, [hasReachedFreeScanLimitStrict]);
 
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -172,6 +191,15 @@ export function UploadZone({
   const handleRunLint = async (id: string) => {
     const item = scans.find((s) => s.id === id);
     if (!item || item.blockReason) return;
+    if (plan === "free" && scansUsed >= scansLimit) {
+      setScans((prev) =>
+        prev.map((scan) =>
+          scan.id === id ? { ...scan, blockReason: "scan-limit" } : scan,
+        ),
+      );
+      setIsLimitBannerDismissed(false);
+      return;
+    }
     const setSubmitting = (isSubmitting: boolean) => {
       setScans((prev) =>
         prev.map((s) => (s.id === id ? { ...s, isSubmitting } : s)),

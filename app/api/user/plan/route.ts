@@ -3,6 +3,7 @@ import db from "@/db";
 import { scans, users } from "@/db/schema";
 import { getUser } from "@/lib/auth";
 import { FREE_PLAN_SCAN_LIMIT } from "@/lib/plan-limits";
+import { getCalendarMonthRange } from "@/lib/utils/time";
 
 type UserPlan = "free" | "team";
 
@@ -30,9 +31,7 @@ export async function GET() {
   }
 
   try {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const { monthStart, nextMonthStart } = getCalendarMonthRange();
 
     const [[currentUser], [scanUsage]] = await Promise.all([
       db
