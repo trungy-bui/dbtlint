@@ -8,6 +8,8 @@ const forwardedUserHeaders = [
   "x-user-metadata",
 ] as const;
 
+const protectedRoutes = ["/dashboard", "/projects", "/upload", "/rules", "/billing", "/settings", "/profile"];
+
 function createForwardedResponse(requestHeaders: Headers) {
   return NextResponse.next({
     request: {
@@ -103,7 +105,7 @@ export async function updateSession(request: NextRequest) {
     );
   }
 
-  if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
+  if (!user && protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route))) {
     const response = NextResponse.redirect(new URL("/login", request.url));
     supabaseResponse.cookies.getAll().forEach((cookie) => {
       response.cookies.set(cookie);
