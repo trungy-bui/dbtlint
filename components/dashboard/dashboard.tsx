@@ -26,7 +26,10 @@ export async function Dashboard({ user }: DashboardProps) {
         <div className="xl:col-span-2">
           <RecentScansTable recentScans={recentScans} />
         </div>
-        <UploadZone compact {...uploadPlanState} />
+        <UploadZone
+          compact
+          existingProjects={uploadPlanState.existingProjects}
+        />
       </div>
     </div>
   );

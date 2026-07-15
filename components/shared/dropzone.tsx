@@ -24,11 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getUser } from "@/lib/auth";
-import {
-  deriveProjectName,
-  FREE_PLAN_PROJECT_LIMIT,
-  type Plan,
-} from "@/lib/plan-limits";
+import { deriveProjectName, FREE_PLAN_PROJECT_LIMIT } from "@/lib/plan-limits";
 import { usePlanUsage } from "@/lib/plan-usage-context";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -62,9 +58,7 @@ type BlockReason = "project-limit" | "scan-limit";
 type UploadZoneProps = {
   className?: string;
   compact?: boolean;
-  plan?: Plan;
   existingProjects?: string[];
-  scanCount?: number;
 };
 
 type ScanItem = {
@@ -86,15 +80,27 @@ export function UploadZone({
 }: UploadZoneProps) {
   const { plan, scansUsed, scansLimit, bumpScansUsed } = usePlanUsage();
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const listEndRef = React.useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const [scans, setScans] = React.useState<ScanItem[]>([]);
   const [isLintingAll, setIsLintingAll] = React.useState(false);
   const [isLimitBannerDismissed, setIsLimitBannerDismissed] =
     React.useState(false);
-  const existingProjectSet = React.useMemo(
-    () => new Set(existingProjects),
-    [existingProjects],
+  const [existingProjectState, setExistingProjectState] = React.useState(
+    () => ({
+      names: new Set(existingProjects),
+      count: existingProjects.length,
+    }),
   );
+  const existingProjectSet = existingProjectState.names;
+
+  React.useEffect(() => {
+    setExistingProjectState({
+      names: new Set(existingProjects),
+      count: existingProjects.length,
+    });
+  }, [existingProjects]);
+
   const blockedReason = scans.find((scan) => scan.blockReason)?.blockReason;
   const queuedRunnableScanCount = scans.filter(
     (scan) => scan.blockReason === null && scan.runId === null,
@@ -107,6 +113,12 @@ export function UploadZone({
   const eligibleQueuedScans = scans.filter(
     (scan) => scan.blockReason === null && scan.runId === null,
   );
+
+  React.useEffect(() => {
+    if (scans.length === 0) return;
+
+    listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [scans.length]);
 
   React.useEffect(() => {
     if (!hasReachedFreeScanLimitStrict) return;
@@ -154,7 +166,7 @@ export function UploadZone({
         const wouldExceedProjectLimit =
           plan === "free" &&
           isNewProject &&
-          existingProjects.length + queuedNewProjectNames.size >=
+          existingProjectState.count + queuedNewProjectNames.size >=
             FREE_PLAN_PROJECT_LIMIT;
         const blockReason: BlockReason | null = hasReachedFreeScanLimit
           ? "scan-limit"
@@ -348,7 +360,9 @@ export function UploadZone({
         isDragging && "border-emerald-400 bg-emerald-400/10",
         compact
           ? "min-h-[220px] px-6 py-10"
-          : "min-h-[400px] px-6 py-16 md:min-h-[480px] lg:min-h-[360px]",
+          : scans.length > 0
+            ? "min-h-[160px] px-6 py-8"
+            : "min-h-[400px] px-6 py-16 md:min-h-[480px] lg:min-h-[360px]",
       )}
     >
       <input
@@ -467,6 +481,7 @@ export function UploadZone({
           }
         />
       ))}
+      <div ref={listEndRef} />
     </div>
   );
 

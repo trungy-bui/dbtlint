@@ -253,7 +253,7 @@ export function LoginForm() {
       >
         Don&apos;t have an account?{" "}
         <a
-          href="/register"
+          href={plan ? `/register?plan=${plan}` : "/register"}
           className="cursor-pointer font-medium text-emerald-400 transition-colors duration-200 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
         >
           Sign up

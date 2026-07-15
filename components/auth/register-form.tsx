@@ -341,7 +341,7 @@ export function RegisterForm() {
       >
         Already have an account?{" "}
         <a
-          href="/login"
+          href={plan ? `/login?plan=${plan}` : "/login"}
           className="cursor-pointer font-medium text-emerald-400 transition-colors duration-200 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
         >
           Log in

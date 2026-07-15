@@ -76,8 +76,8 @@ const CATEGORY_STYLES: Record<
     dot: "bg-blue-500",
   },
   Formatting: {
-    badge: "bg-zinc-500/20 text-zinc-400 hover:bg-zinc-500/30",
-    dot: "bg-zinc-500",
+    badge: "bg-slate-500/20 text-slate-400 hover:bg-slate-500/30",
+    dot: "bg-slate-500",
   },
 };
 
@@ -118,8 +118,8 @@ function ScoreGauge({ score, status }: { score: number; status: string }) {
 
   if (status === "processing") {
     return (
-      <div className="flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 p-1">
-        <div className="flex h-full w-full items-center justify-center rounded-full bg-zinc-900">
+      <div className="flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-slate-800 to-slate-900 p-1">
+        <div className="flex h-full w-full items-center justify-center rounded-full bg-slate-900">
           <Loader2 className="size-12 animate-spin text-emerald-500" />
         </div>
       </div>
@@ -276,7 +276,7 @@ function CategorySection({
 
   if (data.skipped) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/50 py-8 text-center">
+      <div className="flex flex-col items-center justify-center rounded-lg border border-slate-800 bg-slate-900/50 py-8 text-center">
         <File className="mb-2 size-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">
           {data.statusMessage ||
@@ -296,14 +296,14 @@ function CategorySection({
         return (
           <div
             key={file.filePath}
-            className="overflow-hidden rounded-md border border-zinc-800 bg-zinc-900"
+            className="overflow-hidden rounded-md border border-slate-800 bg-slate-900"
           >
             <button
               type="button"
               className="group w-full"
               onClick={() => toggleFile(file.filePath)}
             >
-              <div className="scrollbar-hide flex w-full items-center gap-3 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-900 p-3 hover:bg-zinc-800">
+              <div className="scrollbar-hide flex w-full items-center gap-3 overflow-x-auto rounded-md border border-slate-800 bg-slate-900 p-3 hover:bg-slate-800">
                 <motion.span
                   animate={{ rotate: isExpanded ? 180 : 0 }}
                   transition={{ duration: 0.2, ease: "easeOut" }}
@@ -346,7 +346,7 @@ function CategorySection({
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                   className="overflow-hidden"
                 >
-                  <div className="mt-2 space-y-2 pl-6 border-l border-zinc-800">
+                  <div className="mt-2 space-y-2 pl-6 border-l border-slate-800">
                     {friendlyViolations.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
                         No violations found
@@ -360,7 +360,7 @@ function CategorySection({
                         return (
                           <div
                             key={key}
-                            className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3"
+                            className="rounded-md border border-slate-800 bg-slate-900/50 p-3"
                           >
                             <div className="flex items-start gap-2">
                               <AlertTriangle className="mt-0.5 size-4 flex-shrink-0 text-amber-500" />
@@ -396,7 +396,7 @@ function CategorySection({
                                   technical details
                                 </button>
                                 {showTechnicalDetails && (
-                                  <div className="mt-2 space-y-1 rounded border border-zinc-800 bg-zinc-950 p-2">
+                                  <div className="mt-2 space-y-1 rounded border border-slate-800 bg-slate-950 p-2">
                                     {violation.rawCode && (
                                       <p className="font-mono text-xs text-emerald-400">
                                         {violation.rawCode}
@@ -436,13 +436,13 @@ function RecommendationGroupSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="overflow-hidden rounded-md border border-zinc-800 bg-zinc-900">
+    <div className="overflow-hidden rounded-md border border-slate-800 bg-slate-900">
       <button
         type="button"
         className="group w-full"
         onClick={() => setIsOpen((open) => !open)}
       >
-        <div className="flex w-full items-center gap-3 rounded-md border border-zinc-800 bg-zinc-900 p-3 hover:bg-zinc-800">
+        <div className="flex w-full items-center gap-3 rounded-md border border-slate-800 bg-slate-900 p-3 hover:bg-slate-800">
           <motion.span
             animate={{ rotate: isOpen ? 180 : 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
@@ -469,7 +469,7 @@ function RecommendationGroupSection({
             transition={{ duration: 0.25, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="mt-2 border-l border-zinc-800 pl-6">
+            <div className="mt-2 border-l border-slate-800 pl-6">
               <ul className="space-y-4 py-2">
                 {group.items.map((rec) => (
                   <li
@@ -547,7 +547,7 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
   const StatusIcon = getStatusIcon(data.status);
 
   return (
-    <div className="bg-void text-ink font-sans space-y-6">
+    <div className="rounded-2xl bg-slate-950 px-4 text-ink font-sans space-y-6">
       {/* Header */}
       <div className="flex items-baseline justify-between mb-8 gap-4">
         <div className="mt-2 text-ink-muted">
@@ -565,7 +565,7 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
         </div>
         <div className="space-y-4 md:col-span-2">
           <div className="grid grid-cols-2 gap-3">
-            <Card className="border border-zinc-800 bg-zinc-900 p-4">
+            <Card className="border border-slate-800 bg-slate-900 p-4">
               <div className="text-xs text-muted-foreground">Errors</div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-red-400">
@@ -573,7 +573,7 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
                 </span>
               </div>
             </Card>
-            <Card className="border border-zinc-800 bg-zinc-900 p-4">
+            <Card className="border border-slate-800 bg-slate-900 p-4">
               <div className="text-xs text-muted-foreground">Warnings</div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-amber-400">
@@ -583,13 +583,13 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
             </Card>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2">
+            <div className="rounded-md border border-slate-800 bg-slate-900/50 px-3 py-2">
               <p className="text-xs text-muted-foreground">Files Linted</p>
               <p className="font-semibold text-foreground">
                 {data.report?.totals.files || 0}
               </p>
             </div>
-            <div className="rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2">
+            <div className="rounded-md border border-slate-800 bg-slate-900/50 px-3 py-2">
               <p className="text-xs text-muted-foreground">Lines Scanned</p>
               <p className="font-semibold text-foreground">
                 {data.report?.totals.lines || 0}
@@ -601,7 +601,7 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
 
       {/* Score Trend */}
       {data.scoreHistory && data.scoreHistory.length > 0 && (
-        <Card className="border border-zinc-800 bg-zinc-900 p-4">
+        <Card className="border border-slate-800 bg-slate-900 p-4">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
               Score trend (weekly)
@@ -632,9 +632,9 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
 
       {/* Tabs Section */}
       {data.report && (
-        <Card className="border border-zinc-800 bg-zinc-900 p-0 overflow-x-hidden">
+        <Card className="border border-slate-800 bg-slate-900 p-0 overflow-x-hidden">
           <Tabs defaultValue="models" className="w-full">
-            <TabsList className="border-b border-hairline bg-void rounded-none p-0 h-auto gap-6 w-full justify-start">
+            <TabsList className="border-b border-hairline bg-slate-950 rounded-none p-0 h-auto gap-6 w-full justify-start">
               <TabsTrigger
                 value="models"
                 className="px-0 py-3 font-sans text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-code-accent data-[state=active]:bg-transparent"
@@ -679,7 +679,7 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
       )}
 
       {/* Recommendations */}
-      <Card className="border border-zinc-800 bg-zinc-900 p-6">
+      <Card className="border border-slate-800 bg-slate-900 p-6">
         <div className="mb-4 flex items-center gap-2">
           <Lightbulb className="size-5 text-amber-500" />
           <h3 className="font-semibold text-foreground">Recommendations</h3>

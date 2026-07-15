@@ -1,16 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { Plan } from "@/lib/plan-limits";
 import { UploadZone } from "../shared/dropzone";
 
 type UploadProps = {
-  plan: Plan;
   existingProjects: string[];
-  scanCount: number;
 };
 
-export function Upload({ plan, existingProjects, scanCount }: UploadProps) {
+export function Upload({ existingProjects }: UploadProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -18,7 +15,7 @@ export function Upload({ plan, existingProjects, scanCount }: UploadProps) {
       transition={{ duration: 0.35, ease: "easeOut" }}
       className="relative isolate mx-auto flex w-full max-w-5xl flex-col gap-8 text-slate-100 before:fixed before:inset-0 before:-z-10 before:bg-slate-950"
     >
-      <div className="flex flex-col gap-2 border-b border-slate-800 pb-6">
+      <div className="flex flex-col gap-2 pb-2">
         <p className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-emerald-400">
           New lint run
         </p>
@@ -30,11 +27,7 @@ export function Upload({ plan, existingProjects, scanCount }: UploadProps) {
           test, and macro against your active rule set.
         </p>
       </div>
-      <UploadZone
-        plan={plan}
-        existingProjects={existingProjects}
-        scanCount={scanCount}
-      />
+      <UploadZone existingProjects={existingProjects} />
     </motion.div>
   );
 }

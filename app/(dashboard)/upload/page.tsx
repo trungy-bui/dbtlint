@@ -9,7 +9,7 @@ export default async function UploadPage() {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-top">
-      <Upload {...uploadPlanState} />
+      <Upload existingProjects={uploadPlanState.existingProjects} />
     </div>
   );
 }
