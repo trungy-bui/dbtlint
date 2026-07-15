@@ -375,7 +375,7 @@ export function UploadZone({
           Drop your dbt ZIP files here or{" "}
           <span className="text-emerald-400">click to browse</span>
         </p>
-        <p className="font-mono text-[11px] text-slate-500">
+        <p className="max-w-full whitespace-normal px-4 font-mono text-[11px] leading-relaxed text-slate-500">
           Supports .zip archives up to 50MB, multiple files allowed
         </p>
       </div>

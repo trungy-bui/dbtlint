@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Terminal } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 const footerLinks = [
@@ -34,6 +35,11 @@ const footerLinks = [
 
 export function Footer() {
   const reduceMotion = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <footer className="bg-slate-950">
@@ -42,10 +48,13 @@ export function Footer() {
         aria-labelledby="footer-cta-title"
       >
         <motion.div
-          initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+          initial={false}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          transition={{
+            duration: mounted && !reduceMotion ? 0.4 : 0,
+            ease: [0.16, 1, 0.3, 1],
+          }}
           className="relative mx-auto max-w-[1200px] overflow-hidden rounded-3xl border border-slate-700/80 bg-slate-900 px-6 py-12 shadow-[0_30px_90px_rgba(2,6,23,0.35)] sm:px-10 sm:py-14 lg:px-14"
         >
           <div

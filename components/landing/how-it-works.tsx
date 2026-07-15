@@ -7,6 +7,7 @@ import {
   GitPullRequest,
   ScanSearch,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const steps = [
   {
@@ -57,6 +58,11 @@ const item: Variants = {
 
 export function HowItWorksSection() {
   const reduceMotion = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <section
@@ -65,10 +71,13 @@ export function HowItWorksSection() {
     >
       <div className="mx-auto grid w-full max-w-[1200px] gap-12 px-4 sm:px-6 lg:grid-cols-[0.7fr_1.3fr] lg:gap-20">
         <motion.div
-          initial={reduceMotion ? false : { opacity: 0, y: 14 }}
+          initial={false}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          transition={{
+            duration: mounted && !reduceMotion ? 0.35 : 0,
+            ease: [0.16, 1, 0.3, 1],
+          }}
           className="lg:sticky lg:top-28 lg:self-start"
         >
           <p className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-emerald-400">
@@ -86,9 +95,14 @@ export function HowItWorksSection() {
 
         <motion.ol
           variants={container}
-          initial={reduceMotion ? false : "hidden"}
+          initial={false}
           whileInView="show"
           viewport={{ once: true, margin: "-70px" }}
+          transition={
+            mounted && !reduceMotion
+              ? { staggerChildren: 0.08 }
+              : { duration: 0, staggerChildren: 0 }
+          }
           className="relative space-y-4 before:absolute before:bottom-10 before:left-7 before:top-10 before:w-px before:bg-slate-800 sm:before:left-9"
         >
           {steps.map((step) => (

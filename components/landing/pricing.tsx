@@ -91,9 +91,14 @@ const item: Variants = {
 
 export function Pricing() {
   const reduceMotion = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
   const [isPlanLoading, setIsPlanLoading] = useState(true);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -141,10 +146,13 @@ export function Pricing() {
     >
       <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
         <motion.div
-          initial={reduceMotion ? false : { opacity: 0, y: 14 }}
+          initial={false}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          transition={{
+            duration: mounted && !reduceMotion ? 0.35 : 0,
+            ease: [0.16, 1, 0.3, 1],
+          }}
           className="mx-auto max-w-2xl text-center"
         >
           <p className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-emerald-400">
@@ -161,9 +169,14 @@ export function Pricing() {
 
         <motion.div
           variants={container}
-          initial={reduceMotion ? false : "hidden"}
+          initial={false}
           whileInView="show"
           viewport={{ once: true, margin: "-70px" }}
+          transition={
+            mounted && !reduceMotion
+              ? { staggerChildren: 0.07 }
+              : { duration: 0, staggerChildren: 0 }
+          }
           className="mt-12 grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3"
         >
           {plans.map((plan) => {
