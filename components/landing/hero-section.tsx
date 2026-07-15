@@ -90,7 +90,7 @@ export function HeroSection() {
   }, []);
 
   return (
-    <section className="relative overflow-hidden bg-slate-950 pb-20 pt-22 sm:pb-24 sm:pt-26 lg:pb-28 lg:pt-40">
+    <section className="relative overflow-hidden bg-slate-950 pb-20 pt-24 sm:pb-24 sm:pt-20 lg:pb-20 lg:pt-28">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-0 h-[34rem] w-[70rem] -translate-x-1/2 rounded-full bg-emerald-500/[0.08] blur-[120px]" />
         <div className="absolute inset-0 opacity-[0.035] [background-image:linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:48px_48px] [mask-image:linear-gradient(to_bottom,black,transparent_78%)]" />

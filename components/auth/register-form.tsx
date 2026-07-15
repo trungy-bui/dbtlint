@@ -107,7 +107,7 @@ export function RegisterForm() {
       }}
       initial="hidden"
       animate="show"
-      className="relative isolate w-full max-w-md overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 p-6 text-slate-100 shadow-[0_28px_80px_rgba(2,6,23,0.55)] before:fixed before:inset-0 before:-z-10 before:bg-slate-950 sm:p-8"
+      className="relative isolate w-full max-w-md overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 p-5 text-slate-100 shadow-[0_28px_80px_rgba(2,6,23,0.55)] before:fixed before:inset-0 before:-z-10 before:bg-slate-950 sm:p-6"
     >
       <motion.div
         variants={{
@@ -118,12 +118,12 @@ export function RegisterForm() {
             transition: { duration: 0.5, ease: "easeOut" },
           },
         }}
-        className="flex flex-col items-center border-b border-slate-800 pb-6"
+        className="flex flex-col items-center border-b border-slate-800 pb-4"
       >
-        <div className="flex size-12 items-center justify-center rounded-xl border border-emerald-400/25 bg-emerald-400/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-          <Terminal className="size-5 text-emerald-400" />
+        <div className="flex size-10 items-center justify-center rounded-xl border border-emerald-400/25 bg-emerald-400/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <Terminal className="size-4 text-emerald-400" />
         </div>
-        <h1 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-slate-50">
+        <h1 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-slate-50">
           Create your account
         </h1>
         <p className="mt-1 text-pretty text-center text-sm leading-6 text-slate-400">
@@ -140,12 +140,12 @@ export function RegisterForm() {
             transition: { duration: 0.5, ease: "easeOut" },
           },
         }}
-        className="mt-6"
+        className="mt-5"
       >
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(onSubmit)}
-            className="flex flex-col gap-5"
+            className="flex flex-col gap-3"
           >
             <FormField
               control={form.control}
