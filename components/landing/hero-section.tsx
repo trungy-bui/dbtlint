@@ -9,6 +9,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 const terminalLines = [
@@ -60,7 +61,6 @@ const container: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: { staggerChildren: 0.08, delayChildren: 0.05 },
   },
 };
 
@@ -83,6 +83,11 @@ const toneClass = {
 
 export function HeroSection() {
   const reduceMotion = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <section className="relative overflow-hidden bg-slate-950 pb-20 pt-32 sm:pb-24 sm:pt-36 lg:pb-28 lg:pt-40">
@@ -93,8 +98,13 @@ export function HeroSection() {
 
       <motion.div
         variants={container}
-        initial={reduceMotion ? false : "hidden"}
+        initial={false}
         animate="show"
+        transition={
+          mounted && !reduceMotion
+            ? { staggerChildren: 0.08, delayChildren: 0.05 }
+            : { duration: 0, staggerChildren: 0, delayChildren: 0 }
+        }
         className="relative mx-auto grid w-full max-w-[1200px] items-center gap-14 px-4 sm:px-6 lg:grid-cols-[1.02fr_0.98fr] lg:gap-16"
       >
         <div>
