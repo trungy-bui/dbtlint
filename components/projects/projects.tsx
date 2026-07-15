@@ -1,6 +1,6 @@
 "use client";
 
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { EmptyProjects } from "./empty-projects";
 import { ScanProjectCard } from "./scan-project";
 
@@ -26,7 +26,7 @@ export function Projects({ projects, totalProjects }: ProjectsProps) {
   return totalProjects === 0 ? (
     <EmptyProjects onUpload={() => router.push("/upload")} />
   ) : (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="relative isolate grid grid-cols-1 gap-4 text-slate-100 before:fixed before:inset-0 before:-z-10 before:bg-slate-950 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {projects.map((p) => (
         <ScanProjectCard
           key={p.scanId}

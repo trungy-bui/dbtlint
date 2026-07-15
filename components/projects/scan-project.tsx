@@ -91,11 +91,11 @@ export function ScanProjectCard({
     <button
       type="button"
       onClick={onClick}
-      className="group relative flex flex-col gap-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-5 text-left transition-all duration-200 hover:border-zinc-700 hover:shadow-lg hover:shadow-emerald-500/10"
+      className="group relative flex min-h-11 cursor-pointer flex-col gap-5 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 p-5 text-left transition-colors duration-200 hover:border-slate-700 hover:bg-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
     >
       {/* Header: Project name + Status badge */}
       <div className="flex items-start justify-between gap-3">
-        <h3 className="flex-1 text-sm font-semibold text-zinc-50 line-clamp-2">
+        <h3 className="line-clamp-2 flex-1 text-base font-semibold tracking-[-0.02em] text-slate-50">
           {displayName}
         </h3>
 
@@ -103,10 +103,10 @@ export function ScanProjectCard({
         <div
           className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
             status === "passed"
-              ? "bg-emerald-500/20 text-emerald-300"
+              ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
               : status === "failed"
-                ? "bg-red-500/20 text-red-300"
-                : "bg-blue-500/20 text-blue-300"
+                ? "border border-rose-400/20 bg-rose-400/10 text-rose-300"
+                : "border border-amber-300/20 bg-amber-300/10 text-amber-200"
           }`}
         >
           {status === "passed" && <CheckCircle2 className="size-3.5" />}
@@ -123,32 +123,36 @@ export function ScanProjectCard({
         {isProcessing ? (
           <div className="flex items-center justify-center gap-3">
             <div className="relative size-16">
-              <div className="absolute inset-0 rounded-full border-2 border-zinc-700"></div>
-              <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-emerald-400 animate-spin"></div>
+              <div className="absolute inset-0 rounded-full border-2 border-slate-700"></div>
+              <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-emerald-400 motion-reduce:animate-none"></div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <Clock className="size-6 text-zinc-400 animate-pulse" />
+                <Clock className="size-6 animate-pulse text-slate-400 motion-reduce:animate-none" />
               </div>
             </div>
-            <span className="text-sm text-zinc-400">Scanning...</span>
+            <span className="font-mono text-xs text-slate-400">Scanning…</span>
           </div>
         ) : (
           <div
-            className={`flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br ${scoreBg} border border-zinc-700`}
+            className={`flex size-24 items-center justify-center rounded-full border border-slate-700 bg-gradient-to-br ${scoreBg}`}
           >
-            <span className={`text-3xl font-bold ${scoreColor}`}>{score}</span>
+            <span
+              className={`font-mono text-3xl font-semibold tabular-nums ${scoreColor}`}
+            >
+              {score}
+            </span>
           </div>
         )}
       </div>
 
       {/* Error & Warning badges */}
       <div className="flex gap-2">
-        <div className="flex items-center gap-1.5 rounded px-2.5 py-1 bg-red-500/10 text-xs text-red-300">
+        <div className="flex items-center gap-1.5 rounded-full border border-rose-400/20 bg-rose-400/10 px-2.5 py-1 text-xs text-rose-300">
           <AlertCircle className="size-3.5" />
           <span className="font-medium">
             {errors} {errors === 1 ? "error" : "errors"}
           </span>
         </div>
-        <div className="flex items-center gap-1.5 rounded px-2.5 py-1 bg-amber-500/10 text-xs text-amber-300">
+        <div className="flex items-center gap-1.5 rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-xs text-amber-200">
           <AlertTriangle className="size-3.5" />
           <span className="font-medium">
             {warnings} {warnings === 1 ? "warning" : "warnings"}
@@ -157,7 +161,9 @@ export function ScanProjectCard({
       </div>
 
       {/* Footer: Timestamp */}
-      <div className="text-xs text-zinc-500">{relativeTime}</div>
+      <div className="border-t border-slate-800 pt-3 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-500">
+        {relativeTime}
+      </div>
     </button>
   );
 }
@@ -167,26 +173,26 @@ export function ScanProjectCard({
  */
 export function ScanProjectCardSkeleton() {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-5">
+    <div className="flex animate-pulse flex-col gap-5 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 motion-reduce:animate-none">
       {/* Header skeleton */}
       <div className="flex items-start justify-between gap-3">
-        <div className="h-4 w-3/4 rounded bg-zinc-700/50"></div>
-        <div className="h-6 w-16 rounded-full bg-zinc-700/50"></div>
+        <div className="h-4 w-3/4 rounded bg-slate-700/50"></div>
+        <div className="h-6 w-16 rounded-full bg-slate-700/50"></div>
       </div>
 
       {/* Score circle skeleton */}
       <div className="flex items-center justify-center">
-        <div className="size-24 rounded-full bg-zinc-700/50"></div>
+        <div className="size-24 rounded-full bg-slate-700/50"></div>
       </div>
 
       {/* Stat badges skeleton */}
       <div className="flex gap-2">
-        <div className="h-6 w-20 rounded bg-zinc-700/50"></div>
-        <div className="h-6 w-24 rounded bg-zinc-700/50"></div>
+        <div className="h-6 w-20 rounded bg-slate-700/50"></div>
+        <div className="h-6 w-24 rounded bg-slate-700/50"></div>
       </div>
 
       {/* Timestamp skeleton */}
-      <div className="h-3 w-24 rounded bg-zinc-700/50"></div>
+      <div className="h-3 w-24 rounded bg-slate-700/50"></div>
     </div>
   );
 }

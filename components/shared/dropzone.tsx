@@ -343,9 +343,9 @@ export function UploadZone({
         handleFiles(e.dataTransfer.files);
       }}
       className={cn(
-        "flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-border bg-muted/20 text-center outline-none transition-colors",
-        "hover:border-primary/50 hover:bg-primary/5 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/50",
-        isDragging && "border-primary bg-primary/10",
+        "flex cursor-pointer flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-700 bg-slate-950/55 text-center text-slate-100 outline-none transition-colors duration-200",
+        "hover:border-emerald-400/50 hover:bg-emerald-400/[0.04] focus-visible:border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-400/30",
+        isDragging && "border-emerald-400 bg-emerald-400/10",
         compact
           ? "min-h-[220px] px-6 py-10"
           : "min-h-[400px] px-6 py-16 md:min-h-[480px] lg:min-h-[360px]",
@@ -366,16 +366,16 @@ export function UploadZone({
       <motion.div
         animate={{ y: isDragging ? -4 : 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 20 }}
-        className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary"
+        className="flex size-12 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-400"
       >
         <UploadCloud className="size-6" />
       </motion.div>
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-foreground">
+        <p className="text-sm font-medium text-slate-100">
           Drop your dbt ZIP files here or{" "}
-          <span className="text-primary">click to browse</span>
+          <span className="text-emerald-400">click to browse</span>
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="font-mono text-[11px] text-slate-500">
           Supports .zip archives up to 50MB, multiple files allowed
         </p>
       </div>
@@ -398,14 +398,18 @@ export function UploadZone({
   const limitBanner = hasBlockedScans && !isLimitBannerDismissed && (
     <div
       role="alert"
-      className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-100"
+      className="flex flex-wrap items-start gap-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100"
     >
       <AlertTriangle className="mt-0.5 size-4 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="font-medium">{limitBannerCopy.title}</p>
         <p className="text-xs opacity-90">{limitBannerCopy.body}</p>
       </div>
-      <Button asChild size="sm">
+      <Button
+        asChild
+        size="sm"
+        className="h-9 cursor-pointer bg-emerald-400 font-semibold text-slate-950 hover:bg-emerald-300"
+      >
         <Link href="/billing">Upgrade</Link>
       </Button>
       <Button
@@ -416,6 +420,7 @@ export function UploadZone({
           setIsLimitBannerDismissed(true);
         }}
         aria-label={limitBannerCopy.dismissLabel}
+        className="cursor-pointer text-amber-200 hover:bg-amber-300/10 hover:text-amber-100"
       >
         <X />
       </Button>
@@ -423,9 +428,9 @@ export function UploadZone({
   );
 
   const list = (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
+        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500">
           {scans.length} {scans.length === 1 ? "file" : "files"} queued
         </p>
         {eligibleQueuedScans.length > 1 && (
@@ -434,6 +439,7 @@ export function UploadZone({
             variant="outline"
             onClick={handleRunAll}
             disabled={isLintingAll}
+            className="h-9 cursor-pointer border-slate-700 bg-slate-950/60 text-slate-200 hover:bg-slate-800 hover:text-white"
           >
             {isLintingAll ? (
               <>
@@ -466,10 +472,17 @@ export function UploadZone({
 
   if (compact) {
     return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle>Quick Upload</CardTitle>
-          <CardDescription>Lint dbt projects in seconds.</CardDescription>
+      <Card
+        className={cn(
+          "border border-slate-800 bg-slate-900/60 text-slate-100 shadow-none ring-0",
+          className,
+        )}
+      >
+        <CardHeader className="border-b border-slate-800 pb-4">
+          <CardTitle className="text-slate-100">Quick upload</CardTitle>
+          <CardDescription className="text-slate-400">
+            Lint dbt projects in seconds.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {dropzone}
@@ -481,7 +494,12 @@ export function UploadZone({
   }
 
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
+    <div
+      className={cn(
+        "flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-slate-100 sm:p-6",
+        className,
+      )}
+    >
       {dropzone}
       {limitBanner}
       {scans.length > 0 && list}
@@ -705,20 +723,27 @@ function SelectedFile({
   const isBlocked = Boolean(blockReason);
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-3">
+    <div className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-slate-100">
       <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <FileArchive className="size-10" />
+        <div className="flex size-10 items-center justify-center rounded-lg border border-emerald-400/20 bg-emerald-400/10 text-emerald-400">
+          <FileArchive className="size-5" />
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-sm font-medium">{name}</span>
+          <span className="truncate font-mono text-xs font-medium text-slate-200">
+            {name}
+          </span>
           <RunStatusLine
             runStatus={runStatus}
             metadata={metadata}
             isSubmitting={isSubmitting}
           />
         </div>
-        <Button onClick={onClick} size="sm" disabled={isBusy || isBlocked}>
+        <Button
+          onClick={onClick}
+          size="sm"
+          disabled={isBusy || isBlocked}
+          className="h-9 cursor-pointer bg-emerald-400 font-semibold text-slate-950 hover:bg-emerald-300"
+        >
           Run lint
         </Button>
         <Button
@@ -726,13 +751,14 @@ function SelectedFile({
           size="icon"
           onClick={onClear}
           aria-label="Remove file"
+          className="size-9 cursor-pointer text-slate-500 hover:bg-rose-400/10 hover:text-rose-300"
         >
           <X />
         </Button>
       </div>
 
       {blockReason && (
-        <p className="text-xs text-amber-700 dark:text-amber-300">
+        <p className="text-xs text-amber-300">
           {blockReason === "scan-limit"
             ? "Upgrade to Team to scan this project again "
             : "Upgrade required to scan another project "}
@@ -761,7 +787,7 @@ function RunStatusLine({
 }) {
   if (isSubmitting && (!runStatus || !RECOGNIZED_RUN_STATUSES.has(runStatus))) {
     return (
-      <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
         <Loader2 className="size-3.5 animate-spin" />
         Starting lint run...
       </span>
@@ -773,7 +799,7 @@ function RunStatusLine({
     (runStatus === "EXECUTING" || runStatus === "QUEUED")
   ) {
     return (
-      <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
         <Loader2 className="size-3.5 animate-spin" />
         {metadata.statusMessage}
       </span>
@@ -781,12 +807,12 @@ function RunStatusLine({
   }
 
   if (!runStatus) {
-    return <span className="text-xs text-muted-foreground">Ready to lint</span>;
+    return <span className="text-xs text-slate-500">Ready to lint</span>;
   }
 
   if (runStatus === "EXECUTING" || runStatus === "QUEUED") {
     return (
-      <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
         <Loader2 className="size-3.5 animate-spin" />
         Running lint...
       </span>
@@ -796,7 +822,7 @@ function RunStatusLine({
   if (runStatus === "COMPLETED") {
     const score = metadata?.report?.score;
     return (
-      <span className="mt-1 flex items-center gap-1.5 text-xs text-green-600">
+      <span className="mt-1 flex items-center gap-1.5 text-xs text-emerald-300">
         <CheckCircle2 className="size-3.5" />
         {score !== undefined
           ? `Lint complete · score ${score}`
@@ -807,7 +833,7 @@ function RunStatusLine({
 
   if (runStatus === "FAILED" || runStatus === "CANCELED") {
     return (
-      <span className="mt-1 flex items-center gap-1.5 text-xs text-destructive">
+      <span className="mt-1 flex items-center gap-1.5 text-xs text-rose-300">
         <XCircle className="size-3.5" />
         {metadata?.statusMessage ?? "Lint failed"}
       </span>
@@ -822,15 +848,15 @@ function ProgressBar({ progress }: { progress: number }) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
         <motion.div
-          className="h-full rounded-full bg-primary"
+          className="h-full rounded-full bg-emerald-400"
           initial={{ width: 0 }}
           animate={{ width: `${clamped}%` }}
           transition={{ type: "spring", stiffness: 100, damping: 20 }}
         />
       </div>
-      <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
+      <span className="w-9 shrink-0 text-right font-mono text-[10px] tabular-nums text-slate-500">
         {Math.round(clamped)}%
       </span>
     </div>

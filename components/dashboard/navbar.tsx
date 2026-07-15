@@ -28,9 +28,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import type { getScanById, Notification } from "@/lib/dashboard";
+import { markNotificationsAsRead } from "@/lib/notifications";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { markNotificationsAsRead } from "@/lib/notifications";
 
 type DashboardNotification = Notification & {
   scanInfo?: Awaited<ReturnType<typeof getScanById>>[number];
@@ -75,11 +75,11 @@ function getNotificationGroup(
 function statusTextClass(status: string | undefined) {
   switch (status) {
     case "passed":
-      return "text-green-500";
+      return "text-emerald-300";
     case "failed":
-      return "text-red-500";
+      return "text-rose-300";
     default:
-      return "text-muted-foreground";
+      return "text-slate-400";
   }
 }
 
@@ -125,27 +125,42 @@ export function DashboardNavbar({
   };
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur-md md:px-6">
-      <SidebarTrigger className="-ml-1" />
-      <Separator orientation="vertical" className="mr-1 h-5" />
-      <h1 className="text-sm font-medium text-foreground">{title}</h1>
+    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b border-slate-800/80 bg-slate-950/85 px-4 text-slate-100 backdrop-blur-xl md:px-6">
+      <SidebarTrigger className="-ml-1 size-10 cursor-pointer text-slate-400 hover:bg-slate-800 hover:text-slate-100" />
+      <Separator orientation="vertical" className="mr-1 h-5 bg-slate-800" />
+      <div className="flex items-center gap-2">
+        <span className="size-1.5 rounded-full bg-emerald-400" />
+        <h1 className="font-mono text-xs font-medium uppercase tracking-[0.14em] text-slate-300">
+          {title}
+        </h1>
+      </div>
 
       <div className="ml-auto flex items-center gap-1.5">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative size-10 cursor-pointer text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            >
               <Bell />
               <span className="sr-only">Notifications</span>
               {unreadNotifications.length > 0 ? (
-                <span className="absolute right-2 top-2 size-2 rounded-full bg-primary ring-2 ring-background" />
+                <span className="absolute right-2 top-2 size-2 rounded-full bg-emerald-400 ring-2 ring-slate-950" />
               ) : null}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
+          <DropdownMenuContent
+            align="end"
+            className="w-80 border-slate-700 bg-slate-900 text-slate-100 shadow-[0_20px_60px_rgba(2,6,23,0.5)]"
+          >
             <DropdownMenuLabel className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 Notifications
-                <Badge variant="secondary">
+                <Badge
+                  variant="secondary"
+                  className="border border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
+                >
                   {unreadNotifications.length} new
                 </Badge>
               </span>
@@ -154,13 +169,13 @@ export function DashboardNavbar({
                   type="button"
                   onClick={handleMarkAllRead}
                   disabled={isPending}
-                  className="text-xs font-normal text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  className="min-h-9 cursor-pointer rounded-md px-2 text-xs font-normal text-slate-400 transition-colors duration-200 hover:bg-slate-800 hover:text-slate-100 disabled:opacity-50"
                 >
                   Mark all as read
                 </button>
               ) : null}
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="bg-slate-800" />
             <DropdownMenuGroup className="max-h-80 overflow-y-auto">
               {notifications.length > 0 ? (
                 notifications.map((notification, index) => {
@@ -178,13 +193,13 @@ export function DashboardNavbar({
                   return (
                     <div key={notification.id}>
                       {showLabel ? (
-                        <span className="px-2 pb-1 pt-2 text-[11px] text-muted-foreground">
+                        <span className="px-2 pb-1 pt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500">
                           {currentGroup}
                         </span>
                       ) : null}
                       <DropdownMenuItem
                         onSelect={(e) => e.preventDefault()}
-                        className="flex-col items-start gap-0.5"
+                        className="flex-col items-start gap-0.5 rounded-lg text-slate-200 focus:bg-slate-800 focus:text-white"
                       >
                         <div className="flex w-full items-center justify-between gap-2">
                           <span className="text-sm font-medium">
@@ -211,14 +226,15 @@ export function DashboardNavbar({
                                 onClick={() =>
                                   handleMarkOneRead(notification.id)
                                 }
-                                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                                aria-label="Mark notification as read"
+                                className="flex size-8 cursor-pointer items-center justify-center rounded-md text-slate-400 transition-colors duration-200 hover:bg-slate-700 hover:text-emerald-300 disabled:opacity-50"
                               >
                                 <Check className="size-3.5" />
                               </button>
                             ) : null}
                           </div>
                         </div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-slate-500">
                           {formatNotificationTime(notification.createdAt)}
                         </span>
                       </DropdownMenuItem>
@@ -227,7 +243,7 @@ export function DashboardNavbar({
                 })
               ) : (
                 <DropdownMenuItem
-                  className="flex-col items-start gap-0.5 text-muted-foreground"
+                  className="flex-col items-start gap-0.5 text-slate-500"
                   disabled
                 >
                   <span className="text-sm font-medium">No notifications</span>
@@ -240,45 +256,54 @@ export function DashboardNavbar({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-10 gap-2 px-1.5 md:pr-2.5">
+            <Button
+              variant="ghost"
+              className="h-11 cursor-pointer gap-2 px-1.5 text-slate-200 hover:bg-slate-800 hover:text-white md:pr-2.5"
+            >
               <Avatar className="size-7 rounded-md">
-                <AvatarFallback className="rounded-md bg-primary/15 text-xs font-medium text-primary">
+                <AvatarFallback className="rounded-md border border-emerald-400/20 bg-emerald-400/10 text-xs font-medium text-emerald-300">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden flex-col items-start leading-tight md:flex">
                 <span className="text-xs font-medium">{fullName}</span>
-                <span className="text-[11px] text-muted-foreground">
-                  {email}
-                </span>
+                <span className="text-[11px] text-slate-500">{email}</span>
               </div>
-              <ChevronsUpDown className="hidden text-muted-foreground md:block" />
+              <ChevronsUpDown className="hidden text-slate-500 md:block" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent
+            align="end"
+            className="w-56 border-slate-700 bg-slate-900 text-slate-100 shadow-[0_20px_60px_rgba(2,6,23,0.5)]"
+          >
             <DropdownMenuLabel className="flex flex-col gap-0.5">
               <span className="text-sm font-medium">{fullName}</span>
-              <span className="text-xs font-normal text-muted-foreground">
+              <span className="text-xs font-normal text-slate-500">
                 {email}
               </span>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="bg-slate-800" />
             <DropdownMenuGroup>
               <DropdownMenuItem
+                className="cursor-pointer focus:bg-slate-800 focus:text-white"
                 onClick={() => router.push("/dashboard/settings")}
               >
                 <User />
                 Profile
               </DropdownMenuItem>
               <DropdownMenuItem
+                className="cursor-pointer focus:bg-slate-800 focus:text-white"
                 onClick={() => router.push("/dashboard/settings")}
               >
                 <Settings />
                 Settings
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut}>
+            <DropdownMenuSeparator className="bg-slate-800" />
+            <DropdownMenuItem
+              onClick={handleSignOut}
+              className="cursor-pointer text-rose-300 focus:bg-rose-400/10 focus:text-rose-200"
+            >
               <LogOut />
               Sign out
             </DropdownMenuItem>

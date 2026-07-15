@@ -98,7 +98,7 @@ export function HowItWorksSection() {
               className="group relative rounded-2xl border border-zinc-900 bg-zinc-950/55 p-5 transition-colors duration-200 hover:border-zinc-800 sm:p-7"
             >
               <div className="grid gap-5 sm:grid-cols-[3.5rem_1fr]">
-                <span className="relative z-10 flex size-14 items-center justify-center rounded-xl border border-zinc-800 bg-black font-mono text-xs font-semibold text-white shadow-[0_0_0_6px_#000] sm:size-[4.5rem]">
+                <span className="relative z-10 flex size-14 items-center justify-center rounded-xl border border-zinc-800 bg-black font-mono text-xs font-semibold text-white shadow-[0_0_0_6px_#020617] sm:size-[4.5rem]">
                   {step.number}
                 </span>
                 <div>

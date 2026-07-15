@@ -188,7 +188,7 @@ export function Pricing() {
                 variants={item}
                 className={`relative flex flex-col rounded-2xl border p-6 sm:p-7 ${
                   plan.highlighted
-                    ? "border-white/40 bg-zinc-950 shadow-[0_20px_60px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.04)]"
+                    ? "border-white/40 bg-zinc-950 shadow-[0_20px_60px_rgba(2,6,23,0.3),inset_0_1px_0_rgba(255,255,255,0.04)]"
                     : "border-zinc-900 bg-black/65"
                 }`}
               >

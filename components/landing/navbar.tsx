@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Terminal } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 const navLinks = [
@@ -13,12 +14,20 @@ const navLinks = [
 
 export function Navbar() {
   const reduceMotion = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <motion.header
-      initial={reduceMotion ? false : { opacity: 0, y: -12 }}
+      initial={false}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+      transition={{
+        duration: mounted && !reduceMotion ? 0.25 : 0,
+        ease: [0.16, 1, 0.3, 1],
+      }}
       className="fixed inset-x-0 top-0 z-50 border-b border-zinc-900/80 bg-black/85 backdrop-blur-xl"
     >
       <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center justify-between px-4 sm:px-6">
@@ -60,7 +69,7 @@ export function Navbar() {
           </Button>
           <Button
             asChild
-            className="h-10 cursor-pointer bg-white px-4 font-semibold text-black shadow-[0_0_0_1px_rgba(255,255,255,0.14),0_8px_24px_rgba(0,0,0,0.35)] hover:bg-zinc-100"
+            className="h-10 cursor-pointer bg-white px-4 font-semibold text-black shadow-[0_0_0_1px_rgba(52,211,153,0.15),0_8px_24px_rgba(16,185,129,0.16)] hover:bg-zinc-100"
           >
             <Link href="/register">Start free</Link>
           </Button>

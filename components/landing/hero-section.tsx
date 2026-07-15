@@ -132,7 +132,7 @@ export function HeroSection() {
             <Button
               asChild
               size="lg"
-              className="h-12 cursor-pointer bg-white px-6 font-semibold text-black shadow-[0_12px_32px_rgba(0,0,0,0.4)] hover:bg-zinc-100"
+              className="h-12 cursor-pointer bg-white px-6 font-semibold text-black shadow-[0_12px_32px_rgba(16,185,129,0.18)] hover:bg-zinc-100"
             >
               <Link href="/register">
                 Lint your first project
@@ -174,12 +174,12 @@ export function HeroSection() {
             aria-hidden="true"
             className="absolute -inset-5 rounded-[2rem] bg-white/[0.06] blur-2xl"
           />
-          <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/95 shadow-[0_28px_80px_rgba(0,0,0,0.65)]">
+          <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/95 shadow-[0_28px_80px_rgba(2,6,23,0.55)]">
             <div className="flex h-12 items-center justify-between border-b border-zinc-900 px-4">
               <div className="flex items-center gap-2">
-                <span className="size-2.5 rounded-full bg-zinc-700" />
-                <span className="size-2.5 rounded-full bg-zinc-500" />
-                <span className="size-2.5 rounded-full bg-zinc-200" />
+                <span className="size-2.5 rounded-full bg-rose-400/80" />
+                <span className="size-2.5 rounded-full bg-zinc-300/80" />
+                <span className="size-2.5 rounded-full bg-white/80" />
               </div>
               <div className="flex items-center gap-2 font-mono text-[11px] text-zinc-500">
                 <GitPullRequest aria-hidden="true" className="size-3.5" />

@@ -54,7 +54,7 @@ export function StatCard({ stat, value, index }: StatCardProps) {
                 className={cn(
                   "inline-flex items-center gap-1 font-medium",
                   stat.trendDirection === "up" && "text-white",
-                  stat.trendDirection === "down" && "text-zinc-300",
+                  stat.trendDirection === "down" && "text-rose-300",
                   stat.trendDirection === "flat" && "text-zinc-500",
                 )}
               >

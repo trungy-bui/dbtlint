@@ -101,9 +101,9 @@ function ScoreGauge({ score, status }: { score: number; status: string }) {
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
-  let strokeColor = "#ffffff";
-  if (score < 70) strokeColor = "#a1a1aa";
-  if (score < 50) strokeColor = "#71717a";
+  let strokeColor = "#4FBF9F";
+  if (score < 70) strokeColor = "#E3A63E";
+  if (score < 50) strokeColor = "#D65C4B";
   const prefersReducedMotion =
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -149,7 +149,7 @@ function ScoreGauge({ score, status }: { score: number; status: string }) {
           }
           className="transform -rotate-90 origin-center"
         />
-      </svg>
+      </svg> 
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center">
           <div className="font-mono text-2xl font-semibold text-zinc-100">
@@ -187,21 +187,21 @@ function ScoreTrendChart({ data }: { data: ScoreTrendPoint[] }) {
               minute: "2-digit",
             })
           }
-          tick={{ fill: "#71717a", fontSize: 11 }}
+          tick={{ fill: "#64748b", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
           domain={[0, 100]}
-          tick={{ fill: "#71717a", fontSize: 11 }}
+          tick={{ fill: "#64748b", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           width={28}
         />
         <Tooltip
           contentStyle={{
-            background: "#09090b",
-            border: "1px solid #27272a",
+            background: "#0f172a",
+            border: "1px solid #334155",
             borderRadius: 8,
             fontSize: 12,
           }}
@@ -217,9 +217,9 @@ function ScoreTrendChart({ data }: { data: ScoreTrendPoint[] }) {
         <Line
           type="monotone"
           dataKey="score"
-          stroke="#ffffff"
+          stroke="#34d399"
           strokeWidth={2}
-          dot={{ r: 3, fill: "#ffffff" }}
+          dot={{ r: 3, fill: "#34d399" }}
           activeDot={{ r: 5 }}
         />
       </LineChart>
@@ -495,6 +495,12 @@ function RecommendationGroupSection({
   );
 }
 
+function getStatusIcon(status: "passed" | "failed" | "processing"): string {
+  if (status === "passed") return "✓";
+  if (status === "failed") return "✗";
+  return "▸";
+}
+
 export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
   const recommendations = useMemo(
     () => (data.report ? buildRecommendations(data.report) : []),
@@ -532,9 +538,9 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
       {/* Header */}
       <div className="overflow-hidden rounded-2xl border border-zinc-900 bg-zinc-950/70">
         <div className="flex h-11 items-center gap-2 border-b border-zinc-900 bg-black/70 px-4">
-          <span className="size-2.5 rounded-full bg-zinc-700" />
-          <span className="size-2.5 rounded-full bg-zinc-500" />
-          <span className="size-2.5 rounded-full bg-zinc-200" />
+          <span className="size-2.5 rounded-full bg-rose-400/80" />
+          <span className="size-2.5 rounded-full bg-zinc-300/80" />
+          <span className="size-2.5 rounded-full bg-white/80" />
           <span className="ml-2 font-mono text-[10px] text-zinc-500">
             dbtlint · project report
           </span>
@@ -627,7 +633,7 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
                   data.scoreHistory[data.scoreHistory.length - 1].score >=
                   data.scoreHistory[0].score
                     ? "text-zinc-100"
-                    : "text-zinc-300"
+                    : "text-rose-300"
                 }`}
               >
                 {data.scoreHistory[data.scoreHistory.length - 1].score -

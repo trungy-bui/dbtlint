@@ -46,7 +46,7 @@ export function Footer() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="relative mx-auto max-w-[1200px] overflow-hidden rounded-3xl border border-zinc-800/80 bg-zinc-950 px-6 py-12 shadow-[0_30px_90px_rgba(0,0,0,0.55)] sm:px-10 sm:py-14 lg:px-14"
+          className="relative mx-auto max-w-[1200px] overflow-hidden rounded-3xl border border-zinc-800/80 bg-zinc-950 px-6 py-12 shadow-[0_30px_90px_rgba(2,6,23,0.35)] sm:px-10 sm:py-14 lg:px-14"
         >
           <div
             aria-hidden="true"
