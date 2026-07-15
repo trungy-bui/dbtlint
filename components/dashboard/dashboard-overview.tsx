@@ -70,17 +70,20 @@ export function DashboardOverview({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className="flex flex-col gap-1"
+        className="flex flex-col gap-2 border-b border-zinc-900 pb-6"
       >
-        <h2 className="text-2xl font-semibold tracking-tight text-balance">
+        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-white">
+          Workspace overview
+        </p>
+        <h2 className="text-balance text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
           {greeting}, {fullName}
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm leading-6 text-zinc-400">
           Here&apos;s what&apos;s happening across your dbt projects today.
         </p>
       </motion.div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {statCards.map((stat, index) => {
           const dashboardStat = dashboardStats[stat.label];
 

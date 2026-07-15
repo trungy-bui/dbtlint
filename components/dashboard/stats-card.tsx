@@ -35,31 +35,33 @@ export function StatCard({ stat, value, index }: StatCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.07, ease: "easeOut" }}
     >
-      <Card className="transition-colors hover:border-primary/40">
-        <CardContent className="flex flex-col gap-4">
+      <Card className="border border-zinc-900 bg-zinc-950/60 py-5 shadow-none ring-0 transition-colors duration-200 hover:border-zinc-800 hover:bg-zinc-950">
+        <CardContent className="flex flex-col gap-5 px-5">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{stat.label}</span>
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+              {stat.label}
+            </span>
+            <div className="flex size-10 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white">
               <Icon className="size-4.5" />
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <span className="text-3xl font-semibold tracking-tight tabular-nums">
+            <span className="font-mono text-3xl font-semibold tracking-[-0.04em] tabular-nums text-white">
               {value}
             </span>
             <div className="flex items-center gap-1.5 text-xs">
               <span
                 className={cn(
                   "inline-flex items-center gap-1 font-medium",
-                  stat.trendDirection === "up" && "text-primary",
-                  stat.trendDirection === "down" && "text-destructive",
-                  stat.trendDirection === "flat" && "text-muted-foreground",
+                  stat.trendDirection === "up" && "text-white",
+                  stat.trendDirection === "down" && "text-zinc-300",
+                  stat.trendDirection === "flat" && "text-zinc-500",
                 )}
               >
                 <TrendIcon className="size-3.5" />
                 {stat.trend}
               </span>
-              <span className="text-muted-foreground">{stat.hint}</span>
+              <span className="text-zinc-500">{stat.hint}</span>
             </div>
           </div>
         </CardContent>

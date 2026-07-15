@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
-  Clock,
   File,
   Lightbulb,
   Loader2,
@@ -60,24 +59,29 @@ const CATEGORY_STYLES: Record<
   { badge: string; dot: string }
 > = {
   "Broken query": {
-    badge: "bg-red-500/20 text-red-400 hover:bg-red-500/30",
-    dot: "bg-red-500",
+    badge:
+      "border border-rose-400/20 bg-rose-400/10 text-rose-300 hover:bg-rose-400/15",
+    dot: "bg-rose-400",
   },
   "Data risk": {
-    badge: "bg-orange-500/20 text-orange-400 hover:bg-orange-500/30",
-    dot: "bg-orange-500",
+    badge:
+      "border border-zinc-300/20 bg-zinc-300/10 text-zinc-300 hover:bg-zinc-300/15",
+    dot: "bg-zinc-300",
   },
   Performance: {
-    badge: "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30",
-    dot: "bg-amber-500",
+    badge:
+      "border border-zinc-300/20 bg-zinc-300/10 text-zinc-200 hover:bg-zinc-300/15",
+    dot: "bg-zinc-300",
   },
   Readability: {
-    badge: "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30",
-    dot: "bg-blue-500",
+    badge:
+      "border border-zinc-300/20 bg-zinc-300/10 text-zinc-300 hover:bg-zinc-300/15",
+    dot: "bg-zinc-300",
   },
   Formatting: {
-    badge: "bg-zinc-500/20 text-zinc-400 hover:bg-zinc-500/30",
-    dot: "bg-zinc-500",
+    badge:
+      "border border-zinc-400/20 bg-zinc-400/10 text-zinc-300 hover:bg-zinc-400/15",
+    dot: "bg-zinc-400",
   },
 };
 
@@ -93,34 +97,22 @@ function getRelativeTime(isoDate: string): string {
   return past.toLocaleDateString();
 }
 
-function getScoreColor(
-  score: number,
-):
-  | "from-emerald-500 to-emerald-600"
-  | "from-amber-500 to-amber-600"
-  | "from-red-500 to-red-600" {
-  if (score >= 90) return "from-emerald-500 to-emerald-600";
-  if (score >= 70) return "from-amber-500 to-amber-600";
-  return "from-red-500 to-red-600";
-}
-
 function ScoreGauge({ score, status }: { score: number; status: string }) {
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
-  const colorClass = getScoreColor(score);
-  let strokeColor = "#4FBF9F";
-  if (score < 70) strokeColor = "#E3A63E";
-  if (score < 50) strokeColor = "#D65C4B";
+  let strokeColor = "#ffffff";
+  if (score < 70) strokeColor = "#a1a1aa";
+  if (score < 50) strokeColor = "#71717a";
   const prefersReducedMotion =
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   if (status === "processing") {
     return (
-      <div className="flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 p-1">
-        <div className="flex h-full w-full items-center justify-center rounded-full bg-zinc-900">
-          <Loader2 className="size-12 animate-spin text-emerald-500" />
+      <div className="flex size-32 items-center justify-center rounded-full border border-zinc-800 bg-zinc-950 p-1">
+        <div className="flex size-full items-center justify-center rounded-full bg-black">
+          <Loader2 className="size-10 animate-spin text-white motion-reduce:animate-none" />
         </div>
       </div>
     );
@@ -136,7 +128,7 @@ function ScoreGauge({ score, status }: { score: number; status: string }) {
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
-          className="text-panel-raised"
+          className="text-zinc-900"
         />
         <motion.circle
           cx="60"
@@ -157,20 +149,15 @@ function ScoreGauge({ score, status }: { score: number; status: string }) {
           }
           className="transform -rotate-90 origin-center"
         />
-        <text
-          x="60"
-          y="60"
-          textAnchor="middle"
-          dy="0.3em"
-          className="fill-ink font-mono text-2xl font-bold"
-        >
-          {score}
-        </text>
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-2xl font-bold text-foreground">{score}</div>
-          <div className="text-xs text-muted-foreground">Score</div>
+          <div className="font-mono text-2xl font-semibold text-zinc-100">
+            {score}
+          </div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">
+            Score
+          </div>
         </div>
       </div>
     </div>
@@ -180,7 +167,7 @@ function ScoreGauge({ score, status }: { score: number; status: string }) {
 function ScoreTrendChart({ data }: { data: ScoreTrendPoint[] }) {
   if (data.length < 2) {
     return (
-      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-32 items-center justify-center text-sm text-zinc-500">
         Not enough history yet — check back after a few more runs
       </div>
     );
@@ -213,7 +200,7 @@ function ScoreTrendChart({ data }: { data: ScoreTrendPoint[] }) {
         />
         <Tooltip
           contentStyle={{
-            background: "#18181b",
+            background: "#09090b",
             border: "1px solid #27272a",
             borderRadius: 8,
             fontSize: 12,
@@ -230,9 +217,9 @@ function ScoreTrendChart({ data }: { data: ScoreTrendPoint[] }) {
         <Line
           type="monotone"
           dataKey="score"
-          stroke="#4FBF9F"
+          stroke="#ffffff"
           strokeWidth={2}
-          dot={{ r: 3, fill: "#4FBF9F" }}
+          dot={{ r: 3, fill: "#ffffff" }}
           activeDot={{ r: 5 }}
         />
       </LineChart>
@@ -276,9 +263,9 @@ function CategorySection({
 
   if (data.skipped) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/50 py-8 text-center">
-        <File className="mb-2 size-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-800 bg-black/50 py-10 text-center">
+        <File className="mb-2 size-8 text-zinc-500" />
+        <p className="text-sm text-zinc-400">
           {data.statusMessage ||
             `No ${category.toLowerCase()} found in this dbt project`}
         </p>
@@ -287,7 +274,7 @@ function CategorySection({
   }
 
   return (
-    <div className="space-y-2 max-h-96 overflow-y-auto">
+    <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
       {data.files.map((file) => {
         const fileName = file.filePath.split("/").pop() || file.filePath;
         const isExpanded = expandedFiles.has(file.filePath);
@@ -296,44 +283,42 @@ function CategorySection({
         return (
           <div
             key={file.filePath}
-            className="overflow-hidden rounded-md border border-zinc-800 bg-zinc-900"
+            className="overflow-hidden rounded-xl border border-zinc-900 bg-black/55"
           >
             <button
               type="button"
-              className="group w-full"
+              className="group w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
               onClick={() => toggleFile(file.filePath)}
             >
-              <div
-                className="scrollbar-hide flex w-full items-center gap-3 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-900 p-3 hover:bg-zinc-800"
-              >
+              <div className="scrollbar-hide flex min-h-11 w-full items-center gap-3 overflow-x-auto bg-black/70 p-3 transition-colors duration-200 hover:bg-zinc-900/70">
                 <motion.span
                   animate={{ rotate: isExpanded ? 180 : 0 }}
                   transition={{ duration: 0.2, ease: "easeOut" }}
                   className="flex-shrink-0"
                 >
-                  <ChevronDown className="size-4 text-muted-foreground" />
+                  <ChevronDown className="size-4 text-zinc-500" />
                 </motion.span>
-                <File className="size-4 flex-shrink-0 text-muted-foreground" />
+                <File className="size-4 flex-shrink-0 text-white" />
                 <div className="flex-1 text-left">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="whitespace-nowrap text-sm font-medium text-foreground">
+                    <p className="whitespace-nowrap font-mono text-xs font-medium text-zinc-200">
                       {fileName}
                     </p>
                     {file.errors > 0 && (
                       <Badge
                         variant="destructive"
-                        className="whitespace-nowrap bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                        className="whitespace-nowrap border border-rose-400/20 bg-rose-400/10 text-rose-300 hover:bg-rose-400/15"
                       >
                         {file.errors} error{file.errors !== 1 ? "s" : ""}
                       </Badge>
                     )}
                     {file.warnings > 0 && (
-                      <Badge className="whitespace-nowrap bg-amber-500/20 text-amber-400 hover:bg-amber-500/30">
+                      <Badge className="whitespace-nowrap border border-zinc-300/20 bg-zinc-300/10 text-zinc-200 hover:bg-zinc-300/15">
                         {file.warnings} warning{file.warnings !== 1 ? "s" : ""}
                       </Badge>
                     )}
                   </div>
-                  <p className="whitespace-nowrap text-xs text-muted-foreground">
+                  <p className="whitespace-nowrap font-mono text-[10px] text-zinc-500">
                     {file.filePath}
                   </p>
                 </div>
@@ -348,9 +333,9 @@ function CategorySection({
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                   className="overflow-hidden"
                 >
-                  <div className="mt-2 space-y-2 pl-6 border-l border-zinc-800">
+                  <div className="space-y-2 border-l border-zinc-900 p-3 pl-6">
                     {friendlyViolations.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-zinc-500">
                         No violations found
                       </p>
                     ) : (
@@ -362,13 +347,13 @@ function CategorySection({
                         return (
                           <div
                             key={key}
-                            className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3"
+                            className="rounded-lg border border-zinc-900 bg-zinc-950/60 p-3"
                           >
                             <div className="flex items-start gap-2">
-                              <AlertTriangle className="mt-0.5 size-4 flex-shrink-0 text-amber-500" />
+                              <AlertTriangle className="mt-0.5 size-4 flex-shrink-0 text-zinc-300" />
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <p className="text-sm font-medium text-foreground">
+                                  <p className="text-sm font-medium text-zinc-100">
                                     {violation.title}
                                   </p>
                                   <Badge
@@ -379,12 +364,12 @@ function CategorySection({
                                     {violation.category}
                                   </Badge>
                                 </div>
-                                <p className="mt-1 break-words text-sm text-muted-foreground">
+                                <p className="mt-1 break-words text-sm leading-6 text-zinc-400">
                                   {violation.explanation}
                                 </p>
                                 {(violation.lineNo !== undefined ||
                                   violation.linePos !== undefined) && (
-                                  <p className="mt-2 font-mono text-xs text-muted-foreground">
+                                  <p className="mt-2 font-mono text-xs text-zinc-500">
                                     Line {violation.lineNo ?? "?"}:
                                     {violation.linePos ?? "?"}
                                   </p>
@@ -392,20 +377,20 @@ function CategorySection({
                                 <button
                                   type="button"
                                   onClick={() => toggleViolationDetails(key)}
-                                  className="mt-2 text-xs text-emerald-400 hover:underline"
+                                  className="min-h-9 cursor-pointer rounded-md text-xs text-white hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                                 >
                                   {showTechnicalDetails ? "Hide" : "Show"}{" "}
                                   technical details
                                 </button>
                                 {showTechnicalDetails && (
-                                  <div className="mt-2 space-y-1 rounded border border-zinc-800 bg-zinc-950 p-2">
+                                  <div className="mt-2 space-y-1 rounded-lg border border-zinc-900 bg-black p-3">
                                     {violation.rawCode && (
-                                      <p className="font-mono text-xs text-emerald-400">
+                                      <p className="font-mono text-xs text-white">
                                         {violation.rawCode}
                                       </p>
                                     )}
                                     {violation.rawDescription && (
-                                      <p className="break-words font-mono text-xs text-muted-foreground">
+                                      <p className="break-words font-mono text-xs text-zinc-500">
                                         {violation.rawDescription}
                                       </p>
                                     )}
@@ -438,23 +423,23 @@ function RecommendationGroupSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="overflow-hidden rounded-md border border-zinc-800 bg-zinc-900">
+    <div className="overflow-hidden rounded-xl border border-zinc-900 bg-black/55">
       <button
         type="button"
-        className="group w-full"
+        className="group w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
         onClick={() => setIsOpen((open) => !open)}
       >
-        <div className="flex w-full items-center gap-3 rounded-md border border-zinc-800 bg-zinc-900 p-3 hover:bg-zinc-800">
+        <div className="flex min-h-11 w-full items-center gap-3 bg-black/70 p-3 transition-colors duration-200 hover:bg-zinc-900/70">
           <motion.span
             animate={{ rotate: isOpen ? 180 : 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
-            <ChevronDown className="size-4 text-muted-foreground" />
+            <ChevronDown className="size-4 text-zinc-500" />
           </motion.span>
           <span
             className={`inline-block size-2 flex-shrink-0 rounded-full ${CATEGORY_STYLES[group.category].dot}`}
           />
-          <span className="flex-1 text-left text-sm font-medium text-foreground">
+          <span className="flex-1 text-left text-sm font-medium text-zinc-100">
             {group.category} ({group.items.length})
           </span>
           <Badge className={CATEGORY_STYLES[group.category].badge}>
@@ -471,7 +456,7 @@ function RecommendationGroupSection({
             transition={{ duration: 0.25, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="mt-2 border-l border-zinc-800 pl-6">
+            <div className="border-l border-zinc-900 p-3 pl-6">
               <ul className="space-y-4 py-2">
                 {group.items.map((rec) => (
                   <li
@@ -483,19 +468,19 @@ function RecommendationGroupSection({
                     />
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-foreground">
+                        <span className="font-medium text-zinc-100">
                           {rec.title}
                         </span>
                         {rec.occurrences > 1 && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-zinc-500">
                             {rec.occurrences} occurrences
                           </span>
                         )}
                       </div>
-                      <p className="break-words text-muted-foreground">
+                      <p className="break-words text-zinc-400">
                         {rec.explanation}
                       </p>
-                      <p className="break-words text-xs text-muted-foreground/80">
+                      <p className="break-words text-xs text-zinc-500">
                         {rec.impact}
                       </p>
                     </div>
@@ -508,12 +493,6 @@ function RecommendationGroupSection({
       </AnimatePresence>
     </div>
   );
-}
-
-function getStatusIcon(status: "passed" | "failed" | "processing"): string {
-  if (status === "passed") return "✓";
-  if (status === "failed") return "✗";
-  return "▸";
 }
 
 export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
@@ -531,69 +510,103 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
     passed: {
       icon: CheckCircle2,
       label: "Passed",
-      color: "bg-emerald-500/20 text-emerald-400",
+      color: "border border-white/20 bg-white/10 text-zinc-100",
     },
     failed: {
       icon: XCircle,
       label: "Failed",
-      color: "bg-red-500/20 text-red-400",
+      color: "border border-rose-400/20 bg-rose-400/10 text-rose-300",
     },
     processing: {
       icon: Loader2,
       label: "Processing",
-      color: "bg-amber-500/20 text-amber-400",
+      color: "border border-zinc-300/20 bg-zinc-300/10 text-zinc-200",
     },
   };
 
   const status = statusConfig[data.status];
-  const StatusIcon = getStatusIcon(data.status);
+  const StatusIcon = status.icon;
 
   return (
-    <div className="bg-void text-ink font-sans space-y-6">
+    <div className="relative isolate space-y-6 font-sans text-zinc-100 before:fixed before:inset-0 before:-z-10 before:bg-black">
       {/* Header */}
-      <div className="flex items-baseline justify-between mb-8 gap-4">
-        <div className="mt-2 text-ink-muted">
-          <span className="ml-2">
-            {data.report?.totals.files || 0} files linted ·{" "}
-            {data.report?.totals.lines} lines scanned · {relativeTime}
+      <div className="overflow-hidden rounded-2xl border border-zinc-900 bg-zinc-950/70">
+        <div className="flex h-11 items-center gap-2 border-b border-zinc-900 bg-black/70 px-4">
+          <span className="size-2.5 rounded-full bg-zinc-700" />
+          <span className="size-2.5 rounded-full bg-zinc-500" />
+          <span className="size-2.5 rounded-full bg-zinc-200" />
+          <span className="ml-2 font-mono text-[10px] text-zinc-500">
+            dbtlint · project report
+          </span>
+        </div>
+        <div className="flex flex-col justify-between gap-4 p-5 sm:flex-row sm:items-center sm:p-6">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-white">
+              Latest lint run
+            </p>
+            <h2 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-white sm:text-2xl">
+              {data.project}
+            </h2>
+            <p className="mt-2 font-mono text-[11px] text-zinc-500">
+              {data.report?.totals.files || 0} files linted ·{" "}
+              {data.report?.totals.lines} lines scanned · {relativeTime}
+            </p>
+          </div>
+          <span
+            className={`inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${status.color}`}
+          >
+            <span
+              className={`[&_svg]:size-3.5 ${data.status === "processing" ? "animate-spin motion-reduce:animate-none" : ""}`}
+            >
+              <StatusIcon />
+            </span>
+            {status.label}
           </span>
         </div>
       </div>
 
       {/* Score and Stats */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div className="flex justify-center md:col-span-1">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="flex items-center justify-center rounded-2xl border border-zinc-900 bg-zinc-950/60 p-6 lg:col-span-1">
           <ScoreGauge score={data.score} status={data.status} />
         </div>
-        <div className="space-y-4 md:col-span-2">
+        <div className="space-y-4 lg:col-span-2">
           <div className="grid grid-cols-2 gap-3">
-            <Card className="border border-zinc-800 bg-zinc-900 p-4">
-              <div className="text-xs text-muted-foreground">Errors</div>
+            <Card className="border border-zinc-900 bg-zinc-950/60 p-4 shadow-none ring-0">
+              <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">
+                Errors
+              </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-red-400">
+                <span className="font-mono text-2xl font-semibold tabular-nums text-rose-300">
                   {data.errors}
                 </span>
               </div>
             </Card>
-            <Card className="border border-zinc-800 bg-zinc-900 p-4">
-              <div className="text-xs text-muted-foreground">Warnings</div>
+            <Card className="border border-zinc-900 bg-zinc-950/60 p-4 shadow-none ring-0">
+              <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">
+                Warnings
+              </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-amber-400">
+                <span className="font-mono text-2xl font-semibold tabular-nums text-zinc-200">
                   {data.warnings}
                 </span>
               </div>
             </Card>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2">
-              <p className="text-xs text-muted-foreground">Files Linted</p>
-              <p className="font-semibold text-foreground">
+            <div className="rounded-xl border border-zinc-900 bg-black/55 px-4 py-3">
+              <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">
+                Files linted
+              </p>
+              <p className="mt-1 font-mono font-semibold tabular-nums text-zinc-100">
                 {data.report?.totals.files || 0}
               </p>
             </div>
-            <div className="rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2">
-              <p className="text-xs text-muted-foreground">Lines Scanned</p>
-              <p className="font-semibold text-foreground">
+            <div className="rounded-xl border border-zinc-900 bg-black/55 px-4 py-3">
+              <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">
+                Lines scanned
+              </p>
+              <p className="mt-1 font-mono font-semibold tabular-nums text-zinc-100">
                 {data.report?.totals.lines || 0}
               </p>
             </div>
@@ -603,9 +616,9 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
 
       {/* Score Trend */}
       {data.scoreHistory && data.scoreHistory.length > 0 && (
-        <Card className="border border-zinc-800 bg-zinc-900 p-4">
+        <Card className="border border-zinc-900 bg-zinc-950/60 p-5 shadow-none ring-0">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
+            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">
               Score trend (weekly)
             </span>
             {data.scoreHistory.length >= 2 && (
@@ -613,8 +626,8 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
                 className={`text-xs font-medium ${
                   data.scoreHistory[data.scoreHistory.length - 1].score >=
                   data.scoreHistory[0].score
-                    ? "text-emerald-400"
-                    : "text-red-400"
+                    ? "text-zinc-100"
+                    : "text-zinc-300"
                 }`}
               >
                 {data.scoreHistory[data.scoreHistory.length - 1].score -
@@ -634,24 +647,24 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
 
       {/* Tabs Section */}
       {data.report && (
-        <Card className="border border-zinc-800 bg-zinc-900 p-0 overflow-x-hidden">
+        <Card className="overflow-x-hidden border border-zinc-900 bg-zinc-950/60 p-0 shadow-none ring-0">
           <Tabs defaultValue="models" className="w-full">
-            <TabsList className="border-b border-hairline bg-void rounded-none p-0 h-auto gap-6 w-full justify-start">
+            <TabsList className="h-auto w-full justify-start gap-2 rounded-none border-b border-zinc-900 bg-black/55 p-2">
               <TabsTrigger
                 value="models"
-                className="px-0 py-3 font-sans text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-code-accent data-[state=active]:bg-transparent"
+                className="min-h-10 cursor-pointer rounded-lg border border-transparent px-4 py-2 font-sans text-sm text-zinc-400 data-[state=active]:border-white/20 data-[state=active]:bg-white/10 data-[state=active]:text-zinc-100"
               >
                 Models
               </TabsTrigger>
               <TabsTrigger
                 value="tests"
-                className="px-0 py-3 font-sans text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-code-accent data-[state=active]:bg-transparent"
+                className="min-h-10 cursor-pointer rounded-lg border border-transparent px-4 py-2 font-sans text-sm text-zinc-400 data-[state=active]:border-white/20 data-[state=active]:bg-white/10 data-[state=active]:text-zinc-100"
               >
                 Tests
               </TabsTrigger>
               <TabsTrigger
                 value="macros"
-                className="px-0 py-3 font-sans text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-code-accent data-[state=active]:bg-transparent"
+                className="min-h-10 cursor-pointer rounded-lg border border-transparent px-4 py-2 font-sans text-sm text-zinc-400 data-[state=active]:border-white/20 data-[state=active]:bg-white/10 data-[state=active]:text-zinc-100"
               >
                 Macros
               </TabsTrigger>
@@ -681,13 +694,13 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
       )}
 
       {/* Recommendations */}
-      <Card className="border border-zinc-800 bg-zinc-900 p-6">
+      <Card className="border border-zinc-900 bg-zinc-950/60 p-5 shadow-none ring-0 sm:p-6">
         <div className="mb-4 flex items-center gap-2">
-          <Lightbulb className="size-5 text-amber-500" />
-          <h3 className="font-semibold text-foreground">Recommendations</h3>
+          <Lightbulb className="size-5 text-zinc-300" />
+          <h3 className="font-semibold text-zinc-100">Recommendations</h3>
         </div>
         {recommendations.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm leading-6 text-zinc-400">
             Continue following dbt best practices for optimal project health.
           </p>
         ) : (
