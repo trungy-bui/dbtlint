@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
 import { Upload } from "lucide-react";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +25,7 @@ export function EmptyProjects({ onUpload }: EmptyProjectsProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
     >
-      <Empty className="border border-dashed border-border bg-card/40 py-16">
+      <Empty className="relative isolate overflow-hidden rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 py-16 text-slate-100 before:fixed before:inset-0 before:-z-10 before:bg-slate-950">
         <EmptyHeader>
           <EmptyMedia>
             <Image
@@ -33,18 +33,23 @@ export function EmptyProjects({ onUpload }: EmptyProjectsProps) {
               alt="An empty project box illustration"
               width={180}
               height={180}
-              className="opacity-90"
+              className="opacity-75 grayscale"
               unoptimized
             />
           </EmptyMedia>
-          <EmptyTitle className="text-base">No projects yet</EmptyTitle>
-          <EmptyDescription>
+          <EmptyTitle className="text-lg font-semibold text-slate-100">
+            No projects yet
+          </EmptyTitle>
+          <EmptyDescription className="max-w-md leading-6 text-slate-400">
             Upload your first dbt project to start catching errors and enforcing
             conventions across your models.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button onClick={onUpload}>
+          <Button
+            onClick={onUpload}
+            className="h-11 cursor-pointer bg-emerald-400 px-5 font-semibold text-slate-950 hover:bg-emerald-300"
+          >
             <Upload data-icon="inline-start" />
             Upload your first dbt project
           </Button>

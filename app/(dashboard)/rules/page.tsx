@@ -1,6 +1,5 @@
 export default function RulesPage() {
   return (
-    <div>
-    </div>
+    <div className="relative isolate before:fixed before:inset-0 before:-z-10 before:bg-slate-950" />
   );
 }

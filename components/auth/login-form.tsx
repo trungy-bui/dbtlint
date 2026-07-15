@@ -80,22 +80,22 @@ export function LoginForm() {
       }}
       initial="hidden"
       animate="show"
-      className="w-full max-w-sm"
+      className="relative isolate w-full max-w-md overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 p-6 text-slate-100 shadow-[0_28px_80px_rgba(2,6,23,0.55)] before:fixed before:inset-0 before:-z-10 before:bg-slate-950 sm:p-8"
     >
       <motion.div
         variants={{
           hidden: { opacity: 0, y: 20 },
           show: { opacity: 1, y: 0 },
         }}
-        className="flex flex-col items-center"
+        className="flex flex-col items-center border-b border-slate-800 pb-6"
       >
-        <div className="flex size-12 items-center justify-center rounded-xl bg-emerald-500/15 ring-1 ring-emerald-500/30">
-          <Terminal className="size-6 text-emerald-400" />
+        <div className="flex size-12 items-center justify-center rounded-xl border border-emerald-400/25 bg-emerald-400/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <Terminal className="size-5 text-emerald-400" />
         </div>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
+        <h1 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-slate-50">
           Welcome back
         </h1>
-        <p className="mt-1 text-center text-sm text-muted-foreground">
+        <p className="mt-1 text-center text-sm leading-6 text-slate-400">
           Lint your dbt projects. Ship with confidence.
         </p>
       </motion.div>
@@ -105,26 +105,28 @@ export function LoginForm() {
           hidden: { opacity: 0, y: 20 },
           show: { opacity: 1, y: 0 },
         }}
-        className="mt-8"
+        className="mt-6"
       >
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(onSubmit)}
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-5"
           >
             <FormField
               control={form.control}
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel className="text-sm font-medium text-slate-300">
+                    Email
+                  </FormLabel>
                   <FormControl>
                     <Input
                       type="email"
                       placeholder="name@company.com"
                       autoComplete="email"
                       disabled={hasSubmitted}
-                      className="transition-shadow focus-visible:ring-4 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-500/60"
+                      className="h-11 border-slate-700 bg-slate-950/80 px-3 text-slate-100 placeholder:text-slate-600 focus-visible:border-emerald-400/60 focus-visible:ring-3 focus-visible:ring-emerald-400/20"
                       {...field}
                     />
                   </FormControl>
@@ -139,10 +141,12 @@ export function LoginForm() {
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-center justify-between">
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel className="text-sm font-medium text-slate-300">
+                      Password
+                    </FormLabel>
                     <a
                       href="/forgot-password"
-                      className="text-xs text-muted-foreground hover:text-foreground"
+                      className="cursor-pointer text-xs text-slate-400 transition-colors duration-200 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                     >
                       Forgot password?
                     </a>
@@ -153,7 +157,7 @@ export function LoginForm() {
                       placeholder="••••••••"
                       autoComplete="current-password"
                       disabled={hasSubmitted}
-                      className="transition-shadow focus-visible:ring-4 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-500/60"
+                      className="h-11 border-slate-700 bg-slate-950/80 px-3 text-slate-100 placeholder:text-slate-600 focus-visible:border-emerald-400/60 focus-visible:ring-3 focus-visible:ring-emerald-400/20"
                       {...field}
                     />
                   </FormControl>
@@ -163,7 +167,10 @@ export function LoginForm() {
             />
 
             {form.formState.errors.root && (
-              <p className="text-sm text-destructive">
+              <p
+                role="alert"
+                className="rounded-lg border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-sm text-rose-300"
+              >
                 {form.formState.errors.root.message}
               </p>
             )}
@@ -176,7 +183,7 @@ export function LoginForm() {
                 type="submit"
                 size="lg"
                 disabled={hasSubmitted}
-                className="h-10 w-full bg-emerald-500 text-zinc-950 hover:bg-emerald-400"
+                className="h-11 w-full cursor-pointer bg-emerald-400 font-semibold text-slate-950 shadow-[0_10px_28px_rgba(16,185,129,0.16)] hover:bg-emerald-300"
               >
                 {form.formState.isSubmitting ? (
                   <>
@@ -198,9 +205,11 @@ export function LoginForm() {
         }}
         className="my-6 flex items-center gap-3"
       >
-        <span className="h-px flex-1 bg-border" />
-        <span className="text-xs text-muted-foreground">or continue with</span>
-        <span className="h-px flex-1 bg-border" />
+        <span className="h-px flex-1 bg-slate-800" />
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
+          or continue with
+        </span>
+        <span className="h-px flex-1 bg-slate-800" />
       </motion.div>
 
       <motion.div
@@ -208,7 +217,7 @@ export function LoginForm() {
           hidden: { opacity: 0, y: 20 },
           show: { opacity: 1, y: 0 },
         }}
-        className="flex flex-col gap-4"
+        className="grid gap-3 sm:grid-cols-2"
       >
         <Button
           type="button"
@@ -216,7 +225,7 @@ export function LoginForm() {
           size="lg"
           disabled={hasSubmitted}
           onClick={() => handleOAuth("github")}
-          className="h-10 w-full"
+          className="h-11 w-full cursor-pointer border-slate-700 bg-slate-950/60 text-slate-200 hover:bg-slate-800 hover:text-white"
         >
           Sign in with GitHub
           <GitHubIcon />
@@ -228,7 +237,7 @@ export function LoginForm() {
           size="lg"
           disabled={hasSubmitted}
           onClick={() => handleOAuth("google")}
-          className="h-10 w-full"
+          className="h-11 w-full cursor-pointer border-slate-700 bg-slate-950/60 text-slate-200 hover:bg-slate-800 hover:text-white"
         >
           Sign in with Google
           <GoogleIcon />
@@ -240,12 +249,12 @@ export function LoginForm() {
           hidden: { opacity: 0, y: 20 },
           show: { opacity: 1, y: 0 },
         }}
-        className="mt-8 text-center text-sm text-muted-foreground"
+        className="mt-7 text-center text-sm text-slate-400"
       >
         Don&apos;t have an account?{" "}
         <a
           href="/register"
-          className="font-medium text-emerald-400 hover:text-emerald-300"
+          className="cursor-pointer font-medium text-emerald-400 transition-colors duration-200 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
         >
           Sign up
         </a>

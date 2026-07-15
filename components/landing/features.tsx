@@ -78,7 +78,7 @@ export function FeaturesSection() {
   return (
     <section
       id="features"
-      className="scroll-mt-20 border-y border-zinc-900/80 bg-black py-20 sm:py-24 lg:py-28"
+      className="scroll-mt-20 border-y border-slate-800/80 bg-slate-950 py-20 sm:py-24 lg:py-28"
     >
       <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
         <motion.div
@@ -89,14 +89,14 @@ export function FeaturesSection() {
           className="grid gap-6 lg:grid-cols-[0.72fr_1fr] lg:items-end"
         >
           <div>
-            <p className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-white">
+            <p className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-emerald-400">
               Built for the review loop
             </p>
-            <h2 className="mt-4 max-w-xl text-balance text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl lg:text-5xl">
+            <h2 className="mt-4 max-w-xl text-balance text-3xl font-semibold tracking-[-0.035em] text-slate-50 sm:text-4xl lg:text-5xl">
               Quality checks your team will actually keep enabled.
             </h2>
           </div>
-          <p className="max-w-2xl text-pretty text-base leading-7 text-zinc-400 lg:justify-self-end lg:text-lg lg:leading-8">
+          <p className="max-w-2xl text-pretty text-base leading-7 text-slate-400 lg:justify-self-end lg:text-lg lg:leading-8">
             DBTLint turns your team&apos;s standards into fast, repeatable
             feedback—from the first local check to the final merge gate.
           </p>
@@ -113,30 +113,30 @@ export function FeaturesSection() {
             <motion.article
               key={feature.title}
               variants={item}
-              className={`group relative overflow-hidden rounded-2xl border border-zinc-900 bg-zinc-950/55 p-6 transition-colors duration-200 hover:border-zinc-800 hover:bg-zinc-950 ${feature.span}`}
+              className={`group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/55 p-6 transition-colors duration-200 hover:border-slate-700 hover:bg-slate-900 ${feature.span}`}
             >
               <div
                 aria-hidden="true"
-                className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/50 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100"
               />
               <div className="flex items-start justify-between gap-4">
-                <span className="flex size-10 items-center justify-center rounded-lg border border-zinc-800 bg-black text-white">
+                <span className="flex size-10 items-center justify-center rounded-lg border border-slate-700 bg-slate-950 text-emerald-400">
                   <feature.icon aria-hidden="true" className="size-4.5" />
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">
                   {feature.label}
                 </span>
               </div>
-              <h3 className="mt-8 max-w-md text-xl font-semibold tracking-[-0.02em] text-zinc-100">
+              <h3 className="mt-8 max-w-md text-xl font-semibold tracking-[-0.02em] text-slate-100">
                 {feature.title}
               </h3>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
                 {feature.description}
               </p>
-              <div className="mt-6 flex items-center gap-2 border-t border-zinc-900 pt-4 font-mono text-[11px] text-zinc-500">
+              <div className="mt-6 flex items-center gap-2 border-t border-slate-800 pt-4 font-mono text-[11px] text-slate-500">
                 <ShieldCheck
                   aria-hidden="true"
-                  className="size-3.5 text-white/80"
+                  className="size-3.5 text-emerald-400/80"
                 />
                 {feature.detail}
               </div>

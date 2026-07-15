@@ -1,6 +1,6 @@
 "use client";
 
-import { Crown, Rocket, Sparkles } from "lucide-react";
+import { Rocket, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOptionalPlanUsage } from "@/lib/plan-usage-context";
 
@@ -30,29 +30,29 @@ export function FreePlanCard({
   const isAtLimit = usagePercent >= 100;
 
   return (
-    <div className="border border-hairline bg-panel rounded-lg p-4 space-y-3 relative overflow-hidden -translate-y-3">
-      <div className="absolute -top-8 -right-8 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
+    <div className="relative space-y-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+      <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-emerald-400/10 blur-2xl" />
 
       {/* Plan Name */}
       <div className="flex items-center justify-between relative">
-        <h3 className="text-sm font-semibold text-ink">Free Plan</h3>
-        <span className="text-[10px] font-medium text-ink-muted bg-muted px-1.5 py-0.5 rounded">
+        <h3 className="text-sm font-semibold text-slate-100">Free plan</h3>
+        <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.12em] text-slate-500">
           FREE
         </span>
       </div>
 
       <div className="relative space-y-1.5">
         <div className="flex items-baseline justify-between">
-          <p className="text-xs text-ink-muted">
+          <p className="text-xs text-slate-400">
             {resolvedScansUsed} of {resolvedScansLimit} scans used
           </p>
           <span
             className={`text-xs font-medium ${
               isAtLimit
-                ? "text-signal-fail"
+                ? "text-rose-300"
                 : isNearLimit
-                  ? "text-signal-warn"
-                  : "text-ink-muted"
+                  ? "text-amber-300"
+                  : "text-slate-500"
             }`}
           >
             {Math.round(usagePercent)}%
@@ -61,7 +61,7 @@ export function FreePlanCard({
 
         {/* Progress Bar */}
         <div
-          className="w-full h-1.5 bg-muted rounded-full overflow-hidden"
+          className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800"
           role="progressbar"
           aria-label="Monthly scan usage"
           aria-valuemin={0}
@@ -70,19 +70,19 @@ export function FreePlanCard({
         >
           <div
             aria-hidden="true"
-            className={`h-full transition-all duration-300 ease-out rounded-full ${
+            className={`h-full rounded-full transition-all duration-300 ease-out ${
               isAtLimit
-                ? "bg-signal-fail"
+                ? "bg-rose-400"
                 : isNearLimit
-                  ? "bg-signal-warn"
-                  : "bg-primary"
+                  ? "bg-amber-300"
+                  : "bg-emerald-400"
             }`}
             style={{ width: `${usagePercent}%` }}
           />
         </div>
 
         {isNearLimit && (
-          <p className="text-[11px] text-signal-warn flex items-center gap-1 pt-0.5">
+          <p className="flex items-center gap-1 pt-0.5 text-[11px] text-amber-300">
             <Sparkles className="w-3 h-3" />
             {isAtLimit ? "You've hit your limit!" : "Almost at your limit"}
           </p>
@@ -94,7 +94,7 @@ export function FreePlanCard({
         <Button
           size="sm"
           onClick={onUpgrade}
-          className="w-full text-xs h-8 bg-primary text-primary-foreground hover:bg-primary/90 font-medium relative"
+          className="relative h-10 w-full cursor-pointer bg-emerald-400 text-xs font-semibold text-slate-950 hover:bg-emerald-300"
         >
           Upgrade to Team
         </Button>
@@ -105,17 +105,17 @@ export function FreePlanCard({
 
 export function TeamPlanCard({ onManageBilling }: TeamPlanCardProps) {
   return (
-    <div className="border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-transparent rounded-lg p-4 space-y-2.5 relative overflow-hidden -translate-y-3">
+    <div className="relative space-y-2.5 overflow-hidden rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4">
       {/* Plan Badge with Icon */}
       <div className="flex items-center gap-2">
-        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-primary/15">
-          <Rocket className="w-3.5 h-3.5 text-primary" />
+        <div className="flex size-7 items-center justify-center rounded-md bg-emerald-400/10">
+          <Rocket className="size-3.5 text-emerald-400" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-ink leading-none">
+          <h3 className="text-sm font-semibold leading-none text-slate-100">
             Team Plan
           </h3>
-          <p className="text-[11px] text-ink-muted mt-0.5">Unlimited scans</p>
+          <p className="mt-1 text-[11px] text-slate-500">Unlimited scans</p>
         </div>
       </div>
 
@@ -124,7 +124,7 @@ export function TeamPlanCard({ onManageBilling }: TeamPlanCardProps) {
         <button
           type="button"
           onClick={onManageBilling}
-          className="text-xs text-ink-muted hover:text-ink transition-colors"
+          className="min-h-9 cursor-pointer rounded-md text-xs text-slate-400 transition-colors duration-200 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
         >
           Manage billing →
         </button>

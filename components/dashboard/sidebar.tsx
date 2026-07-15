@@ -57,30 +57,33 @@ export function DashboardSidebar() {
   }
 
   return (
-    <Sidebar>
-      <SidebarHeader className="p-3">
-        <div className="flex items-center gap-2.5 px-1 py-1">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Terminal className="size-5" />
+    <Sidebar className="border-slate-800 bg-slate-950 text-slate-300 [&_[data-sidebar=sidebar]]:bg-slate-950">
+      <SidebarHeader className="border-b border-slate-800 p-3">
+        <div className="flex items-center gap-2.5 px-1 py-1.5">
+          <div className="flex size-9 items-center justify-center rounded-lg border border-emerald-400/25 bg-emerald-400/10">
+            <Terminal className="size-4.5 text-emerald-400" />
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold text-sidebar-foreground">
-              DBTLint
+            <span className="font-mono text-sm font-semibold text-slate-50">
+              dbt<span className="text-emerald-400">lint</span>
             </span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-[11px] text-slate-500">
               dbt project linting
             </span>
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="bg-slate-950">
         <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarGroupLabel className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-600">
+            Workspace
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
+                    className="min-h-10 cursor-pointer text-slate-400 transition-colors duration-200 hover:bg-slate-900 hover:text-slate-100 data-[active=true]:bg-emerald-400/10 data-[active=true]:text-emerald-300"
                     asChild
                     isActive={pathname === item.href}
                     tooltip={item.label}
@@ -97,7 +100,7 @@ export function DashboardSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-slate-800 bg-slate-950 pb-3">
         <div className="px-2">
           {planUsage.plan === "team" ? (
             <TeamPlanCard onManageBilling={() => router.push("/billing")} />
@@ -109,6 +112,7 @@ export function DashboardSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
+              className="min-h-10 cursor-pointer text-slate-400 hover:bg-slate-900 hover:text-slate-100 data-[active=true]:bg-emerald-400/10 data-[active=true]:text-emerald-300"
               asChild
               isActive={pathname === "/settings"}
               tooltip="Settings"
@@ -120,7 +124,11 @@ export function DashboardSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Sign out" onClick={handleSignOut}>
+            <SidebarMenuButton
+              className="min-h-10 cursor-pointer text-slate-400 hover:bg-rose-400/10 hover:text-rose-300"
+              tooltip="Sign out"
+              onClick={handleSignOut}
+            >
               <LogOut />
               <span>Sign out</span>
             </SidebarMenuButton>

@@ -137,7 +137,7 @@ export function Pricing() {
   return (
     <section
       id="pricing"
-      className="scroll-mt-20 border-y border-zinc-900/80 bg-zinc-950/35 py-20 sm:py-24 lg:py-28"
+      className="scroll-mt-20 border-y border-slate-800/80 bg-slate-900/35 py-20 sm:py-24 lg:py-28"
     >
       <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
         <motion.div
@@ -147,13 +147,13 @@ export function Pricing() {
           transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
           className="mx-auto max-w-2xl text-center"
         >
-          <p className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-white">
+          <p className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-emerald-400">
             Clear pricing, clean code
           </p>
-          <h2 className="mt-4 text-balance text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl lg:text-5xl">
+          <h2 className="mt-4 text-balance text-3xl font-semibold tracking-[-0.035em] text-slate-50 sm:text-4xl lg:text-5xl">
             Start small. Standardize when your team is ready.
           </h2>
-          <p className="mt-5 text-pretty text-base leading-7 text-zinc-400">
+          <p className="mt-5 text-pretty text-base leading-7 text-slate-400">
             Every plan includes the core linting experience. Upgrade for shared
             governance and CI automation.
           </p>
@@ -188,43 +188,43 @@ export function Pricing() {
                 variants={item}
                 className={`relative flex flex-col rounded-2xl border p-6 sm:p-7 ${
                   plan.highlighted
-                    ? "border-white/40 bg-zinc-950 shadow-[0_20px_60px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.04)]"
-                    : "border-zinc-900 bg-black/65"
+                    ? "border-emerald-400/40 bg-slate-900 shadow-[0_20px_60px_rgba(2,6,23,0.3),inset_0_1px_0_rgba(255,255,255,0.04)]"
+                    : "border-slate-800 bg-slate-950/65"
                 }`}
               >
                 {plan.highlighted ? (
-                  <span className="absolute right-5 top-5 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.13em] text-zinc-100">
+                  <span className="absolute right-5 top-5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.13em] text-emerald-300">
                     Recommended
                   </span>
                 ) : null}
 
                 <div className="pr-24">
-                  <h3 className="text-base font-semibold text-zinc-100">
+                  <h3 className="text-base font-semibold text-slate-100">
                     {plan.name}
                   </h3>
-                  <p className="mt-2 min-h-12 text-sm leading-6 text-zinc-400">
+                  <p className="mt-2 min-h-12 text-sm leading-6 text-slate-400">
                     {plan.description}
                   </p>
                 </div>
 
-                <div className="mt-7 border-b border-zinc-900 pb-7">
+                <div className="mt-7 border-b border-slate-800 pb-7">
                   <span
-                    className={`font-mono font-semibold tracking-[-0.04em] text-white ${plan.price === "Custom" ? "text-3xl" : "text-5xl"}`}
+                    className={`font-mono font-semibold tracking-[-0.04em] text-slate-50 ${plan.price === "Custom" ? "text-3xl" : "text-5xl"}`}
                   >
                     {plan.price}
                   </span>
-                  <p className="mt-2 text-xs text-zinc-500">{plan.period}</p>
+                  <p className="mt-2 text-xs text-slate-500">{plan.period}</p>
                 </div>
 
                 <ul className="mt-7 space-y-3">
                   {plan.features.map((feature) => (
                     <li
                       key={feature}
-                      className="flex items-start gap-2.5 text-sm text-zinc-300"
+                      className="flex items-start gap-2.5 text-sm text-slate-300"
                     >
                       <Check
                         aria-hidden="true"
-                        className="mt-0.5 size-4 shrink-0 text-white"
+                        className="mt-0.5 size-4 shrink-0 text-emerald-400"
                       />
                       {feature}
                     </li>
@@ -235,7 +235,7 @@ export function Pricing() {
                   {isDisabledCta ? (
                     <Button
                       disabled
-                      className="h-11 w-full border border-zinc-800 bg-zinc-900 text-zinc-400"
+                      className="h-11 w-full border border-slate-700 bg-slate-800 text-slate-400"
                     >
                       {cta}
                     </Button>
@@ -243,7 +243,7 @@ export function Pricing() {
                     <Button
                       asChild
                       variant={plan.highlighted ? "default" : "outline"}
-                      className={`h-11 w-full cursor-pointer font-semibold ${plan.highlighted ? "bg-white text-black hover:bg-zinc-100" : "border-zinc-800 bg-transparent text-zinc-100 hover:bg-zinc-900 hover:text-white"}`}
+                      className={`h-11 w-full cursor-pointer font-semibold ${plan.highlighted ? "bg-emerald-400 text-slate-950 hover:bg-emerald-300" : "border-slate-700 bg-transparent text-slate-100 hover:bg-slate-800 hover:text-white"}`}
                     >
                       {href.startsWith("/") ? (
                         <Link href={href}>{cta}</Link>
@@ -258,7 +258,7 @@ export function Pricing() {
           })}
         </motion.div>
 
-        <div className="mt-8 flex items-center justify-center gap-2 text-center text-xs text-zinc-500">
+        <div className="mt-8 flex items-center justify-center gap-2 text-center text-xs text-slate-500">
           <Minus aria-hidden="true" className="size-3.5" />
           Plans are billed monthly. Cancel or change tiers at any time.
           <Minus aria-hidden="true" className="size-3.5" />
