@@ -121,7 +121,7 @@ export function FeaturesSection() {
               ? { staggerChildren: 0.06 }
               : { duration: 0, staggerChildren: 0 }
           }
-          className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+          className="mt-12 grid grid-cols-1 gap-9.5 md:grid-cols-2 lg:grid-cols-3"
         >
           {features.map((feature) => (
             <motion.article
