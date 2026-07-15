@@ -103,15 +103,15 @@ export function HowItWorksSection() {
               ? { staggerChildren: 0.08 }
               : { duration: 0, staggerChildren: 0 }
           }
-          className="relative space-y-4 before:absolute before:bottom-10 before:left-7 before:top-10 before:w-px before:bg-slate-800 sm:before:left-9"
+          className="relative space-y-12 before:absolute before:bottom-10 before:left-7 before:top-10 before:w-px before:bg-slate-800 sm:before:left-9"
         >
           {steps.map((step) => (
             <motion.li
               key={step.number}
               variants={item}
-              className="group relative rounded-2xl border border-slate-800 bg-slate-900/55 p-5 transition-colors duration-200 hover:border-slate-700 sm:p-7"
+              className="group relative rounded-2xl border border-slate-800 bg-slate-900/55 p-5 transition-colors duration-200 hover:border-slate-700 sm:p-8"
             >
-              <div className="grid gap-5 sm:grid-cols-[3.5rem_1fr]">
+              <div className="grid gap-6 sm:grid-cols-[3.5rem_1fr]">
                 <span className="relative z-10 flex size-14 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 font-mono text-xs font-semibold text-emerald-400 shadow-[0_0_0_6px_#020617] sm:size-[4.5rem]">
                   {step.number}
                 </span>
