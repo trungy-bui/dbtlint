@@ -35,7 +35,7 @@ export function StatCard({ stat, value, index }: StatCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.07, ease: "easeOut" }}
     >
-      <Card className="transition-colors hover:border-primary/40">
+      <Card className="bg-slate-900/60 transition-colors hover:border-primary/40">
         <CardContent className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">{stat.label}</span>
