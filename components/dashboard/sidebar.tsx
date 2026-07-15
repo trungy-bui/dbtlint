@@ -100,7 +100,7 @@ export function DashboardSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-slate-800 bg-slate-950 pb-3">
+      <SidebarFooter className="bg-slate-950 pb-3">
         <div className="px-2">
           {planUsage.plan === "team" ? (
             <TeamPlanCard onManageBilling={() => router.push("/billing")} />

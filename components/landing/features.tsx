@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   UsersRound,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const features = [
   {
@@ -74,6 +75,11 @@ const item: Variants = {
 
 export function FeaturesSection() {
   const reduceMotion = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <section
@@ -82,10 +88,13 @@ export function FeaturesSection() {
     >
       <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
         <motion.div
-          initial={reduceMotion ? false : { opacity: 0, y: 14 }}
+          initial={false}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          transition={{
+            duration: mounted && !reduceMotion ? 0.35 : 0,
+            ease: [0.16, 1, 0.3, 1],
+          }}
           className="grid gap-6 lg:grid-cols-[0.72fr_1fr] lg:items-end"
         >
           <div>
@@ -104,9 +113,14 @@ export function FeaturesSection() {
 
         <motion.div
           variants={container}
-          initial={reduceMotion ? false : "hidden"}
+          initial={false}
           whileInView="show"
           viewport={{ once: true, margin: "-70px" }}
+          transition={
+            mounted && !reduceMotion
+              ? { staggerChildren: 0.06 }
+              : { duration: 0, staggerChildren: 0 }
+          }
           className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
         >
           {features.map((feature) => (
