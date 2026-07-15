@@ -287,7 +287,7 @@ function CategorySection({
   }
 
   return (
-    <div className="space-y-2 max-h-96 overflow-y-auto">
+    <div className="max-h-96 space-y-2 overflow-y-auto pr-2 [scrollbar-color:#1e293b_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-800 [&::-webkit-scrollbar-track]:bg-transparent">
       {data.files.map((file) => {
         const fileName = file.filePath.split("/").pop() || file.filePath;
         const isExpanded = expandedFiles.has(file.filePath);
@@ -303,7 +303,7 @@ function CategorySection({
               className="group w-full"
               onClick={() => toggleFile(file.filePath)}
             >
-              <div className="scrollbar-hide flex w-full items-center gap-3 overflow-x-auto rounded-md border border-slate-800 bg-slate-900 p-3 hover:bg-slate-800">
+              <div className="flex w-full min-w-0 items-center gap-2 rounded-md border border-slate-800 bg-slate-900 p-2.5 hover:bg-slate-800">
                 <motion.span
                   animate={{ rotate: isExpanded ? 180 : 0 }}
                   transition={{ duration: 0.2, ease: "easeOut" }}
@@ -312,9 +312,9 @@ function CategorySection({
                   <ChevronDown className="size-4 text-muted-foreground" />
                 </motion.span>
                 <File className="size-4 flex-shrink-0 text-muted-foreground" />
-                <div className="flex-1 text-left">
+                <div className="min-w-0 flex-1 text-left">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="whitespace-nowrap text-sm font-medium text-foreground">
+                    <p className="min-w-0 max-w-full truncate text-sm font-medium text-foreground">
                       {fileName}
                     </p>
                     {file.errors > 0 && (
@@ -331,7 +331,7 @@ function CategorySection({
                       </Badge>
                     )}
                   </div>
-                  <p className="whitespace-nowrap text-xs text-muted-foreground">
+                  <p className="truncate text-xs text-muted-foreground">
                     {file.filePath}
                   </p>
                 </div>
