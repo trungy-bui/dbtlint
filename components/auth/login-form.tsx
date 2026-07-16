@@ -73,192 +73,202 @@ export function LoginForm() {
   };
 
   return (
-    <motion.div
-      variants={{
-        hidden: { opacity: 0 },
-        show: { opacity: 1, transition: { staggerChildren: 0.1 } },
-      }}
-      initial="hidden"
-      animate="show"
-      className="relative isolate w-full max-w-md overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 p-6 text-slate-100 shadow-[0_28px_80px_rgba(2,6,23,0.55)] before:fixed before:inset-0 before:-z-10 before:bg-slate-950 sm:p-8"
-    >
-      <motion.div
-        variants={{
-          hidden: { opacity: 0, y: 20 },
-          show: { opacity: 1, y: 0 },
-        }}
-        className="flex flex-col items-center border-b border-slate-800 pb-6"
+    <>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 flex items-center justify-center"
       >
-        <div className="flex size-12 items-center justify-center rounded-xl border border-emerald-400/25 bg-emerald-400/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-          <Terminal className="size-5 text-emerald-400" />
-        </div>
-        <h1 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-slate-50">
-          Welcome back
-        </h1>
-        <p className="mt-1 text-center text-sm leading-6 text-slate-400">
-          Lint your dbt projects. Ship with confidence.
-        </p>
-      </motion.div>
+        <div className="h-[28rem] w-[28rem] rounded-full bg-emerald-500/[0.08] blur-[120px]" />
+        <div className="absolute inset-0 opacity-[0.035] [background-image:linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:48px_48px] [mask-image:linear-gradient(to_bottom,black,transparent_78%)]" />
+      </div>
 
       <motion.div
         variants={{
-          hidden: { opacity: 0, y: 20 },
-          show: { opacity: 1, y: 0 },
+          hidden: { opacity: 0 },
+          show: { opacity: 1, transition: { staggerChildren: 0.1 } },
         }}
-        className="mt-6"
+        initial="hidden"
+        animate="show"
+        className="relative isolate w-full max-w-md overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 p-6 text-slate-100 shadow-[0_28px_80px_rgba(2,6,23,0.55)] before:fixed before:inset-0 before:-z-10 before:bg-slate-950 sm:p-8"
       >
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="flex flex-col gap-5"
-          >
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium text-slate-300">
-                    Email
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="name@company.com"
-                      autoComplete="email"
-                      disabled={hasSubmitted}
-                      className="h-11 border-slate-700 bg-slate-950/80 px-3 text-slate-100 placeholder:text-slate-600 focus-visible:border-emerald-400/60 focus-visible:ring-3 focus-visible:ring-emerald-400/20"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 20 },
+            show: { opacity: 1, y: 0 },
+          }}
+          className="flex flex-col items-center border-b border-slate-800 pb-6"
+        >
+          <div className="flex size-12 items-center justify-center rounded-xl border border-emerald-400/25 bg-emerald-400/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <Terminal className="size-5 text-emerald-400" />
+          </div>
+          <h1 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-slate-50">
+            Welcome back
+          </h1>
+          <p className="mt-1 text-center text-sm leading-6 text-slate-400">
+            Lint your dbt projects. Ship with confidence.
+          </p>
+        </motion.div>
 
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-center justify-between">
-                    <FormLabel className="text-sm font-medium text-slate-300">
-                      Password
-                    </FormLabel>
-                    <a
-                      href="/forgot-password"
-                      className="cursor-pointer text-xs text-slate-400 transition-colors duration-200 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-                    >
-                      Forgot password?
-                    </a>
-                  </div>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      autoComplete="current-password"
-                      disabled={hasSubmitted}
-                      className="h-11 border-slate-700 bg-slate-950/80 px-3 text-slate-100 placeholder:text-slate-600 focus-visible:border-emerald-400/60 focus-visible:ring-3 focus-visible:ring-emerald-400/20"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {form.formState.errors.root && (
-              <p
-                role="alert"
-                className="rounded-lg border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-sm text-rose-300"
-              >
-                {form.formState.errors.root.message}
-              </p>
-            )}
-
-            <motion.div
-              whileHover={{ scale: hasSubmitted ? 1 : 1.02 }}
-              whileTap={{ scale: hasSubmitted ? 1 : 0.98 }}
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 20 },
+            show: { opacity: 1, y: 0 },
+          }}
+          className="mt-6"
+        >
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="flex flex-col gap-5"
             >
-              <Button
-                type="submit"
-                size="lg"
-                disabled={hasSubmitted}
-                className="h-11 w-full cursor-pointer bg-emerald-400 font-semibold text-slate-950 shadow-[0_10px_28px_rgba(16,185,129,0.16)] hover:bg-emerald-300"
-              >
-                {form.formState.isSubmitting ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" /> Signing in...
-                  </>
-                ) : (
-                  "Sign in"
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium text-slate-300">
+                      Email
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="name@company.com"
+                        autoComplete="email"
+                        disabled={hasSubmitted}
+                        className="h-11 border-slate-700 bg-slate-950/80 px-3 text-slate-100 placeholder:text-slate-600 focus-visible:border-emerald-400/60 focus-visible:ring-3 focus-visible:ring-emerald-400/20"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </Button>
-            </motion.div>
-          </form>
-        </Form>
-      </motion.div>
+              />
 
-      <motion.div
-        variants={{
-          hidden: { opacity: 0, y: 20 },
-          show: { opacity: 1, y: 0 },
-        }}
-        className="my-6 flex items-center gap-3"
-      >
-        <span className="h-px flex-1 bg-slate-800" />
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
-          or continue with
-        </span>
-        <span className="h-px flex-1 bg-slate-800" />
-      </motion.div>
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-sm font-medium text-slate-300">
+                        Password
+                      </FormLabel>
+                      <a
+                        href="/forgot-password"
+                        className="cursor-pointer text-xs text-slate-400 transition-colors duration-200 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                      >
+                        Forgot password?
+                      </a>
+                    </div>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        autoComplete="current-password"
+                        disabled={hasSubmitted}
+                        className="h-11 border-slate-700 bg-slate-950/80 px-3 text-slate-100 placeholder:text-slate-600 focus-visible:border-emerald-400/60 focus-visible:ring-3 focus-visible:ring-emerald-400/20"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-      <motion.div
-        variants={{
-          hidden: { opacity: 0, y: 20 },
-          show: { opacity: 1, y: 0 },
-        }}
-        className="grid gap-3 sm:grid-cols-2"
-      >
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          disabled={hasSubmitted}
-          onClick={() => handleOAuth("github")}
-          className="h-11 w-full cursor-pointer border-slate-700 bg-slate-950/60 text-slate-200 hover:bg-slate-800 hover:text-white"
+              {form.formState.errors.root && (
+                <p
+                  role="alert"
+                  className="rounded-lg border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-sm text-rose-300"
+                >
+                  {form.formState.errors.root.message}
+                </p>
+              )}
+
+              <motion.div
+                whileHover={{ scale: hasSubmitted ? 1 : 1.02 }}
+                whileTap={{ scale: hasSubmitted ? 1 : 0.98 }}
+              >
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={hasSubmitted}
+                  className="h-11 w-full cursor-pointer bg-emerald-400 font-semibold text-slate-950 shadow-[0_10px_28px_rgba(16,185,129,0.16)] hover:bg-emerald-300"
+                >
+                  {form.formState.isSubmitting ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" /> Signing in...
+                    </>
+                  ) : (
+                    "Sign in"
+                  )}
+                </Button>
+              </motion.div>
+            </form>
+          </Form>
+        </motion.div>
+
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 20 },
+            show: { opacity: 1, y: 0 },
+          }}
+          className="my-6 flex items-center gap-3"
         >
-          Sign in with GitHub
-          <GitHubIcon />
-        </Button>
+          <span className="h-px flex-1 bg-slate-800" />
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
+            or continue with
+          </span>
+          <span className="h-px flex-1 bg-slate-800" />
+        </motion.div>
 
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          disabled={hasSubmitted}
-          onClick={() => handleOAuth("google")}
-          className="h-11 w-full cursor-pointer border-slate-700 bg-slate-950/60 text-slate-200 hover:bg-slate-800 hover:text-white"
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 20 },
+            show: { opacity: 1, y: 0 },
+          }}
+          className="grid gap-3 sm:grid-cols-2"
         >
-          Sign in with Google
-          <GoogleIcon />
-        </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            disabled={hasSubmitted}
+            onClick={() => handleOAuth("github")}
+            className="h-11 w-full cursor-pointer border-slate-700 bg-slate-950/60 text-slate-200 hover:bg-slate-800 hover:text-white"
+          >
+            Sign in with GitHub
+            <GitHubIcon />
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            disabled={hasSubmitted}
+            onClick={() => handleOAuth("google")}
+            className="h-11 w-full cursor-pointer border-slate-700 bg-slate-950/60 text-slate-200 hover:bg-slate-800 hover:text-white"
+          >
+            Sign in with Google
+            <GoogleIcon />
+          </Button>
+        </motion.div>
+
+        <motion.p
+          variants={{
+            hidden: { opacity: 0, y: 20 },
+            show: { opacity: 1, y: 0 },
+          }}
+          className="mt-7 text-center text-sm text-slate-400"
+        >
+          Don&apos;t have an account?{" "}
+          <a
+            href={plan ? `/register?plan=${plan}` : "/register"}
+            className="cursor-pointer font-medium text-emerald-400 transition-colors duration-200 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+          >
+            Sign up
+          </a>
+        </motion.p>
       </motion.div>
-
-      <motion.p
-        variants={{
-          hidden: { opacity: 0, y: 20 },
-          show: { opacity: 1, y: 0 },
-        }}
-        className="mt-7 text-center text-sm text-slate-400"
-      >
-        Don&apos;t have an account?{" "}
-        <a
-          href={plan ? `/register?plan=${plan}` : "/register"}
-          className="cursor-pointer font-medium text-emerald-400 transition-colors duration-200 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-        >
-          Sign up
-        </a>
-      </motion.p>
-    </motion.div>
+    </>
   );
 }
