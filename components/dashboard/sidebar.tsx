@@ -58,7 +58,7 @@ export function DashboardSidebar() {
 
   return (
     <Sidebar className="border-slate-800 bg-slate-950 text-slate-300 [&_[data-sidebar=sidebar]]:bg-slate-950">
-      <SidebarHeader className="border-b border-slate-800 p-3">
+      <SidebarHeader className="border-b border-slate-800 bg-slate-950 p-3">
         <div className="flex items-center gap-2.5 px-1 py-1.5">
           <div className="flex size-9 items-center justify-center rounded-lg border border-emerald-400/25 bg-emerald-400/10">
             <Terminal className="size-4.5 text-emerald-400" />
