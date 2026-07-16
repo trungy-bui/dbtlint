@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
 import { motion } from "framer-motion";
 import {
@@ -42,11 +43,20 @@ const RECOGNIZED_RUN_STATUSES = new Set([
 ]);
 const TERMINAL_RUN_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELED"]);
 const SCAN_STATUS_POLL_INTERVAL_MS = 9_000;
-const SCAN_STATUS_STALL_TIMEOUT_MS = 15_000;
+const SCAN_STATUS_STALL_TIMEOUT_MS = 5_500;
 
 type ScanStatusResponse = {
   scanId: string;
   status: "processing" | "passed" | "failed";
+  score: number;
+  errors: number;
+  warnings: number;
+  report: LintMetadata["report"] | null;
+};
+
+type ScanRealtimeRow = {
+  scan_id: string;
+  status: ScanStatusResponse["status"];
   score: number;
   errors: number;
   warnings: number;
@@ -594,6 +604,13 @@ function ScanRow({
     };
   }, [item.scanId]);
 
+  // Establish a zero-delay DB baseline as soon as the submitted run and scan
+  // identifiers are available.
+  React.useEffect(() => {
+    if (!item.runId || !item.scanId) return;
+    void fetchDbScan();
+  }, [fetchDbScan, item.runId, item.scanId]);
+
   const currentDbScan = dbScan?.scanId === item.scanId ? dbScan : null;
 
   const dbRunStatus =
@@ -630,6 +647,43 @@ function ScanRow({
         !TERMINAL_RUN_STATUSES.has(effectiveRunStatus)),
   );
 
+  // Supabase provides an independent push path when Trigger.dev realtime is
+  // delayed or disconnected. A terminal DB update remains authoritative.
+  React.useEffect(() => {
+    if (!item.scanId || !isNonTerminal) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`scan-status:${item.scanId}`)
+      .on<ScanRealtimeRow>(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "scans",
+          filter: `scan_id=eq.${item.scanId}`,
+        },
+        (payload) => {
+          const scan = payload.new;
+          if (scan.scan_id !== item.scanId) return;
+
+          setDbScan({
+            scanId: scan.scan_id,
+            status: scan.status,
+            score: scan.score,
+            errors: scan.errors,
+            warnings: scan.warnings,
+            report: scan.report,
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [isNonTerminal, item.scanId]);
+
   // Polling is a low-frequency backstop. It is stopped as soon as either
   // realtime or the DB reports a terminal state.
   React.useEffect(() => {
@@ -642,7 +696,7 @@ function ScanRow({
   }, [fetchDbScan, isNonTerminal]);
 
   // Every realtime status/metadata change resets this timer. If the stream is
-  // silent for 15 seconds, reconcile immediately instead of waiting forever.
+  // silent for 5.5 seconds, reconcile immediately instead of waiting forever.
   const realtimeUpdateKey = `${realtimeRunStatus ?? ""}:${JSON.stringify(realtimeMetadata ?? null)}`;
   React.useEffect(() => {
     if (!isNonTerminal) return;
@@ -657,8 +711,12 @@ function ScanRow({
   React.useEffect(() => {
     if (!realtimeError || !isNonTerminal) return;
     console.error("Trigger.dev realtime subscription failed", realtimeError);
+    Sentry.captureException(realtimeError, {
+      tags: { realtime_provider: "trigger.dev" },
+      extra: { runId: item.runId, scanId: item.scanId },
+    });
     void fetchDbScan();
-  }, [fetchDbScan, isNonTerminal, realtimeError]);
+  }, [fetchDbScan, isNonTerminal, item.runId, item.scanId, realtimeError]);
 
   React.useEffect(() => {
     const handleVisibilityChange = () => {
