@@ -416,12 +416,12 @@ function CancelSubscriptionSection({
         <AlertDialogTrigger asChild>
           <button
             type="button"
-            className="text-sm text-ink-muted hover:text-signal-fail transition-colors"
+            className="text-sm text-white bg-signal-fail hover:bg-signal-fail/85 px-3 py-1.5 rounded-md transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-[0_0_20px_rgb(52,211,153,0.15)] active:not-aria-[haspopup]:translate-y-0 active:scale-[0.98] active:bg-rose-600 active:shadow-[0_0_10px_rgba(225,29,72,0.3)]"
           >
             Cancel
           </button>
         </AlertDialogTrigger>
-        <AlertDialogContent className="border-hairline bg-panel">
+        <AlertDialogContent className="border-hairline">
           <AlertDialogTitle className="text-ink">
             Cancel subscription
           </AlertDialogTitle>
@@ -431,11 +431,11 @@ function CancelSubscriptionSection({
             period.
           </AlertDialogDescription>
           <div className="flex gap-3 justify-end pt-2">
-            <AlertDialogCancel className="border-hairline bg-panel-raised hover:bg-panel-raised/80 text-ink">
+            <AlertDialogCancel className="border-hairline text-x-10 bg-panel-raised hover:bg-panel-raised/80 text-ink transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-[0_0_16px_rgba(148,163,184,0.25)] active:not-aria-[haspopup]:translate-y-0 active:scale-[0.98] active:bg-panel active:shadow-[0_0_8px_rgba(148,163,184,0.15)]">
               Keep subscription
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-signal-fail text-white hover:bg-signal-fail/90"
+              className="bg-signal-fail text-white hover:bg-signal-fail/85 mr-4 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-[0_0_20px_rgb(52,211,153,0.15)] active:not-aria-[haspopup]:translate-y-0 active:scale-[0.98] active:bg-rose-600 active:shadow-[0_0_10px_rgba(225,29,72,0.3)]"
               disabled={isCancelling}
               onClick={onCancel}
             >
