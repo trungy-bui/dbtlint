@@ -30,8 +30,8 @@ export function FreePlanCard({
   const isAtLimit = usagePercent >= 100;
 
   return (
-    <div className="relative space-y-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-      <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-emerald-400/10 blur-2xl" />
+    <div className="group relative space-y-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70 p-4 transition-colors duration-300 hover:border-slate-700">
+      <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-emerald-400/10 blur-2xl transition-opacity duration-500 group-hover:bg-emerald-400/20" />
 
       {/* Plan Name */}
       <div className="flex items-center justify-between relative">
@@ -70,7 +70,7 @@ export function FreePlanCard({
         >
           <div
             aria-hidden="true"
-            className={`h-full rounded-full transition-all duration-300 ease-out ${
+            className={`h-full rounded-full transition-all duration-700 ease-out ${
               isAtLimit
                 ? "bg-rose-400"
                 : isNearLimit
@@ -82,8 +82,8 @@ export function FreePlanCard({
         </div>
 
         {isNearLimit && (
-          <p className="flex items-center gap-1 pt-0.5 text-[11px] text-amber-300">
-            <Sparkles className="w-3 h-3" />
+          <p className="flex animate-in items-center gap-1 fade-in slide-in-from-top-1 pt-0.5 text-[11px] text-amber-300 duration-300">
+            <Sparkles className="w-3 h-3 animate-pulse" />
             {isAtLimit ? "You've hit your limit!" : "Almost at your limit"}
           </p>
         )}
@@ -94,7 +94,13 @@ export function FreePlanCard({
         <Button
           size="sm"
           onClick={onUpgrade}
-          className="relative h-10 w-full cursor-pointer bg-emerald-400 text-xs font-semibold text-slate-950 hover:bg-emerald-300"
+          className="relative h-10 w-full cursor-pointer bg-emerald-400 text-xs font-semibold text-slate-950 
+    border-2 border-transparent
+    transition-all duration-300 ease-out
+    hover:-translate-y-0.5 hover:bg-emerald-300
+    hover:shadow-[0_0_20px_rgba(52,211,153,0.5)]
+    active:translate-y-0 active:scale-[0.98] active:bg-emerald-500
+    active:shadow-[0_0_10px_rgba(52,211,153,0.3)]"
         >
           Upgrade to Team
         </Button>
@@ -105,10 +111,10 @@ export function FreePlanCard({
 
 export function TeamPlanCard({ onManageBilling }: TeamPlanCardProps) {
   return (
-    <div className="relative space-y-2.5 overflow-hidden rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4">
+    <div className="group relative space-y-2.5 overflow-hidden rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4">
       {/* Plan Badge with Icon */}
       <div className="flex items-center gap-2">
-        <div className="flex size-7 items-center justify-center rounded-md bg-emerald-400/10">
+        <div className="flex size-7 items-center justify-center rounded-md bg-emerald-400/10 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:rotate-3">
           <Rocket className="size-3.5 text-emerald-400" />
         </div>
         <div>
@@ -124,9 +130,12 @@ export function TeamPlanCard({ onManageBilling }: TeamPlanCardProps) {
         <button
           type="button"
           onClick={onManageBilling}
-          className="min-h-9 cursor-pointer rounded-md text-xs text-slate-400 transition-colors duration-200 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+          className="group/btn min-h-9 cursor-pointer rounded-md text-xs text-slate-400 transition-colors duration-200 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
         >
-          Manage billing →
+          Manage billing{" "}
+          <span className="inline-block transition-transform duration-200 group-hover/btn:translate-x-0.5">
+            →
+          </span>
         </button>
       )}
     </div>
