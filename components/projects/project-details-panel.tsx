@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
+  Download,
   File,
   Lightbulb,
   Loader2,
@@ -91,6 +92,70 @@ function getRelativeTime(isoDate: string): string {
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
   return past.toLocaleDateString();
+}
+
+function escapeCSVValue(value: string | number | undefined): string {
+  const stringValue = value?.toString() ?? "";
+
+  if (/[,"\r\n]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+
+  return stringValue;
+}
+
+function downloadReportCSV(data: ProjectDetail): void {
+  if (!data.report) return;
+
+  const rows: Array<Array<string | number | undefined>> = [
+    [
+      "Category",
+      "File",
+      "Line",
+      "Column",
+      "Violation Category",
+      "Rule",
+      "Title",
+      "Explanation",
+    ],
+  ];
+
+  for (const [category, sectionData] of Object.entries(
+    data.report.categories,
+  )) {
+    if (sectionData.skipped) continue;
+
+    for (const file of sectionData.files) {
+      const violations = explainFileViolations(file.violations);
+
+      for (const violation of violations) {
+        rows.push([
+          category,
+          file.filePath,
+          violation.lineNo,
+          violation.linePos,
+          violation.category,
+          violation.rawCode,
+          violation.title,
+          violation.explanation,
+        ]);
+      }
+    }
+  }
+
+  const csv = `\uFEFF${rows
+    .map((row) => row.map(escapeCSVValue).join(","))
+    .join("\r\n")}`;
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `${data.project.toLowerCase().replace(/\s+/g, "-")}-lint-report.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function getScoreColor(
@@ -556,6 +621,16 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
             {data.report?.totals.lines} lines scanned · {relativeTime}
           </span>
         </div>
+        {data.report && (
+          <button
+            type="button"
+            onClick={() => downloadReportCSV(data)}
+            className="inline-flex flex-shrink-0 items-center gap-2 rounded-md border border-slate-800 bg-slate-900 px-4 py-2 mt-4 text-sm font-medium text-foreground transition-colors hover:bg-slate-800"
+          >
+            <Download className="size-4" aria-hidden="true" />
+            Export CSV
+          </button>
+        )}
       </div>
 
       {/* Score and Stats */}
