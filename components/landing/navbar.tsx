@@ -55,7 +55,7 @@
               <a
                 key={link.href}
                 href={link.href}
-                className="flex min-h-11 cursor-pointer items-center rounded-lg px-4 text-sm font-medium text-slate-400 transition-colors duration-200 hover:bg-slate-900 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                className="flex min-h-11 cursor-pointer items-center rounded-lg px-4 text-sm font-medium text-slate-400 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-slate-900 hover:text-slate-100 hover:shadow-[0_0_16px_rgba(148,163,184,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 active:translate-y-0 active:scale-[0.98] active:bg-slate-950 active:shadow-[0_0_8px_rgba(148,163,184,0.15)]"
               >
                 {link.label}
               </a>
@@ -66,13 +66,13 @@
             <Button
               asChild
               variant="ghost"
-              className="h-10 cursor-pointer px-3 text-slate-300 hover:bg-slate-900 hover:text-white"
+              className="h-10 cursor-pointer px-3 text-slate-300 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-slate-900 hover:text-white hover:shadow-[0_0_16px_rgba(148,163,184,0.25)] active:not-aria-[haspopup]:translate-y-0 active:scale-[0.98] active:bg-slate-950 active:shadow-[0_0_8px_rgba(148,163,184,0.15)]"
             >
               <Link href="/login">Sign in</Link>
             </Button>
             <Button
               asChild
-              className="h-10 cursor-pointer bg-emerald-400 px-4 font-semibold text-slate-950 shadow-[0_0_0_1px_rgba(52,211,153,0.15),0_8px_24px_rgba(16,185,129,0.16)] hover:bg-emerald-300"
+              className="h-10 cursor-pointer bg-emerald-400 px-4 font-semibold text-slate-950 shadow-[0_0_0_1px_rgba(52,211,153,0.15),0_8px_24px_rgba(16,185,129,0.16)] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-emerald-300 hover:shadow-[0_0_20px_rgba(52,211,153,0.5)] active:not-aria-[haspopup]:translate-y-0 active:scale-[0.98] active:bg-emerald-500 active:shadow-[0_0_10px_rgba(16,185,129,0.3)]"
             >
               <Link href="/register">Start free</Link>
             </Button>

@@ -85,7 +85,7 @@ export function Footer() {
               <Button
                 asChild
                 size="lg"
-                className="h-12 cursor-pointer bg-emerald-400 px-6 font-semibold text-slate-950 hover:bg-emerald-300"
+                className="h-12 cursor-pointer bg-emerald-400 px-6 font-semibold text-slate-950 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-emerald-300 hover:shadow-[0_0_20px_rgba(52,211,153,0.5)] active:not-aria-[haspopup]:translate-y-0 active:scale-[0.98] active:bg-emerald-500 active:shadow-[0_0_10px_rgba(16,185,129,0.3)]"
               >
                 <Link href="/register">
                   Start linting free
@@ -96,7 +96,7 @@ export function Footer() {
                 asChild
                 variant="ghost"
                 size="lg"
-                className="h-12 cursor-pointer text-slate-300 hover:bg-slate-800 hover:text-white"
+                className="h-12 cursor-pointer text-slate-300 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-slate-800 hover:text-white hover:shadow-[0_0_16px_rgba(148,163,184,0.25)] active:not-aria-[haspopup]:translate-y-0 active:scale-[0.98] active:bg-slate-900 active:shadow-[0_0_8px_rgba(148,163,184,0.15)]"
               >
                 <Link href="/login">Sign in to your workspace</Link>
               </Button>
