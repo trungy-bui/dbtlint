@@ -53,8 +53,19 @@ export async function GET() {
     process.env.NEXT_PUBLIC_LEMONSQUEEZY_TEAM_VARIANT_ID as string,
     {
       checkoutData,
+      checkoutOptions: {
+        embed: true,
+        media: false,
+        logo: true,
+        desc: true,
+        discount: true,
+        dark: true, subscriptionPreview: true,
+        buttonColor: "#7C3AED"
+      },
       productOptions: {
         redirectUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
+        receiptButtonText: "Go to dashboard",
+        receiptThankYouNote: "Thanks for upgrading to Team!"
       },
     },
   );

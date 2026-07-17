@@ -258,11 +258,13 @@ export function Pricing() {
                       variant={plan.highlighted ? "default" : "outline"}
                       className={`h-11 w-full cursor-pointer font-semibold transition-all duration-300 ease-out ${plan.highlighted ? "bg-emerald-400 text-slate-950 hover:-translate-y-0.5 hover:bg-emerald-300 hover:shadow-[0_0_20px_rgba(52,211,153,0.5)] active:not-aria-[haspopup]:translate-y-0 active:scale-[0.98] active:bg-emerald-500 active:shadow-[0_0_10px_rgba(16,185,129,0.3)]" : "border-slate-700 bg-transparent text-slate-100 hover:-translate-y-0.5 hover:bg-slate-800 hover:text-white hover:shadow-[0_0_16px_rgba(148,163,184,0.25)] active:not-aria-[haspopup]:translate-y-0 active:scale-[0.98] active:bg-slate-900 active:shadow-[0_0_8px_rgba(148,163,184,0.15)]"}`}
                     >
-                      {href.startsWith("/") ? (
-                        <Link href={href}>{cta}</Link>
-                      ) : (
-                        <a href={href}>{cta}</a>
-                      )}
+                      {href.startsWith("/api/") ? (
+  <a href={href}>{cta}</a>
+) : href.startsWith("/") ? (
+  <Link href={href}>{cta}</Link>
+) : (
+  <a href={href}>{cta}</a>
+)}
                     </Button>
                   )}
                 </div>
