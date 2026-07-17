@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { DagBackground } from "@/components/landing/dag-background";
 import { Button } from "@/components/ui/button";
 
 const terminalLines = [
@@ -94,6 +95,7 @@ export function HeroSection() {
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-0 h-[34rem] w-[70rem] -translate-x-1/2 rounded-full bg-emerald-500/[0.08] blur-[120px]" />
         <div className="absolute inset-0 opacity-[0.035] [background-image:linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:48px_48px] [mask-image:linear-gradient(to_bottom,black,transparent_78%)]" />
+        <DagBackground className="inset-0 [mask-image:linear-gradient(to_bottom,black_12%,black_70%,transparent_100%)]" />
       </div>
 
       <motion.div
