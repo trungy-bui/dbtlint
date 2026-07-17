@@ -64,10 +64,11 @@ type NodeVisuals = {
 
 const VIEWBOX_WIDTH = 1200;
 const VIEWBOX_HEIGHT = 720;
+const NAV_SAFE_TOP = 70;
 const NODE_WIDTH = 136;
 const NODE_HEIGHT = 38;
-const MIN_SPEED = 8;
-const MAX_SPEED = 15;
+const MIN_SPEED = 30;
+const MAX_SPEED = 50;
 const CONNECTION_DURATION = 2_200;
 const CONNECTION_INTERVAL = 5_200;
 const NODE_SWEEP_DURATION = 0.22;
@@ -354,7 +355,8 @@ const connectionCandidates = flowPairs.flatMap(([fromId, toId]) => {
     : [{ fromIndex, toIndex }];
 });
 
-const initialPositions = () => nodes.map((node) => ({ x: node.x, y: node.y }));
+const initialPositions = () =>
+  nodes.map((node) => ({ x: node.x, y: Math.max(node.y, NAV_SAFE_TOP) }));
 
 function createVelocities(): Velocity[] {
   return nodes.map(() => {
@@ -492,8 +494,8 @@ export function DagBackground({ className = "" }: { className?: string }) {
         velocity.x *= -1;
       }
 
-      if (position.y <= 0 && velocity.y < 0) {
-        position.y = 0;
+      if (position.y <= NAV_SAFE_TOP && velocity.y < 0) {
+        position.y = NAV_SAFE_TOP;
         velocity.y *= -1;
       } else if (position.y >= VIEWBOX_HEIGHT - NODE_HEIGHT && velocity.y > 0) {
         position.y = VIEWBOX_HEIGHT - NODE_HEIGHT;
