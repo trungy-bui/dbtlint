@@ -227,6 +227,8 @@ Create `.env.local`. The checked-in `.env.local.example` currently contains a le
 | `LEMONSQUEEZY_STORE_ID` | For billing | Store used to create Team checkouts. |
 | `NEXT_PUBLIC_LEMONSQUEEZY_TEAM_VARIANT_ID` | For billing | Product variant used for Team checkouts. Despite the public prefix, it is currently read in a server route. |
 | `LEMONSQUEEZY_WEBHOOK_SECRET` | For billing | HMAC-SHA256 secret used to verify the `x-signature` webhook header. |
+| `DISCORD_WEBHOOK_URL` | For scan alerts | Discord webhook receiving scan alerts. |
+| `DISCORD_REVENUE_WEBHOOK_URL` | For billing alerts | Discord webhook receiving subscription lifecycle alerts. |
 | `RESEND_API_KEY` | For email | Resend API authentication. |
 | `RESEND_FROM_EMAIL` | For email | Verified sender, for example `DBTLint <notifications@example.com>`. |
 

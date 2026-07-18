@@ -14,6 +14,7 @@ export type DiscordAlertAuthor = {
 };
 
 type SendDiscordAlertInput = {
+  webhookUrl?: string;
   title: string;
   description: string;
   level: DiscordAlertLevel;
@@ -85,6 +86,7 @@ function normalizeEmbedUrl(url: string | undefined) {
 
 /** Sends a best-effort Discord notification and never rejects. */
 export async function sendDiscordAlert({
+  webhookUrl,
   title,
   description,
   level,
@@ -96,8 +98,8 @@ export async function sendDiscordAlert({
   footer,
   footerIconUrl,
 }: SendDiscordAlertInput): Promise<void> {
-  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-  if (!webhookUrl) return;
+  const resolvedWebhookUrl = webhookUrl ?? process.env.DISCORD_WEBHOOK_URL;
+  if (!resolvedWebhookUrl) return;
 
   const normalizedThumbnailUrl = normalizeEmbedUrl(thumbnailUrl);
   const normalizedImageUrl = normalizeEmbedUrl(imageUrl);
@@ -106,7 +108,7 @@ export async function sendDiscordAlert({
   const timeout = setTimeout(() => controller.abort(), DISCORD_TIMEOUT_MS);
 
   try {
-    const response = await fetch(webhookUrl, {
+    const response = await fetch(resolvedWebhookUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
