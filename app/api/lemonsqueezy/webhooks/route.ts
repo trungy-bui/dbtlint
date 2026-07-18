@@ -1,8 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { getOrder } from "@lemonsqueezy/lemonsqueezy.js";
 import * as Sentry from "@sentry/nextjs";
 import { eq } from "drizzle-orm";
 import db from "@/db";
 import { users } from "@/db/schema";
+import { sendDiscordAlert } from "@/lib/discord";
+import { configureLemonSqueezy } from "@/lib/lemon-squeezy/client";
 
 type LemonSqueezyWebhookPayload = {
   meta?: {
@@ -16,9 +19,14 @@ type LemonSqueezyWebhookPayload = {
     id?: string;
     attributes?: {
       status?: string;
+      status_formatted?: string;
       customer_id?: string | number;
+      order_id?: string | number;
+      product_name?: string;
+      variant_name?: string;
       renews_at?: string | null;
       ends_at?: string | null;
+      total_formatted?: string;
     };
   };
 };
@@ -54,6 +62,126 @@ function isValidSignature({
   }
 
   return timingSafeEqual(digestBuffer, signatureBuffer);
+}
+
+type RevenueAlertEvent =
+  | "subscription_created"
+  | "subscription_cancelled"
+  | "subscription_payment_failed";
+
+async function getOrderAmount(orderId: string | number | undefined) {
+  if (!orderId) return "Unavailable";
+
+  configureLemonSqueezy();
+  const { data, error } = await getOrder(orderId);
+
+  if (error) {
+    console.error("Failed to retrieve Lemon Squeezy order for revenue alert", {
+      error,
+      orderId,
+    });
+    return "Unavailable";
+  }
+
+  return data?.data.attributes.total_formatted ?? "Unavailable";
+}
+
+async function sendRevenueAlert({
+  eventName,
+  userId,
+  productName,
+  variantName,
+  orderId,
+  invoiceAmount,
+  subscriptionStatus,
+  subscriptionEndsAt,
+}: {
+  eventName: RevenueAlertEvent;
+  userId: string;
+  productName?: string;
+  variantName?: string;
+  orderId?: string | number;
+  invoiceAmount?: string;
+  subscriptionStatus?: string;
+  subscriptionEndsAt?: string | null;
+}) {
+  const webhookUrl = process.env.DISCORD_REVENUE_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  try {
+    const [account] = await db
+      .select({ fullName: users.fullName })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const planName =
+      [productName, variantName].filter(Boolean).join(" — ") || "Team";
+    const accountName = account?.fullName ?? userId;
+
+    if (eventName === "subscription_created") {
+      await sendDiscordAlert({
+        webhookUrl,
+        title: "New Team subscription",
+        description: "A customer upgraded to the Team plan.",
+        level: "success",
+        fields: [
+          { name: "Plan", value: planName, inline: true },
+          {
+            name: "Amount",
+            value: await getOrderAmount(orderId),
+            inline: true,
+          },
+          { name: "Account", value: accountName },
+        ],
+      });
+      return;
+    }
+
+    if (eventName === "subscription_cancelled") {
+      await sendDiscordAlert({
+        webhookUrl,
+        title: "Team subscription cancelled",
+        description: "A customer cancelled their Team subscription.",
+        level: "warning",
+        fields: [
+          { name: "Plan", value: planName, inline: true },
+          { name: "Account", value: accountName },
+          {
+            name: "Access ends",
+            value: subscriptionEndsAt ?? "Unavailable",
+          },
+        ],
+      });
+      return;
+    }
+
+    await sendDiscordAlert({
+      webhookUrl,
+      title: "Subscription payment failed",
+      description: "A Team subscription payment could not be processed.",
+      level: "error",
+      fields: [
+        { name: "Account", value: accountName },
+        { name: "Amount", value: invoiceAmount ?? "Unavailable", inline: true },
+        {
+          name: "Status",
+          value: subscriptionStatus ?? "payment_failed",
+          inline: true,
+        },
+      ],
+    });
+  } catch (error) {
+    console.error("Failed to prepare Discord revenue alert", {
+      error,
+      eventName,
+      userId,
+    });
+    Sentry.captureException(error, {
+      tags: { notification_provider: "discord", alert_type: "revenue" },
+      extra: { eventName, userId },
+    });
+  }
 }
 
 export async function POST(req: Request) {
@@ -95,6 +223,10 @@ export async function POST(req: Request) {
   const subscriptionStatus = payload.data?.attributes?.status;
   const subscriptionId = payload.data?.id;
   const customerId = payload.data?.attributes?.customer_id;
+  const productName = payload.data?.attributes?.product_name;
+  const variantName = payload.data?.attributes?.variant_name;
+  const orderId = payload.data?.attributes?.order_id;
+  const invoiceAmount = payload.data?.attributes?.total_formatted;
   const subscriptionRenewsAt = parseLemonDate(
     payload.data?.attributes?.ends_at ?? payload.data?.attributes?.renews_at,
   );
@@ -110,6 +242,27 @@ export async function POST(req: Request) {
   try {
     switch (eventName) {
       case "subscription_created":
+        await db
+          .update(users)
+          .set({
+            plan: "team",
+            subscriptionStatus,
+            subscriptionRenewsAt,
+            lemonsqueezyCustomerId:
+              customerId === undefined ? undefined : String(customerId),
+            lemonsqueezySubscriptionId: subscriptionId,
+          })
+          .where(eq(users.id, userId));
+        await sendRevenueAlert({
+          eventName,
+          userId,
+          productName,
+          variantName,
+          orderId,
+          subscriptionStatus,
+        });
+        break;
+
       case "subscription_updated":
       case "subscription_resumed":
       case "subscription_unpaused":
@@ -132,6 +285,14 @@ export async function POST(req: Request) {
           .update(users)
           .set({ subscriptionStatus, subscriptionRenewsAt })
           .where(eq(users.id, userId));
+        await sendRevenueAlert({
+          eventName,
+          userId,
+          productName,
+          variantName,
+          subscriptionStatus,
+          subscriptionEndsAt: payload.data?.attributes?.ends_at,
+        });
         break;
       case "subscription_expired":
         await db
@@ -145,6 +306,13 @@ export async function POST(req: Request) {
           .update(users)
           .set({ subscriptionStatus: "payment_failed" })
           .where(eq(users.id, userId));
+        await sendRevenueAlert({
+          eventName,
+          userId,
+          invoiceAmount,
+          subscriptionStatus:
+            payload.data?.attributes?.status_formatted ?? "Payment failed",
+        });
         break;
 
       case "subscription_paused":
