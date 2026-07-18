@@ -19,6 +19,7 @@ DBTLint is an open-source SaaS application for scanning ZIP archives of dbt proj
 - [Tech stack](#tech-stack)
 - [Screenshots](#screenshots)
 - [Getting started](#getting-started)
+- [Discord alerts](#discord-alerts)
 - [Scripts](#scripts)
 - [Project structure](#project-structure)
 - [Deployment](#deployment)
@@ -184,7 +185,7 @@ pip install -r requirement.txt
 
 ### 3. Configure environment variables
 
-Create `.env.local`. The checked-in `.env.local.example` currently contains a legacy app URL plus email and scan-callback placeholders; it is not a complete application configuration.
+Create `.env.local` from the checked-in `.env.example`. The example contains a legacy app URL plus email, scan-callback, and alerting placeholders; it is not a complete application configuration.
 
 <details>
 <summary><strong>Core application and Supabase</strong></summary>
@@ -240,10 +241,50 @@ Create `.env.local`. The checked-in `.env.local.example` currently contains a le
 | `NEXT_PUBLIC_POSTHOG_KEY` | No | Enables PostHog when set together with the host. |
 | `NEXT_PUBLIC_POSTHOG_HOST` | No | PostHog API host. |
 | `SENTRY_AUTH_TOKEN` | No | Allows the Sentry build plugin to upload source maps. Runtime DSNs are currently configured in the Sentry config files. |
+| `DISCORD_WEBHOOK_URL` | For Discord alerts | Discord incoming-webhook URL. Server-only secret; never prefix it with `NEXT_PUBLIC_`. |
+| `SENTRY_DISCORD_MIN_LEVEL` | No | Minimum captured Sentry level forwarded to Discord: `info`, `warning`, `error` (default), or `off`. |
+| `SENTRY_ISSUES_URL` | No | Sentry project issues page, such as `https://example.sentry.io/issues/`. The captured event ID is added as its search query. |
+| `POSTHOG_WEBHOOK_SECRET` | For PostHog alerts | Shared bearer secret used to authenticate PostHog requests to `/api/posthog-webhook`. |
+| `POSTHOG_DISCORD_EVENT_NAMES` | No | Comma-separated exact event-name allowlist. Empty means no PostHog events are forwarded. |
+| `POSTHOG_DISCORD_PROPERTY_NAMES` | No | Comma-separated event properties that may be included in Discord embeds. |
 
 </details>
 
 `NEXT_PUBLIC_APP_URL`, which appears in the checked-in example file, is not referenced by the current application. Framework and operating-system variables such as `NODE_ENV`, `NEXT_RUNTIME`, `CI`, `PATH`, and locale variables are inherited at runtime and are not application setup keys.
+
+## Discord alerts
+
+Discord delivery is best-effort: webhook requests time out after five seconds, and failures are logged and captured in Sentry without failing the API request or Trigger.dev task that produced the alert. Sentry forwarding is wired only in server and task code because `DISCORD_WEBHOOK_URL` must never enter a browser bundle.
+
+### Environment configuration
+
+1. Create an incoming webhook for the target Discord channel and copy its URL.
+2. In Vercel, open **Project Settings > Environment Variables** and add `DISCORD_WEBHOOK_URL`, `POSTHOG_WEBHOOK_SECRET`, the PostHog event/property allowlists, and the optional Sentry settings for each environment that should send alerts. Redeploy after changing them.
+3. In Trigger.dev, open the project’s **Environment Variables** page and add `DISCORD_WEBHOOK_URL` as a secret. Also add `SENTRY_DISCORD_MIN_LEVEL` and `SENTRY_ISSUES_URL` if task errors should use non-default behavior or link to Sentry. Local Trigger.dev development automatically reads `.env.local`.
+
+`DISCORD_WEBHOOK_URL` and `POSTHOG_WEBHOOK_SECRET` are secrets. Add real values only in `.env.local`, Vercel, Trigger.dev, and PostHog—not to Git. The repository’s `.gitignore` excludes `.env*` and explicitly permits only the placeholder `.env.example`; the example contains no usable credentials.
+
+### PostHog destination
+
+1. Set `POSTHOG_DISCORD_EVENT_NAMES` to the exact important events to forward, for example `scan_failed,team_upgrade_completed`. Keep the value empty until the allowlist is decided. Optionally set `POSTHOG_DISCORD_PROPERTY_NAMES=scanId,project,reason` to include only those properties.
+2. In PostHog, go to **Data pipelines**, choose **New > Destination**, and create an **HTTP Webhook** destination.
+3. Set the method to `POST` and the URL to `https://<your-domain>/api/posthog-webhook`.
+4. Add headers `Content-Type: application/json` and `Authorization: Bearer <POSTHOG_WEBHOOK_SECRET>`. The bearer value must exactly match the server-side environment variable and belongs in PostHog’s destination configuration, not this repository.
+5. Use this JSON body:
+
+   ```json
+   {
+     "event": "{event.event}",
+     "distinct_id": "{event.distinct_id}",
+     "timestamp": "{event.timestamp}",
+     "url": "{event.url}",
+     "properties": "{event.properties}"
+   }
+   ```
+
+6. Add PostHog destination filters for the same important event names as an upstream spam/cost guard, then use **Start testing > Test function**. The API route independently enforces its environment allowlist even if a destination filter is later changed.
+
+See the official [PostHog webhook destination guide](https://posthog.com/docs/cdp/destinations/webhook), [Trigger.dev environment-variable guide](https://trigger.dev/docs/deploy-environment-variables), and [Vercel environment-variable guide](https://vercel.com/docs/environment-variables) for the current dashboard workflows.
 
 ### 4. Prepare Supabase and PostgreSQL
 
