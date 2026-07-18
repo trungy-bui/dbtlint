@@ -6,6 +6,12 @@ import db from "@/db";
 import { users } from "@/db/schema";
 import { sendDiscordAlert } from "@/lib/discord";
 import { configureLemonSqueezy } from "@/lib/lemon-squeezy/client";
+import {
+  type RevenueBadgeEvent,
+  type RevenueBadgePayload,
+  serializeRevenueBadgePayload,
+  signRevenueBadgePayload,
+} from "@/lib/revenue-badge";
 
 type LemonSqueezyWebhookPayload = {
   meta?: {
@@ -64,10 +70,60 @@ function isValidSignature({
   return timingSafeEqual(digestBuffer, signatureBuffer);
 }
 
-type RevenueAlertEvent =
-  | "subscription_created"
-  | "subscription_cancelled"
-  | "subscription_payment_failed";
+type RevenueAlertEvent = RevenueBadgeEvent;
+
+function truncateBadgeValue(value: string, maximumLength: number) {
+  return value.length <= maximumLength
+    ? value
+    : `${value.slice(0, maximumLength - 1)}…`;
+}
+
+function redactBadgeAccountName(fullName: string | null | undefined) {
+  const parts = fullName?.trim().split(/\s+/).filter(Boolean) ?? [];
+  if (parts.length === 0) return "Team account";
+
+  const firstName = truncateBadgeValue(parts[0], 20);
+  if (parts.length === 1) return firstName;
+
+  return `${firstName} ${parts.at(-1)?.slice(0, 1).toUpperCase()}.`;
+}
+
+function formatBadgeDate(value: string | null | undefined) {
+  if (!value) return "Unavailable";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unavailable";
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function getRevenueBadgeUrl(payload: Omit<RevenueBadgePayload, "timestamp">) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  const secret = process.env.REVENUE_BADGE_SECRET;
+  if (!siteUrl || !secret) return undefined;
+
+  try {
+    const signedPayload: RevenueBadgePayload = {
+      ...payload,
+      timestamp: Date.now().toString(),
+    };
+    const url = new URL("/api/revenue/badge", siteUrl);
+    const params = serializeRevenueBadgePayload(signedPayload);
+
+    params.set("sig", signRevenueBadgePayload(signedPayload, secret));
+    url.search = params.toString();
+
+    return url.toString();
+  } catch {
+    console.warn("Unable to build signed revenue badge URL");
+    return undefined;
+  }
+}
 
 async function getOrderAmount(orderId: string | number | undefined) {
   if (!orderId) return "Unavailable";
@@ -94,6 +150,7 @@ async function sendRevenueAlert({
   orderId,
   invoiceAmount,
   subscriptionStatus,
+  subscriptionRenewsAt,
   subscriptionEndsAt,
 }: {
   eventName: RevenueAlertEvent;
@@ -103,6 +160,7 @@ async function sendRevenueAlert({
   orderId?: string | number;
   invoiceAmount?: string;
   subscriptionStatus?: string;
+  subscriptionRenewsAt?: string | null;
   subscriptionEndsAt?: string | null;
 }) {
   const webhookUrl = process.env.DISCORD_REVENUE_WEBHOOK_URL;
@@ -118,10 +176,39 @@ async function sendRevenueAlert({
     const planName =
       [productName, variantName].filter(Boolean).join(" — ") || "Team";
     const accountName = account?.fullName ?? userId;
+    const amount =
+      eventName === "subscription_payment_failed"
+        ? (invoiceAmount ?? "Unavailable")
+        : await getOrderAmount(orderId);
+    const badgeAccountName = redactBadgeAccountName(account?.fullName);
+    const badgeMetric =
+      eventName === "subscription_created"
+        ? {
+            label: "RENEWS",
+            value: formatBadgeDate(subscriptionRenewsAt),
+          }
+        : eventName === "subscription_cancelled"
+          ? {
+              label: "ACCESS ENDS",
+              value: formatBadgeDate(subscriptionEndsAt),
+            }
+          : {
+              label: "STATUS",
+              value: subscriptionStatus ?? "Payment failed",
+            };
+    const imageUrl = getRevenueBadgeUrl({
+      event: eventName,
+      plan: truncateBadgeValue(planName, 80),
+      amount: truncateBadgeValue(amount, 32),
+      account: badgeAccountName,
+      metricLabel: badgeMetric.label,
+      metricValue: truncateBadgeValue(badgeMetric.value, 80),
+    });
 
     if (eventName === "subscription_created") {
       await sendDiscordAlert({
         webhookUrl,
+        imageUrl,
         title: "New Team subscription",
         description: "A customer upgraded to the Team plan.",
         level: "success",
@@ -129,7 +216,7 @@ async function sendRevenueAlert({
           { name: "Plan", value: planName, inline: true },
           {
             name: "Amount",
-            value: await getOrderAmount(orderId),
+            value: amount,
             inline: true,
           },
           { name: "Account", value: accountName },
@@ -141,6 +228,7 @@ async function sendRevenueAlert({
     if (eventName === "subscription_cancelled") {
       await sendDiscordAlert({
         webhookUrl,
+        imageUrl,
         title: "Team subscription cancelled",
         description: "A customer cancelled their Team subscription.",
         level: "warning",
@@ -158,12 +246,13 @@ async function sendRevenueAlert({
 
     await sendDiscordAlert({
       webhookUrl,
+      imageUrl,
       title: "Subscription payment failed",
       description: "A Team subscription payment could not be processed.",
       level: "error",
       fields: [
         { name: "Account", value: accountName },
-        { name: "Amount", value: invoiceAmount ?? "Unavailable", inline: true },
+        { name: "Amount", value: amount, inline: true },
         {
           name: "Status",
           value: subscriptionStatus ?? "payment_failed",
@@ -260,6 +349,7 @@ export async function POST(req: Request) {
           variantName,
           orderId,
           subscriptionStatus,
+          subscriptionRenewsAt: payload.data?.attributes?.renews_at,
         });
         break;
 
@@ -290,6 +380,7 @@ export async function POST(req: Request) {
           userId,
           productName,
           variantName,
+          orderId,
           subscriptionStatus,
           subscriptionEndsAt: payload.data?.attributes?.ends_at,
         });
