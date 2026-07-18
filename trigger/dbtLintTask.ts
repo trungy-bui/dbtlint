@@ -13,13 +13,13 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { promisify, TextDecoder } from "node:util";
-import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@supabase/supabase-js";
 import { metadata, retry, schemaTask, task } from "@trigger.dev/sdk";
 import AdmZip from "adm-zip";
 import { eq } from "drizzle-orm";
 import db from "@/db";
 import { type LintReportJson, notifications, scans } from "@/db/schema";
+import { captureExceptionWithDiscord } from "@/lib/sentry-alert";
 import {
   type LintMetadata,
   lintMetadata,
@@ -507,7 +507,11 @@ async function notifyUserScan(scanId: string) {
       scanId,
       error,
     });
-    Sentry.captureException(error);
+    await captureExceptionWithDiscord({
+      error,
+      title: "Scan notification creation failed",
+      context: { task: "dbt-lint", scanId },
+    });
   }
 }
 
@@ -1095,7 +1099,11 @@ async function dispatchScanCompletionWork(scanId: string) {
         scanId,
         error: result.reason,
       });
-      Sentry.captureException(result.reason);
+      await captureExceptionWithDiscord({
+        error: result.reason,
+        title: "Scan completion dispatch failed",
+        context: { task: "dbt-lint", scanId },
+      });
     }
   }
 }
@@ -1398,7 +1406,11 @@ export const dbtLintTask = schemaTask({
         return failScan({ scanId, statusMessage: errorMessage });
       }
 
-      Sentry.captureException(error);
+      await captureExceptionWithDiscord({
+        error,
+        title: "dbt lint task failed",
+        context: { task: "dbt-lint", scanId },
+      });
       updateLintMetadata({
         statusMessage: errorMessage,
         status: "FAILED",
@@ -1419,7 +1431,11 @@ export const dbtLintTask = schemaTask({
           storageFilePath,
           error: dispatchError,
         });
-        Sentry.captureException(dispatchError);
+        await captureExceptionWithDiscord({
+          error: dispatchError,
+          title: "Uploaded ZIP cleanup dispatch failed",
+          context: { task: "dbt-lint", scanId, storageFilePath },
+        });
 
         try {
           await deleteUploadedZip(storageFilePath);
@@ -1428,7 +1444,11 @@ export const dbtLintTask = schemaTask({
             storageFilePath,
             error: cleanupError,
           });
-          Sentry.captureException(cleanupError);
+          await captureExceptionWithDiscord({
+            error: cleanupError,
+            title: "Uploaded ZIP fallback cleanup failed",
+            context: { task: "dbt-lint", scanId, storageFilePath },
+          });
         }
       } finally {
         timings.storageCleanupDispatchMs = elapsedMilliseconds(

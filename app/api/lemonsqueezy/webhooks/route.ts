@@ -1,8 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import * as Sentry from "@sentry/nextjs";
 import { eq } from "drizzle-orm";
 import db from "@/db";
 import { users } from "@/db/schema";
+import { captureExceptionWithDiscord } from "@/lib/sentry-alert";
 
 type LemonSqueezyWebhookPayload = {
   meta?: {
@@ -80,7 +80,11 @@ export async function POST(req: Request) {
       "Failed to parse verified Lemon Squeezy webhook payload",
       error,
     );
-    Sentry.captureException(error);
+    await captureExceptionWithDiscord({
+      error,
+      title: "Lemon Squeezy webhook parse failed",
+      context: { route: "POST /api/lemonsqueezy/webhooks" },
+    });
     return Response.json({ received: true });
   }
 
@@ -173,7 +177,16 @@ export async function POST(req: Request) {
       subscriptionId,
       customerId,
     });
-    Sentry.captureException(error);
+    await captureExceptionWithDiscord({
+      error,
+      title: "Lemon Squeezy subscription update failed",
+      context: {
+        route: "POST /api/lemonsqueezy/webhooks",
+        eventName,
+        userId,
+        subscriptionId,
+      },
+    });
   }
 
   return Response.json({ received: true });

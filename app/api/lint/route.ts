@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import * as Sentry from "@sentry/nextjs";
 import { auth, tasks } from "@trigger.dev/sdk";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
@@ -13,6 +12,7 @@ import {
   FREE_PLAN_PROJECT_LIMIT,
   FREE_PLAN_SCAN_LIMIT,
 } from "@/lib/plan-limits";
+import { captureExceptionWithDiscord } from "@/lib/sentry-alert";
 import { getCalendarMonthRange } from "@/lib/utils/time";
 import type { dbtLintTask } from "@/trigger/dbtLintTask";
 
@@ -24,6 +24,7 @@ const rateLimit = new Ratelimit({
 
 export async function POST(request: Request) {
   const handlerStart = performance.now();
+  let scanId: string | undefined;
 
   try {
     const user = await getUser().catch(() => null);
@@ -131,7 +132,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "Invalid file path" }, { status: 403 });
     }
 
-    const scanId = randomUUID();
+    scanId = randomUUID();
 
     const project = deriveProjectName(fileName);
 
@@ -228,7 +229,11 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error(error);
-    Sentry.captureException(error);
+    await captureExceptionWithDiscord({
+      error,
+      title: "Lint API request failed",
+      context: { route: "POST /api/lint", scanId },
+    });
     return Response.json(
       { error: `Something went wrong, please try again` },
       { status: 500 },
