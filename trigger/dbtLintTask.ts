@@ -19,7 +19,7 @@ import { metadata, retry, schemaTask, task } from "@trigger.dev/sdk";
 import AdmZip from "adm-zip";
 import { eq } from "drizzle-orm";
 import db from "@/db";
-import { type LintReportJson, notifications, scans } from "@/db/schema";
+import { type LintReportJson, notifications, scans, users } from "@/db/schema";
 import { sendDiscordAlert } from "@/lib/discord";
 import {
   type LintMetadata,
@@ -453,7 +453,66 @@ function formatIssueSummary(errors: number, warnings: number) {
   const errorLabel = errors === 1 ? "error" : "errors";
   const warningLabel = warnings === 1 ? "warning" : "warnings";
 
-  return `Found ${errors} ${errorLabel} and ${warnings} ${warningLabel} across your dbt models.`;
+  return `Found ${errors} ${errorLabel} and ${warnings} ${warningLabel} across this dbt project.`;
+}
+
+function formatCategoryBreakdown(categories: LintReportJson["categories"]) {
+  return DBT_FOLDERS.map((category) => {
+    const categoryReport = categories[category];
+    const label = category[0].toUpperCase() + category.slice(1);
+
+    if (categoryReport.skipped) {
+      return `**${label}** — skipped`;
+    }
+
+    const errors = categoryReport.files.reduce(
+      (total, file) => total + file.errors,
+      0,
+    );
+    const warnings = categoryReport.files.reduce(
+      (total, file) => total + file.warnings,
+      0,
+    );
+
+    return `**${label}** — ${errors} errors · ${warnings} warnings`;
+  }).join("\n");
+}
+
+function getBrandIconUrl() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!siteUrl) return undefined;
+
+  try {
+    return new URL("/favicon.ico", siteUrl).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+async function getScanningUser(userId: string) {
+  try {
+    const [user] = await db
+      .select({
+        fullName: users.fullName,
+        email: users.email,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    return user ?? null;
+  } catch (error) {
+    console.error("Failed to load scanning user for Discord alert", {
+      error,
+      userId,
+    });
+    Sentry.captureException(error, {
+      tags: { notification_provider: "discord" },
+      extra: { userId },
+    });
+    return null;
+  }
 }
 
 function getScanDetailsUrl(scanId: string) {
@@ -463,6 +522,21 @@ function getScanDetailsUrl(scanId: string) {
   try {
     return new URL(
       `/projects/${encodeURIComponent(scanId)}`,
+      siteUrl,
+    ).toString();
+  } catch {
+    console.warn("NEXT_PUBLIC_SITE_URL is not a valid URL");
+    return undefined;
+  }
+}
+
+function getScanBadgeUrl(scanId: string) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!siteUrl) return undefined;
+
+  try {
+    return new URL(
+      `/api/scans/${encodeURIComponent(scanId)}/badge`,
       siteUrl,
     ).toString();
   } catch {
@@ -502,14 +576,21 @@ async function finalizeScan({
     .update(scans)
     .set({ status, score, errors, warnings, report })
     .where(eq(scans.scanId, scanId))
-    .returning({ id: scans.id, project: scans.project });
+    .returning({
+      id: scans.id,
+      project: scans.project,
+      userId: scans.userId,
+    });
 
   if (updatedScans.length === 0) {
     console.warn(`No scan found for scan id: ${scanId}`);
     return null;
   }
 
-  return updatedScans[0].project;
+  return {
+    project: updatedScans[0].project,
+    userId: updatedScans[0].userId,
+  };
 }
 
 async function notifyUserScan(scanId: string) {
@@ -1411,21 +1492,38 @@ export const dbtLintTask = schemaTask({
         report,
       });
 
-      const projectName = await measurePhase(timings, "finalScanUpdateMs", () =>
-        finalizeScan({
-          scanId,
-          status: finalStatus === "PASSED" ? "passed" : "failed",
-          score: report.score,
-          errors: report.totals.errors,
-          warnings: report.totals.warnings,
-          report,
-        }),
+      const finalizedScan = await measurePhase(
+        timings,
+        "finalScanUpdateMs",
+        () =>
+          finalizeScan({
+            scanId,
+            status: finalStatus === "PASSED" ? "passed" : "failed",
+            score: report.score,
+            errors: report.totals.errors,
+            warnings: report.totals.warnings,
+            report,
+          }),
       );
 
-      const displayProjectName = projectName ?? "dbt project";
+      const displayProjectName = finalizedScan?.project ?? "dbt project";
       const scanDetailsUrl = getScanDetailsUrl(scanId);
+      const scanBadgeUrl = getScanBadgeUrl(scanId);
+      const scanningUser = finalizedScan
+        ? await measurePhase(timings, "scanAuthorLookupMs", () =>
+            getScanningUser(finalizedScan.userId),
+          )
+        : null;
+      const scanningUserName =
+        scanningUser?.fullName?.trim() || scanningUser?.email;
 
       await sendDiscordAlert({
+        author: scanningUserName
+          ? {
+              name: scanningUserName,
+              iconUrl: scanningUser?.avatarUrl ?? undefined,
+            }
+          : undefined,
         title:
           finalStatus === "PASSED"
             ? `✅ ${displayProjectName} passed`
@@ -1434,8 +1532,9 @@ export const dbtLintTask = schemaTask({
           report.totals.errors,
           report.totals.warnings,
         ),
-        level: finalStatus === "PASSED" ? "info" : "warning",
+        level: finalStatus === "PASSED" ? "success" : "warning",
         url: scanDetailsUrl,
+        imageUrl: scanBadgeUrl,
         fields: [
           {
             name: "Score",
@@ -1451,6 +1550,10 @@ export const dbtLintTask = schemaTask({
             value: report.totals.warnings.toString(),
             inline: true,
           },
+          {
+            name: "Issues by category",
+            value: formatCategoryBreakdown(report.categories),
+          },
           ...(scanDetailsUrl
             ? [
                 {
@@ -1461,6 +1564,7 @@ export const dbtLintTask = schemaTask({
             : []),
         ],
         footer: `Technical reference · Scan ID: ${scanId}`,
+        footerIconUrl: getBrandIconUrl(),
       });
 
       await measurePhase(timings, "completionDispatchMs", () =>
