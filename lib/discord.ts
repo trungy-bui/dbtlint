@@ -1,11 +1,16 @@
 import * as Sentry from "@sentry/nextjs";
 
-export type DiscordAlertLevel = "error" | "warning" | "info";
+export type DiscordAlertLevel = "error" | "warning" | "info" | "success";
 
 export type DiscordAlertField = {
   name: string;
   value: string;
   inline?: boolean;
+};
+
+export type DiscordAlertAuthor = {
+  name: string;
+  iconUrl?: string;
 };
 
 type SendDiscordAlertInput = {
@@ -14,13 +19,18 @@ type SendDiscordAlertInput = {
   level: DiscordAlertLevel;
   fields?: DiscordAlertField[] | Record<string, unknown>;
   url?: string;
+  author?: DiscordAlertAuthor;
+  thumbnailUrl?: string;
+  imageUrl?: string;
   footer?: string;
+  footerIconUrl?: string;
 };
 
 const DISCORD_COLORS: Record<DiscordAlertLevel, number> = {
   error: 0xed4245,
   warning: 0xfee75c,
   info: 0x5865f2,
+  success: 0x57f287,
 };
 
 const DISCORD_TIMEOUT_MS = 5_000;
@@ -80,11 +90,18 @@ export async function sendDiscordAlert({
   level,
   fields,
   url,
+  author,
+  thumbnailUrl,
+  imageUrl,
   footer,
+  footerIconUrl,
 }: SendDiscordAlertInput): Promise<void> {
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
   if (!webhookUrl) return;
 
+  const normalizedThumbnailUrl = normalizeEmbedUrl(thumbnailUrl);
+  const normalizedImageUrl = normalizeEmbedUrl(imageUrl);
+  const normalizedFooterIconUrl = normalizeEmbedUrl(footerIconUrl);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DISCORD_TIMEOUT_MS);
 
@@ -95,12 +112,27 @@ export async function sendDiscordAlert({
       body: JSON.stringify({
         embeds: [
           {
+            author: author
+              ? {
+                  name: truncate(author.name, 256),
+                  icon_url: normalizeEmbedUrl(author.iconUrl),
+                }
+              : undefined,
             title: truncate(title, 256),
             description: truncate(description, 4_096),
             color: DISCORD_COLORS[level],
             fields: normalizeFields(fields),
             url: normalizeEmbedUrl(url),
-            footer: footer ? { text: truncate(footer, 2_048) } : undefined,
+            thumbnail: normalizedThumbnailUrl
+              ? { url: normalizedThumbnailUrl }
+              : undefined,
+            image: normalizedImageUrl ? { url: normalizedImageUrl } : undefined,
+            footer: footer
+              ? {
+                  text: truncate(footer, 2_048),
+                  icon_url: normalizedFooterIconUrl,
+                }
+              : undefined,
             timestamp: new Date().toISOString(),
           },
         ],
