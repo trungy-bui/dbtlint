@@ -13,7 +13,7 @@ export function Upload({ existingProjects }: UploadProps) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
-      className="relative isolate mx-auto flex w-full max-w-5xl flex-col gap-8 text-slate-100 before:fixed before:inset-0 before:-z-10 before:bg-slate-950"
+      className="mx-auto flex w-full max-w-5xl flex-col gap-8 text-slate-100"
     >
       <div className="flex flex-col gap-2 pb-2">
         <p className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-emerald-400">

@@ -25,7 +25,7 @@ export function EmptyProjects({ onUpload }: EmptyProjectsProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
     >
-      <Empty className="relative isolate overflow-hidden rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 py-16 text-slate-100 before:fixed before:inset-0 before:-z-10 before:bg-slate-950">
+      <Empty className="overflow-hidden rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 py-16 text-slate-100">
         <EmptyHeader>
           <EmptyMedia>
             <Image

@@ -89,7 +89,7 @@ export function LoginForm() {
         }}
         initial="hidden"
         animate="show"
-        className="relative isolate w-full max-w-md overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 p-6 text-slate-100 shadow-[0_28px_80px_rgba(2,6,23,0.55)] before:fixed before:inset-0 before:-z-10 before:bg-slate-950 sm:p-8"
+        className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 p-6 text-slate-100 shadow-[0_28px_80px_rgba(2,6,23,0.55)] sm:p-8"
       >
         <motion.div
           variants={{
