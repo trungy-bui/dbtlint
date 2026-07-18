@@ -40,8 +40,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   colorScheme: "light dark",
   themeColor: [
-    { media: "(prefers-color-schema: light)", color: "white" },
-    { media: "(prefers-color-scheme: dark)", color: "black" },
+    { media: "(prefers-color-scheme: light)", color: "white" },
+    { media: "(prefers-color-scheme: dark)", color: "oklch(0.18 0.04 260)" },
   ],
 };
 
@@ -55,7 +55,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="font-sans antialiased bg-backround">
+      <body className="bg-background font-sans antialiased">
         <Providers>
           {children} <Toaster />
         </Providers>

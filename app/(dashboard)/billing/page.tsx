@@ -640,7 +640,7 @@ export default function BillingPage() {
   };
 
   return (
-    <div className="relative isolate max-w-6xl space-y-6 pb-8 before:fixed before:inset-0 before:-z-10 before:bg-slate-950">
+    <div className="max-w-6xl space-y-6 pb-8">
       <div>
         <h1 className="text-2xl font-semibold text-ink mb-1">Billing & plan</h1>
         <p className="text-sm text-ink-muted">
