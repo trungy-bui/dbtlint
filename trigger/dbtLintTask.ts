@@ -20,6 +20,7 @@ import AdmZip from "adm-zip";
 import { eq } from "drizzle-orm";
 import db from "@/db";
 import { type LintReportJson, notifications, scans } from "@/db/schema";
+import { sendDiscordAlert } from "@/lib/discord";
 import {
   type LintMetadata,
   lintMetadata,
@@ -437,6 +438,39 @@ function calculateScore({
   return Math.max(0, Math.min(100, Math.round(100 - penalty)));
 }
 
+function getScoreLabel(score: number) {
+  if (score >= 90) return "Excellent";
+  if (score >= 70) return "Good";
+  if (score >= 50) return "Needs work";
+  return "Poor";
+}
+
+function formatIssueSummary(errors: number, warnings: number) {
+  if (errors === 0 && warnings === 0) {
+    return "No issues found — nice work!";
+  }
+
+  const errorLabel = errors === 1 ? "error" : "errors";
+  const warningLabel = warnings === 1 ? "warning" : "warnings";
+
+  return `Found ${errors} ${errorLabel} and ${warnings} ${warningLabel} across your dbt models.`;
+}
+
+function getScanDetailsUrl(scanId: string) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!siteUrl) return undefined;
+
+  try {
+    return new URL(
+      `/projects/${encodeURIComponent(scanId)}`,
+      siteUrl,
+    ).toString();
+  } catch {
+    console.warn("NEXT_PUBLIC_SITE_URL is not a valid URL");
+    return undefined;
+  }
+}
+
 async function updateScanStatus(scanId: string, status: ScanStatus) {
   const updatedScans = await db
     .update(scans)
@@ -468,11 +502,14 @@ async function finalizeScan({
     .update(scans)
     .set({ status, score, errors, warnings, report })
     .where(eq(scans.scanId, scanId))
-    .returning({ id: scans.id });
+    .returning({ id: scans.id, project: scans.project });
 
   if (updatedScans.length === 0) {
     console.warn(`No scan found for scan id: ${scanId}`);
+    return null;
   }
+
+  return updatedScans[0].project;
 }
 
 async function notifyUserScan(scanId: string) {
@@ -1374,7 +1411,7 @@ export const dbtLintTask = schemaTask({
         report,
       });
 
-      await measurePhase(timings, "finalScanUpdateMs", () =>
+      const projectName = await measurePhase(timings, "finalScanUpdateMs", () =>
         finalizeScan({
           scanId,
           status: finalStatus === "PASSED" ? "passed" : "failed",
@@ -1384,6 +1421,47 @@ export const dbtLintTask = schemaTask({
           report,
         }),
       );
+
+      const displayProjectName = projectName ?? "dbt project";
+      const scanDetailsUrl = getScanDetailsUrl(scanId);
+
+      await sendDiscordAlert({
+        title:
+          finalStatus === "PASSED"
+            ? `✅ ${displayProjectName} passed`
+            : `⚠️ ${displayProjectName} needs attention`,
+        description: formatIssueSummary(
+          report.totals.errors,
+          report.totals.warnings,
+        ),
+        level: finalStatus === "PASSED" ? "info" : "warning",
+        url: scanDetailsUrl,
+        fields: [
+          {
+            name: "Score",
+            value: `**${report.score}/100 — ${getScoreLabel(report.score)}**`,
+          },
+          {
+            name: "Errors",
+            value: report.totals.errors.toString(),
+            inline: true,
+          },
+          {
+            name: "Warnings",
+            value: report.totals.warnings.toString(),
+            inline: true,
+          },
+          ...(scanDetailsUrl
+            ? [
+                {
+                  name: "Full results",
+                  value: `[View scan details](${scanDetailsUrl})`,
+                },
+              ]
+            : []),
+        ],
+        footer: `Technical reference · Scan ID: ${scanId}`,
+      });
 
       await measurePhase(timings, "completionDispatchMs", () =>
         dispatchScanCompletionWork(scanId),
