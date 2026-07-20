@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import {
   type ProjectDetail,
   ProjectDetailPanel,
+  type ReportFocus,
 } from "@/components/projects/project-details-panel";
 import db from "@/db";
 import { scans } from "@/db/schema";
@@ -10,10 +11,17 @@ import { getScoreTrend } from "@/lib/scans";
 
 export default async function ProjectPanelPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ scanId: string }>;
+  searchParams: Promise<{ focus?: string | string[] }>;
 }) {
   const { scanId } = await params;
+  const requestedFocus = (await searchParams).focus;
+  const focus: ReportFocus | undefined =
+    requestedFocus === "errors" || requestedFocus === "warnings"
+      ? requestedFocus
+      : undefined;
 
   const [scan] = await db
     .select()
@@ -36,5 +44,5 @@ export default async function ProjectPanelPage({
     scoreHistory,
   };
 
-  return <ProjectDetailPanel data={data} />;
+  return <ProjectDetailPanel data={data} focus={focus} />;
 }
