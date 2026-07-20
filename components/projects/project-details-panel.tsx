@@ -114,9 +114,10 @@ function downloadReportCSV(data: ProjectDetail): void {
       "Line",
       "Column",
       "Violation Category",
-      "Rule",
       "Title",
       "Explanation",
+      "Source line",
+      "Technical rule code",
     ],
   ];
 
@@ -135,9 +136,10 @@ function downloadReportCSV(data: ProjectDetail): void {
           violation.lineNo,
           violation.linePos,
           violation.category,
-          violation.rawCode,
           violation.title,
           violation.explanation,
+          violation.sourceLine,
+          violation.rawCode,
         ]);
       }
     }
@@ -156,6 +158,25 @@ function downloadReportCSV(data: ProjectDetail): void {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+function SourceLineBlock({
+  lineNo,
+  sourceLine,
+}: {
+  lineNo?: number;
+  sourceLine: string;
+}) {
+  return (
+    <pre className="mt-2 overflow-x-auto rounded border border-slate-800 bg-slate-950 px-3 py-2 font-mono text-xs leading-relaxed">
+      <code className="grid min-w-max grid-cols-[auto_1fr]">
+        <span className="select-none border-r border-slate-800 pr-3 text-right text-slate-500">
+          {lineNo ?? "?"}
+        </span>
+        <span className="pl-3 text-slate-300">{sourceLine || " "}</span>
+      </code>
+    </pre>
+  );
 }
 
 function getScoreColor(
@@ -445,12 +466,17 @@ function CategorySection({
                                 <p className="mt-1 break-words text-sm text-muted-foreground">
                                   {violation.explanation}
                                 </p>
-                                {(violation.lineNo !== undefined ||
-                                  violation.linePos !== undefined) && (
-                                  <p className="mt-2 font-mono text-xs text-muted-foreground">
-                                    Line {violation.lineNo ?? "?"}:
-                                    {violation.linePos ?? "?"}
-                                  </p>
+                                {violation.sourceLine === undefined &&
+                                  violation.lineNo !== undefined && (
+                                    <p className="mt-2 font-mono text-xs text-muted-foreground">
+                                      Line {violation.lineNo}
+                                    </p>
+                                  )}
+                                {violation.sourceLine !== undefined && (
+                                  <SourceLineBlock
+                                    lineNo={violation.lineNo}
+                                    sourceLine={violation.sourceLine}
+                                  />
                                 )}
                                 <button
                                   type="button"
@@ -536,34 +562,82 @@ function RecommendationGroupSection({
           >
             <div className="mt-2 border-l border-slate-800 pl-6">
               <ul className="space-y-4 py-2">
-                {group.items.map((rec) => (
-                  <li
-                    key={`${rec.category}-${rec.title}`}
-                    className="flex items-start gap-3 text-sm"
-                  >
-                    <span
-                      className={`mt-1.5 inline-block size-1.5 flex-shrink-0 rounded-full ${CATEGORY_STYLES[rec.category].dot}`}
-                    />
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-foreground">
-                          {rec.title}
-                        </span>
-                        {rec.occurrences > 1 && (
-                          <span className="text-xs text-muted-foreground">
-                            {rec.occurrences} occurrences
+                {group.items.map((rec) => {
+                  const [onlyOccurrence] = rec.occurrences;
+                  const displayedOccurrences = rec.occurrences.slice(0, 3);
+
+                  return (
+                    <li
+                      key={`${rec.category}-${rec.title}`}
+                      className="flex items-start gap-3 text-sm"
+                    >
+                      <span
+                        className={`mt-1.5 inline-block size-1.5 flex-shrink-0 rounded-full ${CATEGORY_STYLES[rec.category].dot}`}
+                      />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-foreground">
+                            {rec.title}
                           </span>
+                          {rec.occurrences.length > 1 && (
+                            <span className="text-xs text-muted-foreground">
+                              {rec.occurrences.length} occurrences
+                            </span>
+                          )}
+                        </div>
+                        <p className="break-words text-muted-foreground">
+                          {rec.explanation}
+                        </p>
+                        <p className="break-words text-xs text-muted-foreground/80">
+                          {rec.impact}
+                        </p>
+                        {rec.occurrences.length === 1 && onlyOccurrence && (
+                          <div className="pt-1">
+                            <p className="break-all font-mono text-xs text-muted-foreground">
+                              {onlyOccurrence.filePath}
+                            </p>
+                            {onlyOccurrence.sourceLine === undefined &&
+                              onlyOccurrence.lineNo !== undefined && (
+                                <p className="mt-1 font-mono text-xs text-muted-foreground">
+                                  Line {onlyOccurrence.lineNo}
+                                </p>
+                              )}
+                            {onlyOccurrence.sourceLine !== undefined && (
+                              <SourceLineBlock
+                                lineNo={onlyOccurrence.lineNo}
+                                sourceLine={onlyOccurrence.sourceLine}
+                              />
+                            )}
+                          </div>
+                        )}
+                        {rec.occurrences.length > 1 && (
+                          <div className="space-y-1 pt-1 font-mono text-xs text-muted-foreground">
+                            {displayedOccurrences.map((occurrence, index) => (
+                              <p
+                                key={`${occurrence.filePath}-${occurrence.lineNo ?? "unknown"}-${occurrence.linePos ?? "unknown"}-${index}`}
+                                className="break-all"
+                              >
+                                {occurrence.filePath}
+                                {occurrence.lineNo !== undefined && (
+                                  <>, line {occurrence.lineNo}</>
+                                )}
+                              </p>
+                            ))}
+                            {rec.occurrences.length >
+                              displayedOccurrences.length && (
+                              <p className="text-muted-foreground/80">
+                                +
+                                {rec.occurrences.length -
+                                  displayedOccurrences.length}{" "}
+                                more
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
-                      <p className="break-words text-muted-foreground">
-                        {rec.explanation}
-                      </p>
-                      <p className="break-words text-xs text-muted-foreground/80">
-                        {rec.impact}
-                      </p>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </motion.div>

@@ -1,15 +1,27 @@
 import type { LintReportJson } from "@/db/schema";
 import {
+  hasReliableSourceLocation,
+  normalizeSqlfluffViolation,
+} from "@/lib/sqlfluff-violations";
+import {
   explainViolation,
   type FriendlyExplanation,
-  summarizeRecommendations,
 } from "./rule-explanations";
 
-type Violation = { code?: string; description?: string };
+export type RecommendationOccurrence = {
+  filePath: string;
+  lineNo?: number;
+  linePos?: number;
+  sourceLine?: string;
+};
+
+export type Recommendation = FriendlyExplanation & {
+  occurrences: RecommendationOccurrence[];
+};
 
 export type RecommendationGroup = {
   category: FriendlyExplanation["category"];
-  items: Array<FriendlyExplanation & { occurrences: number }>;
+  items: Recommendation[];
   totalOccurrences: number;
 };
 
@@ -25,10 +37,15 @@ const RECOMMENDATION_CATEGORY_ORDER: FriendlyExplanation["category"][] = [
  * Pulls every violation out of every file in every category
  * (models/tests/macros) into one flat list.
  */
-function flattenViolations(report: LintReportJson): Violation[] {
+function flattenViolations(report: LintReportJson) {
   const categories = Object.values(report.categories);
   return categories.flatMap((category) =>
-    category.files.flatMap((file) => file.violations),
+    category.files.flatMap((file) =>
+      file.violations.map((violation) => ({
+        filePath: file.filePath,
+        violation: normalizeSqlfluffViolation(violation),
+      })),
+    ),
   );
 }
 
@@ -37,14 +54,39 @@ function flattenViolations(report: LintReportJson): Violation[] {
  * sorted so data-risk/broken-query issues surface above pure formatting.
  * This is what powers the panel in your screenshot.
  */
-export function buildRecommendations(
-  report: LintReportJson,
-): Array<FriendlyExplanation & { occurrences: number }> {
-  return summarizeRecommendations(flattenViolations(report));
+export function buildRecommendations(report: LintReportJson): Recommendation[] {
+  const byTitle = new Map<string, Recommendation>();
+
+  for (const { filePath, violation } of flattenViolations(report)) {
+    const explained = explainViolation(violation);
+    const hasSourceLocation = hasReliableSourceLocation(violation);
+    const occurrence: RecommendationOccurrence = {
+      filePath,
+      lineNo: hasSourceLocation ? violation.line_no : undefined,
+      linePos: hasSourceLocation ? violation.line_pos : undefined,
+      sourceLine: hasSourceLocation ? violation.sourceLine : undefined,
+    };
+    const existing = byTitle.get(explained.title);
+
+    if (existing) {
+      existing.occurrences.push(occurrence);
+    } else {
+      byTitle.set(explained.title, {
+        ...explained,
+        occurrences: [occurrence],
+      });
+    }
+  }
+
+  return Array.from(byTitle.values()).sort(
+    (a, b) =>
+      RECOMMENDATION_CATEGORY_ORDER.indexOf(a.category) -
+      RECOMMENDATION_CATEGORY_ORDER.indexOf(b.category),
+  );
 }
 
 export function groupRecommendationsByCategory(
-  recommendations: Array<FriendlyExplanation & { occurrences: number }>,
+  recommendations: Recommendation[],
 ): RecommendationGroup[] {
   return RECOMMENDATION_CATEGORY_ORDER.flatMap((category) => {
     const items = recommendations.filter(
@@ -57,7 +99,7 @@ export function groupRecommendationsByCategory(
             category,
             items,
             totalOccurrences: items.reduce(
-              (total, item) => total + item.occurrences,
+              (total, item) => total + item.occurrences.length,
               0,
             ),
           },
@@ -75,11 +117,17 @@ export function groupRecommendationsByCategory(
 export function explainFileViolations(
   violations: LintReportJson["categories"]["models"]["files"][number]["violations"],
 ) {
-  return violations.map((violation) => ({
-    ...explainViolation(violation),
-    lineNo: violation.line_no,
-    linePos: violation.line_pos,
-    rawCode: violation.code,
-    rawDescription: violation.description,
-  }));
+  return violations.map((violation) => {
+    const normalized = normalizeSqlfluffViolation(violation);
+    const hasSourceLocation = hasReliableSourceLocation(normalized);
+
+    return {
+      ...explainViolation(normalized),
+      lineNo: hasSourceLocation ? normalized.line_no : undefined,
+      linePos: hasSourceLocation ? normalized.line_pos : undefined,
+      sourceLine: hasSourceLocation ? normalized.sourceLine : undefined,
+      rawCode: normalized.code,
+      rawDescription: normalized.description,
+    };
+  });
 }

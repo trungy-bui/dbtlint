@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle } from "lucide-react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,11 +38,12 @@ export function RecentScansTable({ recentScans }: RecentScansProps) {
         </CardDescription>
         <CardAction>
           <Button
+            asChild
             variant="outline"
             size="sm"
             className="h-9 cursor-pointer border-slate-700 bg-slate-950/60 text-slate-200 hover:bg-slate-800 hover:text-white"
           >
-            View all
+            <Link href="/projects">View all</Link>
           </Button>
         </CardAction>
       </CardHeader>

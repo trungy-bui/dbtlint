@@ -22,6 +22,11 @@ import db from "@/db";
 import { type LintReportJson, notifications, scans, users } from "@/db/schema";
 import { sendDiscordAlert } from "@/lib/discord";
 import {
+  attachSourceLineToViolation,
+  normalizeSqlfluffViolation,
+  type SqlfluffViolation,
+} from "@/lib/sqlfluff-violations";
+import {
   type LintMetadata,
   lintMetadata,
   lintPayload,
@@ -30,14 +35,6 @@ import {
 type ScanStatus = "processing" | "passed" | "failed";
 type DbtFolder = "models" | "tests" | "macros";
 type LintCategoryReport = LintReportJson["categories"][DbtFolder];
-
-type SqlfluffViolation = {
-  code?: string;
-  description?: string;
-  line_no?: number;
-  line_pos?: number;
-  [key: string]: unknown;
-};
 
 type FileLintResult = {
   filePath: string;
@@ -49,6 +46,7 @@ type FileLintResult = {
 type LineCountResult = {
   lineCount: number;
   readError: string | null;
+  sourceLines: string[];
 };
 
 const supabase = createClient(
@@ -364,6 +362,7 @@ function countLines(filePath: string): LineCountResult {
     return {
       lineCount: 0,
       readError: error instanceof Error ? error.message : String(error),
+      sourceLines: [],
     };
   }
 
@@ -371,12 +370,15 @@ function countLines(filePath: string): LineCountResult {
     return {
       lineCount: 0,
       readError: null,
+      sourceLines: [],
     };
   }
 
+  const sourceLines = content.split(/\r\n|\r|\n/);
   return {
-    lineCount: content.split(/\r\n|\r|\n/).length,
+    lineCount: sourceLines.length,
     readError: null,
+    sourceLines,
   };
 }
 
@@ -410,7 +412,7 @@ function parseSqlfluffOutput(
 
     return {
       filePath: typeof result.filepath === "string" ? result.filepath : null,
-      violations: result.violations,
+      violations: result.violations.map(normalizeSqlfluffViolation),
     };
   });
 }
@@ -970,8 +972,6 @@ function createSqlfluffExecutionViolation(
   return {
     code,
     description,
-    line_no: 1,
-    line_pos: 1,
   };
 }
 
@@ -1060,6 +1060,7 @@ async function lintFilesWithConcurrency({
   lockedConfigPath,
   pythonExecutable,
   extractedDirectory,
+  sourceLinesByFile,
   onFileLinted,
 }: {
   files: string[];
@@ -1067,6 +1068,7 @@ async function lintFilesWithConcurrency({
   lockedConfigPath: string;
   pythonExecutable: string;
   extractedDirectory: string;
+  sourceLinesByFile: ReadonlyMap<string, readonly string[]>;
   onFileLinted: (filePath: string) => void;
 }) {
   const batches = chunkFiles(files, SQLFLUFF_BATCH_SIZE);
@@ -1082,8 +1084,12 @@ async function lintFilesWithConcurrency({
       );
 
       return batch.map((filePath) => {
-        const violations =
+        const rawViolations =
           violationsByFile.get(normalizeSqlfluffFilePath(filePath)) ?? [];
+        const sourceLines = sourceLinesByFile.get(filePath) ?? [];
+        const violations = rawViolations.map((violation) =>
+          attachSourceLineToViolation(violation, sourceLines),
+        );
         const errors = violations.filter(isErrorViolation).length;
         const warnings = violations.length - errors;
 
@@ -1429,6 +1435,12 @@ export const dbtLintTask = schemaTask({
           lockedConfigPath,
           pythonExecutable,
           extractedDirectory,
+          sourceLinesByFile: new Map(
+            Array.from(lineCountsByFile, ([filePath, result]) => [
+              filePath,
+              result.sourceLines,
+            ]),
+          ),
           onFileLinted: (filePath) => {
             lintedFiles += 1;
             updateProgress(lintedFiles, filePath);
