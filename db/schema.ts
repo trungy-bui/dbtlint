@@ -15,6 +15,7 @@ type SqlfluffViolationJson = {
   description?: string;
   line_no?: number;
   line_pos?: number;
+  sourceLine?: string;
   [key: string]: unknown;
 };
 

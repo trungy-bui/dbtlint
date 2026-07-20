@@ -36,6 +36,7 @@ type SqlfluffViolation = {
   description?: string;
   line_no?: number;
   line_pos?: number;
+  sourceLine?: string;
   [key: string]: unknown;
 };
 
@@ -49,6 +50,7 @@ type FileLintResult = {
 type LineCountResult = {
   lineCount: number;
   readError: string | null;
+  sourceLines: string[];
 };
 
 const supabase = createClient(
@@ -364,6 +366,7 @@ function countLines(filePath: string): LineCountResult {
     return {
       lineCount: 0,
       readError: error instanceof Error ? error.message : String(error),
+      sourceLines: [],
     };
   }
 
@@ -371,12 +374,15 @@ function countLines(filePath: string): LineCountResult {
     return {
       lineCount: 0,
       readError: null,
+      sourceLines: [],
     };
   }
 
+  const sourceLines = content.split(/\r\n|\r|\n/);
   return {
-    lineCount: content.split(/\r\n|\r|\n/).length,
+    lineCount: sourceLines.length,
     readError: null,
+    sourceLines,
   };
 }
 
@@ -1060,6 +1066,7 @@ async function lintFilesWithConcurrency({
   lockedConfigPath,
   pythonExecutable,
   extractedDirectory,
+  sourceLinesByFile,
   onFileLinted,
 }: {
   files: string[];
@@ -1067,6 +1074,7 @@ async function lintFilesWithConcurrency({
   lockedConfigPath: string;
   pythonExecutable: string;
   extractedDirectory: string;
+  sourceLinesByFile: ReadonlyMap<string, readonly string[]>;
   onFileLinted: (filePath: string) => void;
 }) {
   const batches = chunkFiles(files, SQLFLUFF_BATCH_SIZE);
@@ -1082,8 +1090,18 @@ async function lintFilesWithConcurrency({
       );
 
       return batch.map((filePath) => {
-        const violations =
+        const rawViolations =
           violationsByFile.get(normalizeSqlfluffFilePath(filePath)) ?? [];
+        const sourceLines = sourceLinesByFile.get(filePath) ?? [];
+        const violations = rawViolations.map((violation) => {
+          const sourceLine = violation.line_no
+            ? sourceLines[violation.line_no - 1]
+            : undefined;
+
+          return sourceLine === undefined
+            ? violation
+            : { ...violation, sourceLine };
+        });
         const errors = violations.filter(isErrorViolation).length;
         const warnings = violations.length - errors;
 
@@ -1429,6 +1447,12 @@ export const dbtLintTask = schemaTask({
           lockedConfigPath,
           pythonExecutable,
           extractedDirectory,
+          sourceLinesByFile: new Map(
+            Array.from(lineCountsByFile, ([filePath, result]) => [
+              filePath,
+              result.sourceLines,
+            ]),
+          ),
           onFileLinted: (filePath) => {
             lintedFiles += 1;
             updateProgress(lintedFiles, filePath);

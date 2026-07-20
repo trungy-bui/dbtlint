@@ -12,6 +12,7 @@ const sqlfluffViolation = z
     description: z.string().optional(),
     line_no: z.number().optional(),
     line_pos: z.number().optional(),
+    sourceLine: z.string().optional(),
   })
   .catchall(z.unknown());
 

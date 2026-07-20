@@ -114,9 +114,10 @@ function downloadReportCSV(data: ProjectDetail): void {
       "Line",
       "Column",
       "Violation Category",
-      "Rule",
       "Title",
       "Explanation",
+      "Source line",
+      "Technical rule code",
     ],
   ];
 
@@ -135,9 +136,10 @@ function downloadReportCSV(data: ProjectDetail): void {
           violation.lineNo,
           violation.linePos,
           violation.category,
-          violation.rawCode,
           violation.title,
           violation.explanation,
+          violation.sourceLine,
+          violation.rawCode,
         ]);
       }
     }
@@ -451,6 +453,11 @@ function CategorySection({
                                     Line {violation.lineNo ?? "?"}:
                                     {violation.linePos ?? "?"}
                                   </p>
+                                )}
+                                {violation.sourceLine !== undefined && (
+                                  <pre className="mt-2 overflow-x-auto rounded border border-slate-800 bg-slate-950 px-3 py-2 font-mono text-xs leading-relaxed text-slate-300">
+                                    <code>{violation.sourceLine || " "}</code>
+                                  </pre>
                                 )}
                                 <button
                                   type="button"

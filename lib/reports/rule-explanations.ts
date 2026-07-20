@@ -69,6 +69,22 @@ const RULE_EXPLANATIONS: Record<
     impact:
       "Purely cosmetic — doesn't affect results, just makes the code harder to read and review.",
   },
+  LT03: {
+    title: "Operator is on the wrong line",
+    category: "Formatting",
+    explanation:
+      "An operator is placed before or after a line break differently from the configured style.",
+    impact:
+      "Purely cosmetic, but consistent operator placement makes expressions easier to scan.",
+  },
+  LT04: {
+    title: "Comma placement is inconsistent",
+    category: "Formatting",
+    explanation:
+      "A comma is leading or trailing differently from the configured style.",
+    impact:
+      "Purely cosmetic, but consistent comma placement makes lists easier to review.",
+  },
   LT05: {
     title: "Line is too long",
     category: "Readability",
@@ -82,6 +98,29 @@ const RULE_EXPLANATIONS: Record<
     impact:
       "Long lines are harder to read in code review and on smaller screens. Doesn't affect how the query runs.",
   },
+  LT06: {
+    title: "Unexpected space before function parentheses",
+    category: "Formatting",
+    explanation:
+      "A function name should be immediately followed by its opening parenthesis.",
+    impact:
+      "Purely cosmetic — it keeps function calls consistent and recognizable.",
+  },
+  LT07: {
+    title: "CTE closing bracket is misplaced",
+    category: "Formatting",
+    explanation: "A CTE's closing bracket isn't on the expected line.",
+    impact:
+      "Doesn't affect results, but consistent CTE layout makes nested queries easier to follow.",
+  },
+  LT08: {
+    title: "CTE needs a separating line break",
+    category: "Formatting",
+    explanation:
+      "A CTE's closing bracket should be followed by a line break before the next clause.",
+    impact:
+      "Doesn't affect results, but visually separating CTEs makes long queries easier to navigate.",
+  },
   LT09: {
     title: "Query structure could be clearer",
     category: "Readability",
@@ -89,6 +128,22 @@ const RULE_EXPLANATIONS: Record<
       "The SELECT statement isn't organized in the conventional order (e.g. columns, then FROM, then JOINs).",
     impact:
       "Doesn't change results, but an unconventional structure makes the query harder for teammates to follow.",
+  },
+  LT10: {
+    title: "SELECT modifier is separated from SELECT",
+    category: "Formatting",
+    explanation:
+      "A modifier such as DISTINCT should appear on the same line as SELECT.",
+    impact:
+      "Doesn't affect results, but keeping the modifier visible with SELECT makes query intent clearer.",
+  },
+  LT11: {
+    title: "Set operator needs its own line",
+    category: "Formatting",
+    explanation:
+      "A set operator such as UNION should be surrounded by line breaks.",
+    impact:
+      "Doesn't affect results, but it makes the boundary between queries much easier to see.",
   },
   LT12: {
     title: "Missing blank line at end of file",
@@ -107,6 +162,37 @@ const RULE_EXPLANATIONS: Record<
     },
     impact:
       "Purely cosmetic, but consistent casing makes SQL much easier to scan quickly.",
+  },
+  CP02: {
+    title: "Identifier capitalization is inconsistent",
+    category: "Formatting",
+    explanation:
+      "A table, column, or alias uses different capitalization from other identifiers.",
+    impact:
+      "Usually cosmetic, but consistent identifier casing reduces visual ambiguity.",
+  },
+  CP03: {
+    title: "Function capitalization is inconsistent",
+    category: "Formatting",
+    explanation:
+      "A function name uses different capitalization from other functions in the query.",
+    impact:
+      "Purely cosmetic, but consistent casing makes functions easier to spot.",
+  },
+  CP04: {
+    title: "Literal capitalization is inconsistent",
+    category: "Formatting",
+    explanation:
+      "A boolean or NULL literal uses different capitalization from similar literals.",
+    impact:
+      "Purely cosmetic, but consistent literal casing makes conditions easier to scan.",
+  },
+  CP05: {
+    title: "Data type capitalization is inconsistent",
+    category: "Formatting",
+    explanation:
+      "A data type uses different capitalization from other data types in the query.",
+    impact: "Purely cosmetic, but consistent type names improve readability.",
   },
 
   // --- References (can cause real bugs) ---
@@ -128,6 +214,14 @@ const RULE_EXPLANATIONS: Record<
     },
     impact:
       "This is a real risk: if two tables both have a column called the same thing, the database picks one for you, and it might not be the one you intended. Prefix it with the table name (e.g. orders.amount) to be explicit.",
+  },
+  RF03: {
+    title: "Column references are qualified inconsistently",
+    category: "Readability",
+    explanation:
+      "Some column names include their table or alias while others in the same query do not.",
+    impact:
+      "Inconsistent qualification makes it harder to tell where each column comes from.",
   },
   RF04: {
     title: "Column name could be a reserved word",
@@ -158,12 +252,27 @@ const RULE_EXPLANATIONS: Record<
     impact:
       "Whoever queries this model later will see a confusing column name instead of something meaningful.",
   },
+  AL03: {
+    title: "Expression missing a clear alias",
+    category: "Readability",
+    explanation:
+      "A calculated expression doesn't have an explicit output name.",
+    impact: "Downstream users may see a generated or unclear column name.",
+  },
   AL04: {
     title: "Duplicate table alias",
     category: "Data risk",
     explanation: "Two tables in the same query are using the same short alias.",
     impact:
       "This is genuinely ambiguous and can cause the wrong table's data to be pulled in — worth fixing before this ships.",
+  },
+  AL05: {
+    title: "Table alias is never used",
+    category: "Readability",
+    explanation:
+      "A table has an alias, but the query continues to reference it without that alias.",
+    impact:
+      "The unused alias adds noise and can make table references harder to follow.",
   },
 
   // --- Structure / convention ---
@@ -182,6 +291,21 @@ const RULE_EXPLANATIONS: Record<
       "The query selects all columns with `*` instead of listing exactly which ones are needed.",
     impact:
       "If someone adds a column to the source table later, this model silently starts pulling in extra data — which can break downstream dashboards or slow things down.",
+  },
+  ST03: {
+    title: "CTE is defined but never used",
+    category: "Readability",
+    explanation: "A named CTE in the WITH block isn't referenced by the query.",
+    impact:
+      "Unused query logic adds maintenance cost and may indicate an incomplete change.",
+  },
+  ST08: {
+    title: "DISTINCT is written like a function",
+    category: "Readability",
+    explanation:
+      "Parentheses after DISTINCT can misleadingly make it look like a function call.",
+    impact:
+      "The query may run, but the syntax obscures that DISTINCT applies to the whole selected row.",
   },
 
   // --- Execution-time failures (from your own TMP_/PRS_ codes) ---

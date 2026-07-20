@@ -79,6 +79,7 @@ export function explainFileViolations(
     ...explainViolation(violation),
     lineNo: violation.line_no,
     linePos: violation.line_pos,
+    sourceLine: violation.sourceLine,
     rawCode: violation.code,
     rawDescription: violation.description,
   }));
