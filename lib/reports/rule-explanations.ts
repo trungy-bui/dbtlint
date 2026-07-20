@@ -414,14 +414,15 @@ export function explainViolation(violation: Violation): FriendlyExplanation {
   // the raw sqlfluff description as the explanation.
   const prefixMatch = code.match(/^[A-Z]+/);
   const prefix = prefixMatch ? prefixMatch[0] : "";
+  const friendlyDescription = stripLocationPrefix(rawDescription);
   const fallback = PREFIX_FALLBACKS[prefix] ?? {
     category: "Readability" as const,
     impact: "This is a code quality suggestion — it won't break your project.",
   };
 
   return {
-    title: cleanupDescriptionAsTitle(rawDescription),
-    explanation: rawDescription,
+    title: cleanupDescriptionAsTitle(friendlyDescription),
+    explanation: friendlyDescription,
     impact: fallback.impact,
     category: fallback.category,
   };
@@ -429,10 +430,14 @@ export function explainViolation(violation: Violation): FriendlyExplanation {
 
 /** Turns a full sqlfluff description into a short title-cased headline. */
 function cleanupDescriptionAsTitle(description: string): string {
-  const firstSentence = description.split(/[.(]/)[0].trim();
+  const firstSentence = description.split(/\.\s+/)[0].trim();
   return firstSentence.length > 60
     ? `${firstSentence.slice(0, 57)}...`
     : firstSentence;
+}
+
+function stripLocationPrefix(description: string): string {
+  return description.replace(/^Line\s+\d+\s*,\s*Position\s+\d+\s*:\s*/i, "");
 }
 
 /**

@@ -22,6 +22,11 @@ import db from "@/db";
 import { type LintReportJson, notifications, scans, users } from "@/db/schema";
 import { sendDiscordAlert } from "@/lib/discord";
 import {
+  attachSourceLineToViolation,
+  normalizeSqlfluffViolation,
+  type SqlfluffViolation,
+} from "@/lib/sqlfluff-violations";
+import {
   type LintMetadata,
   lintMetadata,
   lintPayload,
@@ -30,15 +35,6 @@ import {
 type ScanStatus = "processing" | "passed" | "failed";
 type DbtFolder = "models" | "tests" | "macros";
 type LintCategoryReport = LintReportJson["categories"][DbtFolder];
-
-type SqlfluffViolation = {
-  code?: string;
-  description?: string;
-  line_no?: number;
-  line_pos?: number;
-  sourceLine?: string;
-  [key: string]: unknown;
-};
 
 type FileLintResult = {
   filePath: string;
@@ -416,7 +412,7 @@ function parseSqlfluffOutput(
 
     return {
       filePath: typeof result.filepath === "string" ? result.filepath : null,
-      violations: result.violations,
+      violations: result.violations.map(normalizeSqlfluffViolation),
     };
   });
 }
@@ -976,8 +972,6 @@ function createSqlfluffExecutionViolation(
   return {
     code,
     description,
-    line_no: 1,
-    line_pos: 1,
   };
 }
 
@@ -1093,15 +1087,9 @@ async function lintFilesWithConcurrency({
         const rawViolations =
           violationsByFile.get(normalizeSqlfluffFilePath(filePath)) ?? [];
         const sourceLines = sourceLinesByFile.get(filePath) ?? [];
-        const violations = rawViolations.map((violation) => {
-          const sourceLine = violation.line_no
-            ? sourceLines[violation.line_no - 1]
-            : undefined;
-
-          return sourceLine === undefined
-            ? violation
-            : { ...violation, sourceLine };
-        });
+        const violations = rawViolations.map((violation) =>
+          attachSourceLineToViolation(violation, sourceLines),
+        );
         const errors = violations.filter(isErrorViolation).length;
         const warnings = violations.length - errors;
 

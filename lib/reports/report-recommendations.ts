@@ -1,5 +1,9 @@
 import type { LintReportJson } from "@/db/schema";
 import {
+  hasReliableSourceLocation,
+  normalizeSqlfluffViolation,
+} from "@/lib/sqlfluff-violations";
+import {
   explainViolation,
   type FriendlyExplanation,
   summarizeRecommendations,
@@ -75,12 +79,17 @@ export function groupRecommendationsByCategory(
 export function explainFileViolations(
   violations: LintReportJson["categories"]["models"]["files"][number]["violations"],
 ) {
-  return violations.map((violation) => ({
-    ...explainViolation(violation),
-    lineNo: violation.line_no,
-    linePos: violation.line_pos,
-    sourceLine: violation.sourceLine,
-    rawCode: violation.code,
-    rawDescription: violation.description,
-  }));
+  return violations.map((violation) => {
+    const normalized = normalizeSqlfluffViolation(violation);
+    const hasSourceLocation = hasReliableSourceLocation(normalized);
+
+    return {
+      ...explainViolation(normalized),
+      lineNo: hasSourceLocation ? normalized.line_no : undefined,
+      linePos: hasSourceLocation ? normalized.line_pos : undefined,
+      sourceLine: hasSourceLocation ? normalized.sourceLine : undefined,
+      rawCode: normalized.code,
+      rawDescription: normalized.description,
+    };
+  });
 }
