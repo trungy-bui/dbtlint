@@ -54,7 +54,12 @@ export type ProjectDetail = {
 
 type ProjectDetailPanelProps = {
   data: ProjectDetail;
+  focus?: ReportFocus;
 };
+
+export type ReportFocus = "errors" | "warnings";
+
+type ReportCategory = keyof LintReportJson["categories"];
 
 const CATEGORY_STYLES: Record<
   FriendlyExplanation["category"],
@@ -308,11 +313,22 @@ function ScoreTrendChart({ data }: { data: ScoreTrendPoint[] }) {
 function CategorySection({
   category,
   data,
+  focus,
 }: {
   category: string;
   data: LintCategoryReport;
+  focus?: ReportFocus;
 }) {
-  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(
+    () =>
+      new Set(
+        focus
+          ? data.files
+              .filter((file) => file[focus] > 0)
+              .map((file) => file.filePath)
+          : [],
+      ),
+  );
   const [expandedViolations, setExpandedViolations] = useState<Set<string>>(
     new Set(),
   );
@@ -356,12 +372,19 @@ function CategorySection({
       {data.files.map((file) => {
         const fileName = file.filePath.split("/").pop() || file.filePath;
         const isExpanded = expandedFiles.has(file.filePath);
+        const isFocused = focus !== undefined && file[focus] > 0;
         const friendlyViolations = explainFileViolations(file.violations);
 
         return (
           <div
             key={file.filePath}
-            className="overflow-hidden rounded-md border border-slate-800 bg-slate-900"
+            className={`overflow-hidden rounded-md border bg-slate-900 ${
+              isFocused
+                ? focus === "errors"
+                  ? "border-red-400/60 ring-1 ring-red-400/20"
+                  : "border-amber-400/60 ring-1 ring-amber-400/20"
+                : "border-slate-800"
+            }`}
           >
             <button
               type="button"
@@ -579,7 +602,7 @@ function getStatusIcon(status: "passed" | "failed" | "processing"): string {
   return "▸";
 }
 
-export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
+export function ProjectDetailPanel({ data, focus }: ProjectDetailPanelProps) {
   const recommendations = useMemo(
     () => (data.report ? buildRecommendations(data.report) : []),
     [data.report],
@@ -589,6 +612,16 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
     [recommendations],
   );
   const relativeTime = getRelativeTime(data.createdAt);
+  const focusedCategory: ReportCategory = useMemo(() => {
+    if (!data.report || !focus) return "models";
+
+    const categories: ReportCategory[] = ["models", "tests", "macros"];
+    return (
+      categories.find((category) =>
+        data.report?.categories[category].files.some((file) => file[focus] > 0),
+      ) ?? "models"
+    );
+  }, [data.report, focus]);
 
   const statusConfig = {
     passed: {
@@ -707,8 +740,11 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
 
       {/* Tabs Section */}
       {data.report && (
-        <Card className="border border-slate-800 bg-slate-900 p-0 overflow-x-hidden">
-          <Tabs defaultValue="models" className="w-full">
+        <Card
+          id="report"
+          className="scroll-mt-6 border border-slate-800 bg-slate-900 p-0 overflow-x-hidden"
+        >
+          <Tabs defaultValue={focusedCategory} className="w-full">
             <TabsList className="border-b border-hairline bg-slate-950 rounded-none p-0 h-auto gap-6 w-full justify-start">
               <TabsTrigger
                 value="models"
@@ -734,18 +770,21 @@ export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
                 <CategorySection
                   category="Models"
                   data={data.report.categories.models}
+                  focus={focus}
                 />
               </TabsContent>
               <TabsContent value="tests" className="m-0">
                 <CategorySection
                   category="Tests"
                   data={data.report.categories.tests}
+                  focus={focus}
                 />
               </TabsContent>
               <TabsContent value="macros" className="m-0">
                 <CategorySection
                   category="Macros"
                   data={data.report.categories.macros}
+                  focus={focus}
                 />
               </TabsContent>
             </div>
