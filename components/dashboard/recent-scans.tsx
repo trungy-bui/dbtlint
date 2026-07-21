@@ -2,7 +2,8 @@
 
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle } from "lucide-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type { KeyboardEvent, MouseEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +29,49 @@ interface RecentScansProps {
   recentScans: RecentScan[];
 }
 
+type ScanFilter = "errors" | "warnings";
+
 export function RecentScansTable({ recentScans }: RecentScansProps) {
+  const router = useRouter();
+
+  const navigateToScan = (scanId: string, filter?: ScanFilter) => {
+    // TODO: Read the filter query parameter on the scan detail page and preselect the matching results.
+    const query = filter ? `?filter=${filter}` : "";
+    router.push(`/projects/${scanId}${query}`);
+  };
+
+  const handleRowKeyDown = (
+    event: KeyboardEvent<HTMLTableRowElement>,
+    scanId: string,
+  ) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      navigateToScan(scanId);
+    }
+  };
+
+  const handleCountClick = (
+    event: MouseEvent<HTMLButtonElement>,
+    scanId: string,
+    filter: ScanFilter,
+  ) => {
+    event.stopPropagation();
+    navigateToScan(scanId, filter);
+  };
+
+  const handleCountKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    scanId: string,
+    filter: ScanFilter,
+  ) => {
+    event.stopPropagation();
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      navigateToScan(scanId, filter);
+    }
+  };
+
   return (
     <Card className="gap-0 overflow-hidden border border-slate-800 bg-slate-900/60 py-0 text-slate-100 shadow-none ring-0">
       <CardHeader className="border-b border-slate-800 p-5 sm:p-6">
@@ -38,12 +81,13 @@ export function RecentScansTable({ recentScans }: RecentScansProps) {
         </CardDescription>
         <CardAction>
           <Button
-            asChild
+            type="button"
             variant="outline"
             size="sm"
             className="h-9 cursor-pointer border-slate-700 bg-slate-950/60 text-slate-200 hover:bg-slate-800 hover:text-white"
+            onClick={() => router.push("/projects")}
           >
-            <Link href="/projects">View all</Link>
+            View all
           </Button>
         </CardAction>
       </CardHeader>
@@ -69,6 +113,7 @@ export function RecentScansTable({ recentScans }: RecentScansProps) {
         </TableHeader>
         <TableBody>
           {recentScans.map((scan, index) => (
+            // biome-ignore lint/a11y/useSemanticElements: Table semantics require a tr; keyboard and focus behavior mirror a button.
             <motion.tr
               key={scan.id}
               initial={{ opacity: 0, x: -12 }}
@@ -78,7 +123,12 @@ export function RecentScansTable({ recentScans }: RecentScansProps) {
                 delay: 0.15 + index * 0.05,
                 ease: "easeOut",
               }}
-              className="border-b border-slate-800 transition-colors duration-200 last:border-0 hover:bg-slate-800/55"
+              role="button"
+              tabIndex={0}
+              aria-label={`View scan details for ${scan.project}`}
+              onClick={() => navigateToScan(scan.scanId)}
+              onKeyDown={(event) => handleRowKeyDown(event, scan.scanId)}
+              className="cursor-pointer border-b border-slate-800 transition-colors duration-200 last:border-0 hover:bg-slate-800/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400/70"
             >
               <TableCell className="pl-5">
                 <div className="flex flex-col gap-0.5">
@@ -91,18 +141,39 @@ export function RecentScansTable({ recentScans }: RecentScansProps) {
                 <TimeAgo date={scan.createdAt} />
               </TableCell>
               <TableCell className="text-right tabular-nums">
-                <span
+                <button
+                  type="button"
+                  aria-label={`View ${scan.errors} errors for ${scan.project}`}
+                  onClick={(event) =>
+                    handleCountClick(event, scan.scanId, "errors")
+                  }
+                  onKeyDown={(event) =>
+                    handleCountKeyDown(event, scan.scanId, "errors")
+                  }
                   className={cn(
+                    "cursor-pointer rounded-sm underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/70",
                     scan.errors > 0
                       ? "font-medium text-rose-300"
                       : "text-slate-500",
                   )}
                 >
                   {scan.errors}
-                </span>
+                </button>
               </TableCell>
-              <TableCell className="text-right font-mono tabular-nums text-amber-300">
-                {scan.warnings}
+              <TableCell className="text-right font-mono tabular-nums">
+                <button
+                  type="button"
+                  aria-label={`View ${scan.warnings} warnings for ${scan.project}`}
+                  onClick={(event) =>
+                    handleCountClick(event, scan.scanId, "warnings")
+                  }
+                  onKeyDown={(event) =>
+                    handleCountKeyDown(event, scan.scanId, "warnings")
+                  }
+                  className="cursor-pointer rounded-sm text-amber-300 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
+                >
+                  {scan.warnings}
+                </button>
               </TableCell>
               <TableCell className="pr-5 text-right">
                 {scan.status === "passed" ? (
