@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import db from "@/db";
-import { notifications, scans } from "@/db/schema";
+import { githubPrScans, notifications, scans } from "@/db/schema";
 
 const DASHBOARD_REVALIDATE_SECONDS = 60;
 
@@ -41,6 +41,14 @@ async function fetchScans(userId: string) {
     .where(eq(scans.userId, userId));
 }
 
+async function fetchGithubPrScans(userId: string) {
+  return db
+    .select()
+    .from(githubPrScans)
+    .orderBy(desc(githubPrScans.createdAt))
+    .where(eq(githubPrScans.userId, userId));
+}
+
 function fetchScanById(scanId: string) {
   return db.select().from(scans).where(eq(scans.scanId, scanId)).limit(1);
 }
@@ -63,22 +71,61 @@ function fetchNotifications(userId: string) {
     .limit(10);
 }
 
-export async function fetchProjects(userId: string, limit: number = 5) {
-  return db
-    .selectDistinctOn([scans.project], {
-      project: scans.project,
-      status: scans.status,
-      score: scans.score,
-      errors: scans.errors,
-      warnings: scans.warnings,
-      createdAt: scans.createdAt,
-      scanId: scans.scanId,
-      scanPath: scans.scanPath,
-    })
-    .from(scans)
-    .where(eq(scans.userId, userId))
-    .orderBy(scans.project, desc(scans.createdAt))
-    .limit(limit);
+export async function fetchProjects(userId: string, limit?: number) {
+  const [uploadProjects, githubProjects] = await Promise.all([
+    db
+      .selectDistinctOn([scans.project], {
+        project: scans.project,
+        status: scans.status,
+        score: scans.score,
+        errors: scans.errors,
+        warnings: scans.warnings,
+        createdAt: scans.createdAt,
+        scanId: scans.scanId,
+        scanPath: scans.scanPath,
+      })
+      .from(scans)
+      .where(eq(scans.userId, userId))
+      .orderBy(scans.project, desc(scans.createdAt)),
+    db
+      .selectDistinctOn([githubPrScans.project], {
+        project: githubPrScans.project,
+        status: githubPrScans.status,
+        score: githubPrScans.score,
+        errors: githubPrScans.errors,
+        warnings: githubPrScans.warnings,
+        createdAt: githubPrScans.createdAt,
+        scanId: githubPrScans.scanId,
+        repositoryFullName: githubPrScans.repositoryFullName,
+        headSha: githubPrScans.headSha,
+      })
+      .from(githubPrScans)
+      .where(eq(githubPrScans.userId, userId))
+      .orderBy(githubPrScans.project, desc(githubPrScans.createdAt)),
+  ]);
+
+  const merged = [
+    ...uploadProjects,
+    ...githubProjects.map((scan) => ({
+      project: scan.project,
+      status: scan.status,
+      score: scan.score,
+      errors: scan.errors,
+      warnings: scan.warnings,
+      createdAt: scan.createdAt,
+      scanId: scan.scanId,
+      scanPath: `github:${scan.repositoryFullName}@${scan.headSha}`,
+    })),
+  ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  const latestByProject = new Map<string, (typeof merged)[number]>();
+  for (const project of merged) {
+    if (!latestByProject.has(project.project)) {
+      latestByProject.set(project.project, project);
+    }
+  }
+  const projects = Array.from(latestByProject.values());
+  return limit === undefined ? projects : projects.slice(0, limit);
 }
 
 function getTrendDirection(value: number): DashboardTrendDirection {
@@ -104,7 +151,11 @@ function formatTrend(
 async function fetchDashboardStats(
   userId: string,
 ): Promise<DashboardStatValues> {
-  const allScans = await fetchScans(userId);
+  const [uploadScans, githubScans] = await Promise.all([
+    fetchScans(userId),
+    fetchGithubPrScans(userId),
+  ]);
+  const allScans = [...uploadScans, ...githubScans];
   const now = new Date();
   const currentPeriodStart = new Date(
     now.getTime() - TREND_WINDOW_DAYS * DAY_IN_MILLISECONDS,

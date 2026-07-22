@@ -1,18 +1,15 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
   existsSync,
   lstatSync,
   mkdirSync,
   readdirSync,
-  readFileSync,
   renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promisify, TextDecoder } from "node:util";
 import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@supabase/supabase-js";
 import { metadata, retry, schemaTask, task } from "@trigger.dev/sdk";
@@ -22,33 +19,25 @@ import db from "@/db";
 import { type LintReportJson, notifications, scans, users } from "@/db/schema";
 import { sendDiscordAlert } from "@/lib/discord";
 import {
-  attachSourceLineToViolation,
-  normalizeSqlfluffViolation,
-  type SqlfluffViolation,
-} from "@/lib/sqlfluff-violations";
-import {
   type LintMetadata,
   lintMetadata,
   lintPayload,
 } from "@/lib/validation/lint";
+import {
+  createEmptyLintReport,
+  DBT_FOLDERS,
+  MAX_DIRECTORY_DEPTH,
+  MAX_PROJECT_FILES,
+  resolvePythonExecutable,
+  runLintPipeline,
+  SQLFLUFF_BATCH_SIZE,
+  SQLFLUFF_CONCURRENCY,
+  SQLFLUFF_LOCKED_CONFIG_CONTENTS,
+  TASK_QUEUE_CONCURRENCY,
+  UserFacingLintFailure,
+} from "@/trigger/lintPipeline";
 
 type ScanStatus = "processing" | "passed" | "failed";
-type DbtFolder = "models" | "tests" | "macros";
-type LintCategoryReport = LintReportJson["categories"][DbtFolder];
-
-type FileLintResult = {
-  filePath: string;
-  errors: number;
-  warnings: number;
-  violations: SqlfluffViolation[];
-};
-
-type LineCountResult = {
-  lineCount: number;
-  readError: string | null;
-  sourceLines: string[];
-};
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
   process.env.SUPABASE_SERVICE_ROLE_KEY as string,
@@ -59,11 +48,6 @@ const supabase = createClient(
     },
   },
 );
-const execFileAsync = promisify(execFile);
-const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
-
-const DBT_FOLDERS = ["models", "tests", "macros"] as const;
-
 // These limits keep untrusted uploads bounded before CPU-heavy linting starts.
 const MAX_ZIP_BYTES = 50 * 1024 * 1024;
 const MAX_ZIP_ENTRIES = 10_000;
@@ -72,70 +56,8 @@ const MAX_TOTAL_UNCOMPRESSED_BYTES = readPositiveIntegerEnv(
   "DBT_LINT_MAX_TOTAL_UNCOMPRESSED_BYTES",
   300 * 1024 * 1024,
 );
-// Counts every extracted file, including non-SQL, to reject archives stuffed with irrelevant files.
-const MAX_PROJECT_FILES = 5_000;
-// Counts only SQL files that sqlfluff will process, bounding the actual lint workload.
-const MAX_SQL_FILES = 1_000;
-const MAX_TOTAL_SQL_LINES = 200_000;
-const MAX_DIRECTORY_DEPTH = 20;
-
-// sqlfluff is CPU-bound and may invoke templating; keep both per-batch and task-level fan-out bounded.
-const SQLFLUFF_TIMEOUT_MS = 60_000;
-const SQLFLUFF_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
-const SQLFLUFF_LOCKED_CONFIG_CONTENTS = `[sqlfluff]
-templater = jinja
-`;
-const SQLFLUFF_BATCH_SIZE = readPositiveIntegerEnv(
-  "DBT_LINT_SQLFLUFF_BATCH_SIZE",
-  40,
-);
-const SQLFLUFF_CONCURRENCY = readPositiveIntegerEnv(
-  "DBT_LINT_SQLFLUFF_CONCURRENCY",
-  1,
-);
-// Global cap on concurrent lint jobs across all users. Tune this against the
-// Trigger.dev machine preset's CPU/memory before raising it for real traffic.
-const TASK_QUEUE_CONCURRENCY = readPositiveIntegerEnv(
-  "DBT_LINT_TASK_QUEUE_CONCURRENCY",
-  4,
-);
 const METADATA_UPDATE_INTERVAL_MS = 1_500;
 const METADATA_UPDATE_FILE_STEP = 25;
-
-class UserFacingLintFailure extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "UserFacingLintFailure";
-  }
-}
-
-type ExecFileFailure = Error & {
-  code?: number | string;
-  stdout?: string;
-  stderr?: string;
-  killed?: boolean;
-  signal?: NodeJS.Signals | string;
-};
-
-const SQLFLUFF_SUBPROCESS_ENV = Object.fromEntries(
-  [
-    ["NODE_ENV", process.env.NODE_ENV ?? "production"],
-    ["HOME", process.env.HOME ?? "/tmp"],
-    ["LANG", process.env.LANG ?? "C.UTF-8"],
-    ["LC_ALL", process.env.LC_ALL ?? "C.UTF-8"],
-    ["PYTHONUTF8", "1"],
-    ["LOCALAPPDATA", process.env.LOCALAPPDATA],
-    ["PATH", process.env.PATH],
-    ["Path", process.env.Path],
-    ["SystemRoot", process.env.SystemRoot],
-    ["WINDIR", process.env.WINDIR],
-    ["PATHEXT", process.env.PATHEXT],
-  ].filter((entry): entry is [string, string] => typeof entry[1] === "string"),
-) as NodeJS.ProcessEnv;
-let hasLoggedSqlfluffConfigPath = false;
-let hasLoggedSqlfluffPythonExecutable = false;
-let hasWarnedAboutPathBasedPythonDiscovery = false;
-let resolvedPythonExecutablePromise: Promise<string> | null = null;
 
 function readPositiveIntegerEnv(name: string, fallback: number) {
   const rawValue = process.env[name];
@@ -173,34 +95,10 @@ function updateLintMetadata(lintData: LintMetadata) {
   metadata.set("Lint", JSON.parse(JSON.stringify(data)));
 }
 
-function createEmptyReport(statusMessage?: string): LintReportJson {
-  const createCategory = (folder: DbtFolder): LintCategoryReport => ({
-    folderPath: null,
-    files: [],
-    skipped: true,
-    statusMessage: statusMessage ?? `No ${folder} folder found in dbt project`,
-  });
-
-  return {
-    categories: {
-      models: createCategory("models"),
-      tests: createCategory("tests"),
-      macros: createCategory("macros"),
-    },
-    totals: {
-      files: 0,
-      lines: 0,
-      errors: 0,
-      warnings: 0,
-    },
-    score: 0,
-  };
-}
-
 async function failScan({
   scanId,
   statusMessage,
-  report = createEmptyReport(statusMessage),
+  report = createEmptyLintReport(statusMessage),
 }: {
   scanId: string;
   statusMessage: string;
@@ -352,92 +250,6 @@ function countProjectFiles(directory: string, depth = 0): number {
   }
 
   return fileCount;
-}
-
-function countLines(filePath: string): LineCountResult {
-  let content: string;
-  try {
-    content = UTF8_DECODER.decode(readFileSync(filePath));
-  } catch (error) {
-    return {
-      lineCount: 0,
-      readError: error instanceof Error ? error.message : String(error),
-      sourceLines: [],
-    };
-  }
-
-  if (!content) {
-    return {
-      lineCount: 0,
-      readError: null,
-      sourceLines: [],
-    };
-  }
-
-  const sourceLines = content.split(/\r\n|\r|\n/);
-  return {
-    lineCount: sourceLines.length,
-    readError: null,
-    sourceLines,
-  };
-}
-
-function isErrorViolation(violation: SqlfluffViolation) {
-  const code = violation.code?.toUpperCase() ?? "";
-  return code.startsWith("PRS") || code.startsWith("TMP");
-}
-
-function parseSqlfluffOutput(
-  output: string,
-): { filePath: string | null; violations: SqlfluffViolation[] }[] {
-  const parsed = JSON.parse(output) as unknown;
-
-  if (!Array.isArray(parsed)) {
-    throw new Error("sqlfluff returned JSON in an unexpected shape");
-  }
-
-  return parsed.map((fileResult) => {
-    if (
-      typeof fileResult !== "object" ||
-      fileResult === null ||
-      !Array.isArray((fileResult as { violations?: unknown }).violations)
-    ) {
-      return { filePath: null, violations: [] };
-    }
-
-    const result = fileResult as {
-      filepath?: unknown;
-      violations: SqlfluffViolation[];
-    };
-
-    return {
-      filePath: typeof result.filepath === "string" ? result.filepath : null,
-      violations: result.violations.map(normalizeSqlfluffViolation),
-    };
-  });
-}
-
-function calculateScore({
-  errors,
-  warnings,
-  totalFiles,
-}: {
-  errors: number;
-  warnings: number;
-  totalFiles: number;
-}) {
-  if (totalFiles === 0) return 0;
-
-  const ERROR_WEIGHT = 15;
-  const WARNING_WEIGHT = 3;
-
-  const avgErrorsPerFile = errors / totalFiles;
-  const avgWarningsPerFile = warnings / totalFiles;
-
-  const penalty =
-    avgErrorsPerFile * ERROR_WEIGHT + avgWarningsPerFile * WARNING_WEIGHT;
-
-  return Math.max(0, Math.min(100, Math.round(100 - penalty)));
 }
 
 function getScoreLabel(score: number) {
@@ -663,510 +475,6 @@ async function notifyScanComplete(scanId: string) {
   );
 }
 
-function chunkFiles(files: string[], chunkSize: number) {
-  const chunks: string[][] = [];
-  for (let index = 0; index < files.length; index += chunkSize) {
-    chunks.push(files.slice(index, index + chunkSize));
-  }
-  return chunks;
-}
-
-function normalizeSqlfluffFilePath(filePath: string) {
-  return path.resolve(filePath);
-}
-
-function mapSqlfluffOutputToFiles(
-  output: string,
-  files: string[],
-): Map<string, SqlfluffViolation[]> {
-  const violationsByFile = new Map(
-    files.map((filePath) => [
-      normalizeSqlfluffFilePath(filePath),
-      [] as SqlfluffViolation[],
-    ]),
-  );
-
-  for (const fileResult of parseSqlfluffOutput(output)) {
-    if (!fileResult.filePath) continue;
-
-    const normalizedFilePath = normalizeSqlfluffFilePath(fileResult.filePath);
-    if (violationsByFile.has(normalizedFilePath)) {
-      violationsByFile.set(normalizedFilePath, fileResult.violations);
-    }
-  }
-
-  return violationsByFile;
-}
-
-function createBatchExecutionViolations(
-  files: string[],
-  descriptionForFile: (filePath: string) => string,
-  code = "TMP_EXEC_ERROR",
-) {
-  return new Map(
-    files.map((filePath) => [
-      normalizeSqlfluffFilePath(filePath),
-      [createSqlfluffExecutionViolation(descriptionForFile(filePath), code)],
-    ]),
-  );
-}
-
-type PythonExecutableCandidate = {
-  command: string;
-  args: string[];
-  source: string;
-};
-
-function truncateSubprocessOutput(output: string | undefined) {
-  return output?.trim().slice(0, 500) || "(empty)";
-}
-
-async function validatePythonExecutableCandidate({
-  command,
-  args,
-  source,
-}: PythonExecutableCandidate) {
-  await execFileAsync(command, [...args, "-m", "sqlfluff", "--version"], {
-    env: SQLFLUFF_SUBPROCESS_ENV,
-    timeout: 15_000,
-    windowsHide: true,
-  });
-
-  const executablePathScript =
-    "import os, sys; print(os.path.abspath(sys.executable))";
-
-  const { stdout } = await execFileAsync(
-    command,
-    [...args, "-c", executablePathScript],
-    {
-      env: SQLFLUFF_SUBPROCESS_ENV,
-      timeout: 15_000,
-      windowsHide: true,
-    },
-  );
-  const executablePath = stdout.trim().split(/\r?\n/).at(-1)?.trim();
-
-  if (!executablePath || !path.isAbsolute(executablePath)) {
-    throw new Error(
-      `${source} resolved to a non-absolute Python path: ${executablePath || "(empty)"}`,
-    );
-  }
-
-  return executablePath;
-}
-
-async function resolvePythonExecutable() {
-  if (resolvedPythonExecutablePromise) return resolvedPythonExecutablePromise;
-
-  resolvedPythonExecutablePromise = (async () => {
-    const configuredPythonExecutable =
-      process.env.PYTHON_EXECUTABLE ?? process.env.PYTHON_BIN_PATH;
-    if (
-      configuredPythonExecutable &&
-      path.isAbsolute(configuredPythonExecutable)
-    ) {
-      if (!hasLoggedSqlfluffPythonExecutable) {
-        hasLoggedSqlfluffPythonExecutable = true;
-        console.log("Using configured Python executable for sqlfluff", {
-          pythonExecutable: configuredPythonExecutable,
-          resolvedFrom: process.env.PYTHON_EXECUTABLE
-            ? "PYTHON_EXECUTABLE"
-            : "Trigger.dev PYTHON_BIN_PATH",
-          validationSkipped: true,
-        });
-      }
-      return configuredPythonExecutable;
-    }
-
-    const candidates: PythonExecutableCandidate[] = [];
-    if (process.env.PYTHON_EXECUTABLE) {
-      candidates.push({
-        command: process.env.PYTHON_EXECUTABLE,
-        args: [],
-        source: "PYTHON_EXECUTABLE",
-      });
-    }
-
-    if (process.env.PYTHON_BIN_PATH) {
-      candidates.push({
-        command: process.env.PYTHON_BIN_PATH,
-        args: [],
-        source: "Trigger.dev PYTHON_BIN_PATH",
-      });
-    }
-
-    if (candidates.length === 0 && !hasWarnedAboutPathBasedPythonDiscovery) {
-      hasWarnedAboutPathBasedPythonDiscovery = true;
-      console.warn(
-        "No PYTHON_EXECUTABLE or PYTHON_BIN_PATH set. Falling back to PATH-based Python discovery, which is not guaranteed deterministic.",
-      );
-    }
-
-    candidates.push(
-      { command: "python", args: [], source: "python on PATH" },
-      { command: "python3", args: [], source: "python3 on PATH" },
-    );
-
-    if (process.platform === "win32") {
-      candidates.push({
-        command: "py",
-        args: ["-3"],
-        source: "Windows py launcher",
-      });
-    }
-
-    const failures: string[] = [];
-    for (const candidate of candidates) {
-      try {
-        const executablePath =
-          await validatePythonExecutableCandidate(candidate);
-        if (!hasLoggedSqlfluffPythonExecutable) {
-          hasLoggedSqlfluffPythonExecutable = true;
-          console.log("Using Python executable for sqlfluff", {
-            pythonExecutable: executablePath,
-            resolvedFrom: candidate.source,
-            platform: process.platform,
-            localAppDataIncluded:
-              typeof SQLFLUFF_SUBPROCESS_ENV.LOCALAPPDATA === "string",
-          });
-        }
-        return executablePath;
-      } catch (error) {
-        const execError = error as ExecFileFailure;
-        console.warn("Rejected Python executable candidate for sqlfluff", {
-          source: candidate.source,
-          command: candidate.command,
-          args: candidate.args,
-          error: error instanceof Error ? error.message : String(error),
-          stdout: truncateSubprocessOutput(execError.stdout),
-          stderr: truncateSubprocessOutput(execError.stderr),
-        });
-        failures.push(
-          `${candidate.source} (${candidate.command} ${candidate.args.join(" ")}): ${
-            error instanceof Error ? error.message : String(error)
-          }; stdout=${truncateSubprocessOutput(execError.stdout)}; stderr=${truncateSubprocessOutput(
-            execError.stderr,
-          )}`,
-        );
-      }
-    }
-
-    throw new Error(
-      `Unable to resolve a Python executable with sqlfluff importable. Set PYTHON_EXECUTABLE to an absolute interpreter path. Attempts: ${failures.join(" | ")}`,
-    );
-  })();
-
-  return resolvedPythonExecutablePromise;
-}
-
-function logSqlfluffSubprocessOutput({
-  stdout,
-  stderr,
-  parseError,
-}: {
-  stdout?: string;
-  stderr?: string;
-  parseError?: unknown;
-}) {
-  if (stdout?.trim()) {
-    console.error("sqlfluff produced non-JSON stdout", {
-      parseError: parseError instanceof Error ? parseError.message : parseError,
-      stdout: stdout.slice(0, 500),
-    });
-  }
-
-  if (stderr?.trim()) {
-    console.error("sqlfluff subprocess stderr", {
-      stderr: stderr.slice(0, 500),
-    });
-  }
-}
-
-async function lintSqlFiles(
-  files: string[],
-  dialect: string,
-  lockedConfigPath: string,
-  pythonExecutable: string,
-) {
-  try {
-    if (!hasLoggedSqlfluffConfigPath) {
-      hasLoggedSqlfluffConfigPath = true;
-      console.log("Using locked sqlfluff config", {
-        configPath: lockedConfigPath,
-        configPathExists: existsSync(lockedConfigPath),
-      });
-    }
-
-    // This subprocess processes untrusted Jinja-bearing SQL and must never inherit
-    // network credentials or app secrets such as Supabase keys.
-    const { stdout } = await execFileAsync(
-      pythonExecutable,
-      [
-        "-m",
-        "sqlfluff",
-        "lint",
-        ...files,
-        "--format",
-        "json",
-        "--dialect",
-        dialect,
-        "--templater",
-        "jinja",
-        "--config",
-        lockedConfigPath,
-      ],
-      {
-        env: SQLFLUFF_SUBPROCESS_ENV,
-        maxBuffer: SQLFLUFF_MAX_BUFFER_BYTES,
-        timeout: SQLFLUFF_TIMEOUT_MS,
-        windowsHide: true,
-      },
-    );
-
-    return mapSqlfluffOutputToFiles(stdout, files);
-  } catch (error) {
-    const execError = error as ExecFileFailure;
-
-    if (typeof execError.stdout === "string" && execError.stdout.trim()) {
-      try {
-        return mapSqlfluffOutputToFiles(execError.stdout, files);
-      } catch (parseError) {
-        logSqlfluffSubprocessOutput({
-          stdout: execError.stdout,
-          stderr: execError.stderr,
-          parseError,
-        });
-        return createBatchExecutionViolations(files, (filePath) => {
-          return `sqlfluff produced non-JSON output for ${path.basename(filePath)}: ${
-            parseError instanceof Error
-              ? parseError.message
-              : String(parseError)
-          }`;
-        });
-      }
-    }
-
-    logSqlfluffSubprocessOutput({
-      stderr: execError.stderr,
-    });
-
-    return createBatchExecutionViolations(
-      files,
-      (filePath) =>
-        `Failed to run sqlfluff for ${path.basename(filePath)}: ${
-          execError.killed || execError.signal === "SIGTERM"
-            ? `timed out after ${SQLFLUFF_TIMEOUT_MS / 1000} seconds`
-            : execError.stderr?.trim() || execError.message || String(error)
-        }`,
-      execError.killed || execError.signal === "SIGTERM"
-        ? "TMP_TIMEOUT"
-        : "TMP_EXEC_ERROR",
-    );
-  }
-}
-
-function createSqlfluffExecutionViolation(
-  description: string,
-  code = "TMP_EXEC_ERROR",
-): SqlfluffViolation {
-  return {
-    code,
-    description,
-  };
-}
-
-function toReportFilePath(extractedDirectory: string, filePath: string) {
-  return path.relative(extractedDirectory, filePath).split(path.sep).join("/");
-}
-
-function createUnreadableSqlFileResult({
-  filePath,
-  extractedDirectory,
-  readError,
-}: {
-  filePath: string;
-  extractedDirectory: string;
-  readError: string;
-}): FileLintResult {
-  const violations = [
-    createSqlfluffExecutionViolation(
-      `Failed to read SQL file as UTF-8 text for ${path.basename(filePath)}: ${readError}`,
-      "TMP_FILE_READ_ERROR",
-    ),
-  ];
-
-  return {
-    filePath: toReportFilePath(extractedDirectory, filePath),
-    errors: violations.filter(isErrorViolation).length,
-    warnings: 0,
-    violations,
-  };
-}
-
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  concurrency: number,
-  worker: (item: T, index: number) => Promise<R>,
-) {
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
-
-  async function runNext() {
-    while (nextIndex < items.length) {
-      const currentIndex = nextIndex;
-      nextIndex += 1;
-      results[currentIndex] = await worker(items[currentIndex], currentIndex);
-    }
-  }
-
-  const workerCount = Math.min(concurrency, items.length);
-  await Promise.all(
-    Array.from({ length: workerCount }, async () => {
-      await runNext();
-    }),
-  );
-
-  return results;
-}
-
-function createProgressUpdater(totalFiles: number) {
-  let lastMetadataUpdateAt = 0;
-  let lastMetadataUpdateFileCount = 0;
-
-  return (lintedFiles: number, filePath: string) => {
-    const now = Date.now();
-    const shouldUpdate =
-      lintedFiles === 0 ||
-      lintedFiles === totalFiles ||
-      now - lastMetadataUpdateAt >= METADATA_UPDATE_INTERVAL_MS ||
-      lintedFiles - lastMetadataUpdateFileCount >= METADATA_UPDATE_FILE_STEP;
-
-    if (!shouldUpdate) return;
-
-    lastMetadataUpdateAt = now;
-    lastMetadataUpdateFileCount = lintedFiles;
-
-    updateLintMetadata({
-      statusMessage: `Linting ${path.basename(filePath)}`,
-      status: "PROCESSING",
-      progress: 20 + Math.floor((lintedFiles / totalFiles) * 75),
-    });
-  };
-}
-
-async function lintFilesWithConcurrency({
-  files,
-  dialect,
-  lockedConfigPath,
-  pythonExecutable,
-  extractedDirectory,
-  sourceLinesByFile,
-  onFileLinted,
-}: {
-  files: string[];
-  dialect: string;
-  lockedConfigPath: string;
-  pythonExecutable: string;
-  extractedDirectory: string;
-  sourceLinesByFile: ReadonlyMap<string, readonly string[]>;
-  onFileLinted: (filePath: string) => void;
-}) {
-  const batches = chunkFiles(files, SQLFLUFF_BATCH_SIZE);
-  const batchResults = await mapWithConcurrency(
-    batches,
-    SQLFLUFF_CONCURRENCY,
-    async (batch) => {
-      const violationsByFile = await lintSqlFiles(
-        batch,
-        dialect,
-        lockedConfigPath,
-        pythonExecutable,
-      );
-
-      return batch.map((filePath) => {
-        const rawViolations =
-          violationsByFile.get(normalizeSqlfluffFilePath(filePath)) ?? [];
-        const sourceLines = sourceLinesByFile.get(filePath) ?? [];
-        const violations = rawViolations.map((violation) =>
-          attachSourceLineToViolation(violation, sourceLines),
-        );
-        const errors = violations.filter(isErrorViolation).length;
-        const warnings = violations.length - errors;
-
-        onFileLinted(filePath);
-
-        return {
-          filePath: toReportFilePath(extractedDirectory, filePath),
-          errors,
-          warnings,
-          violations,
-        };
-      });
-    },
-  );
-
-  return batchResults.flat();
-}
-
-function folderInDirectory(
-  directory: string,
-  folder: DbtFolder,
-  depth = 0,
-): string | null {
-  if (depth > MAX_DIRECTORY_DEPTH) {
-    throw new UserFacingLintFailure(
-      `Project directory nesting exceeds the limit of ${MAX_DIRECTORY_DEPTH}`,
-    );
-  }
-
-  const directoryContent = readdirSync(directory, { withFileTypes: true });
-  if (
-    directoryContent.some(
-      (entry) => entry.isDirectory() && entry.name === folder,
-    )
-  ) {
-    return path.join(directory, folder);
-  }
-
-  for (const nestedDirectory of directoryContent) {
-    const nestedPath = path.join(directory, nestedDirectory.name);
-    const nestedStats = lstatSync(nestedPath);
-
-    if (nestedStats.isSymbolicLink()) continue;
-
-    if (nestedStats.isDirectory()) {
-      const nestedContent = folderInDirectory(nestedPath, folder, depth + 1);
-      if (nestedContent) return nestedContent;
-    }
-  }
-
-  return null;
-}
-
-function readDirectoryContent(directory: string, depth = 0) {
-  if (depth > MAX_DIRECTORY_DEPTH) {
-    throw new UserFacingLintFailure(
-      `Project directory nesting exceeds the limit of ${MAX_DIRECTORY_DEPTH}`,
-    );
-  }
-
-  const directoryFiles: Array<string> = [];
-  const directoryContent = readdirSync(directory, { withFileTypes: true });
-  for (const asset of directoryContent) {
-    const assetPath = path.join(directory, asset.name);
-    const assetStats = lstatSync(assetPath);
-
-    if (assetStats.isSymbolicLink()) continue;
-
-    if (assetStats.isDirectory()) {
-      directoryFiles.push(...readDirectoryContent(assetPath, depth + 1));
-    } else if (path.extname(assetPath) === ".sql") {
-      directoryFiles.push(assetPath);
-    }
-  }
-  return directoryFiles;
-}
-
 export const scanCompletionEmailTask = task({
   id: "send-scan-completion-email",
   retry: {
@@ -1319,178 +627,41 @@ export const dbtLintTask = schemaTask({
         });
       }
 
-      const { models, tests, macros } = await measurePhase(
-        timings,
-        "folderDiscoveryMs",
-        () =>
-          Object.fromEntries(
-            DBT_FOLDERS.map((folder) => [
-              folder,
-              folderInDirectory(extractedDirectory, folder),
-            ]),
-          ) as Record<DbtFolder, string | null>,
-      );
-
-      const report = {
-        categories: {
-          models: {
-            folderPath: models,
-            files: [] as FileLintResult[],
-            skipped: !models,
-            statusMessage: models
-              ? undefined
-              : "No models folder found in dbt project",
-          },
-          tests: {
-            folderPath: tests,
-            files: [] as FileLintResult[],
-            skipped: !tests,
-            statusMessage: tests
-              ? undefined
-              : "No tests folder found in dbt project",
-          },
-          macros: {
-            folderPath: macros,
-            files: [] as FileLintResult[],
-            skipped: !macros,
-            statusMessage: macros
-              ? undefined
-              : "No macros folder found in dbt project",
-          },
-        },
-        totals: {
-          files: 0,
-          lines: 0,
-          errors: 0,
-          warnings: 0,
-        },
-        score: 0,
-      };
-
-      const filesByCategory = Object.entries({ models, tests, macros }).reduce(
-        (acc, [category, folderPath]) => {
-          acc[category as DbtFolder] = folderPath
-            ? readDirectoryContent(folderPath)
-            : [];
-          return acc;
-        },
-        {} as Record<DbtFolder, string[]>,
-      );
-
-      const allFiles = Object.values(filesByCategory).flat();
-      sqlFileCount = allFiles.length;
-      sqlBatchCount = Math.ceil(sqlFileCount / SQLFLUFF_BATCH_SIZE);
-      report.totals.files = allFiles.length;
-      if (report.totals.files > MAX_SQL_FILES) {
-        return failScan({
-          scanId,
-          statusMessage: `SQL file count exceeds the limit of ${MAX_SQL_FILES.toLocaleString()}`,
-          report,
-        });
-      }
-
-      const lineCountsByFile = await measurePhase(
-        timings,
-        "lineCountingMs",
-        () =>
-          new Map(allFiles.map((filePath) => [filePath, countLines(filePath)])),
-      );
-      report.totals.lines = Array.from(lineCountsByFile.values()).reduce(
-        (total, result) => total + result.lineCount,
-        0,
-      );
-      if (report.totals.lines > MAX_TOTAL_SQL_LINES) {
-        return failScan({
-          scanId,
-          statusMessage: `Total SQL lines exceed the limit of ${MAX_TOTAL_SQL_LINES.toLocaleString()}`,
-          report,
-        });
-      }
-
-      if (allFiles.length === 0) {
-        return failScan({
-          scanId,
-          statusMessage: "No SQL files found to lint",
-          report,
-        });
-      }
-
-      let lintedFiles = 0;
-      const updateProgress = createProgressUpdater(allFiles.length);
       updateLintMetadata({
         statusMessage: "Starting lint...",
         status: "PROCESSING",
         progress: 20,
       });
-
-      // Lint one global batch stream so small models/tests/macros directories do
-      // not each pay for a separate Python/sqlfluff process startup.
-      const lintableFiles = allFiles.filter(
-        (filePath) => !lineCountsByFile.get(filePath)?.readError,
-      );
-      const lintedResults = await measurePhase(timings, "sqlfluffLintMs", () =>
-        lintFilesWithConcurrency({
-          files: lintableFiles,
-          dialect,
-          lockedConfigPath,
-          pythonExecutable,
-          extractedDirectory,
-          sourceLinesByFile: new Map(
-            Array.from(lineCountsByFile, ([filePath, result]) => [
-              filePath,
-              result.sourceLines,
-            ]),
-          ),
-          onFileLinted: (filePath) => {
-            lintedFiles += 1;
-            updateProgress(lintedFiles, filePath);
-          },
-        }),
-      );
-      const lintedResultsByPath = new Map(
-        lintedResults.map((result) => [result.filePath, result]),
-      );
-
-      for (const category of DBT_FOLDERS) {
-        const categoryFiles = filesByCategory[category];
-        const categoryResults = categoryFiles.map((filePath) => {
-          const lineCountResult = lineCountsByFile.get(filePath);
-          if (lineCountResult?.readError) {
-            const result = createUnreadableSqlFileResult({
-              filePath,
-              extractedDirectory,
-              readError: lineCountResult.readError,
-            });
-            lintedFiles += 1;
-            updateProgress(lintedFiles, filePath);
-            return result;
-          }
-
-          const result = lintedResultsByPath.get(
-            toReportFilePath(extractedDirectory, filePath),
-          );
-          if (!result) {
-            throw new Error(`Missing lint result for ${filePath}`);
-          }
-          return result;
-        });
-
-        report.categories[category].files.push(...categoryResults);
-        report.totals.errors += categoryResults.reduce(
-          (total, result) => total + result.errors,
-          0,
-        );
-        report.totals.warnings += categoryResults.reduce(
-          (total, result) => total + result.warnings,
-          0,
-        );
-      }
-
-      report.score = calculateScore({
-        errors: report.totals.errors,
-        warnings: report.totals.warnings,
-        totalFiles: report.totals.files,
+      let lastMetadataUpdateAt = 0;
+      let lastMetadataUpdateFileCount = 0;
+      const lintResult = await runLintPipeline({
+        rootDirectory: extractedDirectory,
+        dialect,
+        lockedConfigPath,
+        pythonExecutable,
+        onPhaseComplete: (phase, durationMs) => {
+          timings[phase] = durationMs;
+        },
+        onProgress: ({ filePath, lintedFiles, totalFiles }) => {
+          const now = Date.now();
+          const shouldUpdate =
+            lintedFiles === totalFiles ||
+            now - lastMetadataUpdateAt >= METADATA_UPDATE_INTERVAL_MS ||
+            lintedFiles - lastMetadataUpdateFileCount >=
+              METADATA_UPDATE_FILE_STEP;
+          if (!shouldUpdate) return;
+          lastMetadataUpdateAt = now;
+          lastMetadataUpdateFileCount = lintedFiles;
+          updateLintMetadata({
+            statusMessage: `Linting ${path.basename(filePath)}`,
+            status: "PROCESSING",
+            progress: 20 + Math.floor((lintedFiles / totalFiles) * 75),
+          });
+        },
       });
+      const { report } = lintResult;
+      sqlFileCount = lintResult.sqlFileCount;
+      sqlBatchCount = lintResult.sqlBatchCount;
 
       const finalStatus = report.totals.errors === 0 ? "PASSED" : "FAILED";
 
@@ -1589,7 +760,11 @@ export const dbtLintTask = schemaTask({
         error instanceof Error ? error.message : "Unknown dbt lint error";
       console.log(error);
       if (error instanceof UserFacingLintFailure) {
-        return failScan({ scanId, statusMessage: errorMessage });
+        return failScan({
+          scanId,
+          statusMessage: errorMessage,
+          report: error.report,
+        });
       }
 
       Sentry.captureException(error);

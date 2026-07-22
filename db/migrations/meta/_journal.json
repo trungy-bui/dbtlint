@@ -1,0 +1,76 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1782357921798,
+      "tag": "0000_round_sir_ram",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782364830378,
+      "tag": "0001_funny_blindfold",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782450448859,
+      "tag": "0002_smart_sphinx",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782452151801,
+      "tag": "0003_foamy_anthem",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782737842733,
+      "tag": "0004_bitter_maximus",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782810017906,
+      "tag": "0005_conscious_warlock",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782891967863,
+      "tag": "0006_update_users_billing_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783314720349,
+      "tag": "0007_naive_thunderball",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784706532462,
+      "tag": "0008_dizzy_ego",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784712150915,
+      "tag": "0009_naive_sally_floyd",
+      "breakpoints": true
+    }
+  ]
+}

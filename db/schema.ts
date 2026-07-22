@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -94,6 +95,40 @@ export const scans = pgTable(
   },
   (table) => [
     index("scans_user_id_created_at_idx").on(
+      table.userId,
+      table.createdAt.desc(),
+    ),
+  ],
+);
+
+export const githubPrScans = pgTable(
+  "github_pr_scans",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    project: text("project").notNull(),
+    scanId: text("scan_id").notNull(),
+    status: text("status").notNull().default("processing"),
+    score: integer("score").notNull().default(0),
+    errors: integer("errors").notNull().default(0),
+    warnings: integer("warnings").notNull().default(0),
+    report: jsonb("report").$type<LintReportJson | null>().default(null),
+    repositoryFullName: text("repository_full_name").notNull(),
+    prNumber: integer("pr_number").notNull(),
+    headSha: text("head_sha").notNull(),
+    installationId: text("installation_id").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("github_pr_scans_scan_id_idx").on(table.scanId),
+    uniqueIndex("github_pr_scans_repo_pr_head_idx").on(
+      table.repositoryFullName,
+      table.prNumber,
+      table.headSha,
+    ),
+    index("github_pr_scans_user_id_created_at_idx").on(
       table.userId,
       table.createdAt.desc(),
     ),
