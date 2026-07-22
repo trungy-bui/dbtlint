@@ -1,0 +1,1 @@
+ALTER TABLE "github_pr_scans" ADD COLUMN "check_run_id" text;

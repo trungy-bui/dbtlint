@@ -5,6 +5,7 @@ import { promisify, TextDecoder } from "node:util";
 import type { LintReportJson } from "@/db/schema";
 import {
   attachSourceLineToViolation,
+  isErrorSqlfluffViolation,
   normalizeSqlfluffViolation,
   type SqlfluffViolation,
 } from "@/lib/sqlfluff-violations";
@@ -140,11 +141,6 @@ function countLines(filePath: string): LineCountResult {
   if (!content) return { lineCount: 0, readError: null, sourceLines: [] };
   const sourceLines = content.split(/\r\n|\r|\n/);
   return { lineCount: sourceLines.length, readError: null, sourceLines };
-}
-
-function isErrorViolation(violation: SqlfluffViolation) {
-  const code = violation.code?.toUpperCase() ?? "";
-  return code.startsWith("PRS") || code.startsWith("TMP");
 }
 
 function parseSqlfluffOutput(output: string) {
@@ -477,7 +473,7 @@ function createUnreadableSqlFileResult({
   ];
   return {
     filePath: toReportFilePath(rootDirectory, filePath),
-    errors: violations.filter(isErrorViolation).length,
+    errors: violations.filter(isErrorSqlfluffViolation).length,
     warnings: 0,
     violations,
   };
@@ -537,7 +533,7 @@ async function lintFilesWithConcurrency({
         const violations = rawViolations.map((violation) =>
           attachSourceLineToViolation(violation, sourceLines),
         );
-        const errors = violations.filter(isErrorViolation).length;
+        const errors = violations.filter(isErrorSqlfluffViolation).length;
         onFileLinted(filePath);
         return {
           filePath: toReportFilePath(rootDirectory, filePath),
