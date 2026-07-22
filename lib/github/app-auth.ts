@@ -9,17 +9,28 @@ const installationTokenCache = new Map<string, CachedInstallationToken>();
 
 function getGitHubAppCredentials() {
   const appId = process.env.GITHUB_APP_ID;
-  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY;
+  const base64PrivateKey = process.env.GITHUB_APP_PRIVATE_KEY_BASE64;
+  const rawPrivateKey = process.env.GITHUB_APP_PRIVATE_KEY;
 
-  if (!appId || !privateKey) {
+  if (!appId || (!base64PrivateKey && !rawPrivateKey)) {
     throw new Error(
-      "GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY must be configured",
+      "GITHUB_APP_ID and either GITHUB_APP_PRIVATE_KEY_BASE64 or GITHUB_APP_PRIVATE_KEY must be configured",
     );
+  }
+
+  const decodedPrivateKey = base64PrivateKey
+    ? Buffer.from(base64PrivateKey, "base64").toString("utf8")
+    : undefined;
+  const normalizedRawPrivateKey = rawPrivateKey?.replace(/\\n/g, "\n").trim();
+  const privateKey = decodedPrivateKey ?? normalizedRawPrivateKey;
+
+  if (!privateKey) {
+    throw new Error("GitHub App private key decoded to an empty value");
   }
 
   return {
     appId,
-    privateKey: privateKey.replace(/\\n/g, "\n").trim(),
+    privateKey,
   };
 }
 
