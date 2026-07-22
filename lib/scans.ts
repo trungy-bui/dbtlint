@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import db from "@/db";
-import { scans } from "@/db/schema";
+import { githubPrScans, scans } from "@/db/schema";
 
 export type ScoreTrendPoint = {
   date: string;
@@ -40,11 +40,29 @@ export async function getScoreTrend(
   project: string,
   limit = 30, // Updated default limit to 30 days of data
 ): Promise<ScoreTrendPoint[]> {
-  const rows = await db
-    .select({ score: scans.score, createdAt: scans.createdAt })
-    .from(scans)
-    .where(and(eq(scans.userId, userId), eq(scans.project, project)))
-    .orderBy(scans.createdAt);
+  const [uploadRows, githubRows] = await Promise.all([
+    db
+      .select({ score: scans.score, createdAt: scans.createdAt })
+      .from(scans)
+      .where(and(eq(scans.userId, userId), eq(scans.project, project)))
+      .orderBy(scans.createdAt),
+    db
+      .select({
+        score: githubPrScans.score,
+        createdAt: githubPrScans.createdAt,
+      })
+      .from(githubPrScans)
+      .where(
+        and(
+          eq(githubPrScans.userId, userId),
+          eq(githubPrScans.project, project),
+        ),
+      )
+      .orderBy(githubPrScans.createdAt),
+  ]);
+  const rows = [...uploadRows, ...githubRows].sort(
+    (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+  );
 
   const byDay = new Map<string, { score: number; createdAt: Date }>();
   for (const row of rows) {

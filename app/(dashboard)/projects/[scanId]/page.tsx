@@ -5,7 +5,7 @@ import {
   ProjectDetailPanel,
 } from "@/components/projects/project-details-panel";
 import db from "@/db";
-import { scans } from "@/db/schema";
+import { githubPrScans, scans } from "@/db/schema";
 import { getScoreTrend } from "@/lib/scans";
 
 export default async function ProjectPanelPage({
@@ -15,11 +15,15 @@ export default async function ProjectPanelPage({
 }) {
   const { scanId } = await params;
 
-  const [scan] = await db
-    .select()
-    .from(scans)
-    .where(eq(scans.scanId, scanId))
-    .limit(1);
+  const [[uploadScan], [githubScan]] = await Promise.all([
+    db.select().from(scans).where(eq(scans.scanId, scanId)).limit(1),
+    db
+      .select()
+      .from(githubPrScans)
+      .where(eq(githubPrScans.scanId, scanId))
+      .limit(1),
+  ]);
+  const scan = uploadScan ?? githubScan;
 
   if (!scan) notFound();
 
