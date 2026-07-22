@@ -1,6 +1,7 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { CheckCircle2, GitPullRequest, Search } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -30,6 +31,7 @@ interface ProjectScan {
 interface ProjectsProps {
   totalProjects: number;
   projects: ProjectScan[];
+  githubInstallUrl: string;
 }
 
 type StatusFilter = "all" | ProjectScan["status"];
@@ -67,7 +69,11 @@ function isSortOption(value: string | null): value is SortOption {
   return SORT_OPTIONS.some((option) => option.value === value);
 }
 
-export function Projects({ projects, totalProjects }: ProjectsProps) {
+export function Projects({
+  githubInstallUrl,
+  projects,
+  totalProjects,
+}: ProjectsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -154,12 +160,40 @@ export function Projects({ projects, totalProjects }: ProjectsProps) {
     });
   }
 
+  const githubResult = searchParams.get("github");
+  const githubConnected =
+    githubResult === "connected" || githubResult === "updated";
+
+  const githubButton = (
+    <Button
+      asChild
+      variant="outline"
+      className="h-10 cursor-pointer border-slate-700 bg-slate-950/60 px-4 text-slate-100 hover:bg-slate-800 hover:text-white focus-visible:ring-emerald-400"
+    >
+      <Link href={githubInstallUrl}>
+        <GitPullRequest data-icon="inline-start" />
+        Connect GitHub
+      </Link>
+    </Button>
+  );
+
   if (totalProjects === 0) {
-    return <EmptyProjects onUpload={() => router.push("/upload")} />;
+    return (
+      <div className="space-y-4">
+        {githubConnected && (
+          <GitHubConnectionSuccess updated={githubResult === "updated"} />
+        )}
+        <div className="flex justify-end">{githubButton}</div>
+        <EmptyProjects onUpload={() => router.push("/upload")} />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4 text-slate-100">
+      {githubConnected && (
+        <GitHubConnectionSuccess updated={githubResult === "updated"} />
+      )}
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:flex-row">
         <div className="relative min-w-0 flex-1">
           <label htmlFor="project-search" className="sr-only">
@@ -229,6 +263,8 @@ export function Projects({ projects, totalProjects }: ProjectsProps) {
             ))}
           </SelectContent>
         </Select>
+
+        {githubButton}
       </div>
 
       {hasActiveFilters && (
@@ -275,5 +311,16 @@ export function Projects({ projects, totalProjects }: ProjectsProps) {
         </div>
       )}
     </div>
+  );
+}
+
+function GitHubConnectionSuccess({ updated }: { updated: boolean }) {
+  return (
+    <output className="flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
+      <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+      {updated
+        ? "GitHub repository access was updated."
+        : "GitHub was connected successfully."}
+    </output>
   );
 }

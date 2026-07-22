@@ -50,6 +50,11 @@ export type LintReportJson = {
   score: number;
 };
 
+export type GitHubInstallationRepository = {
+  id: number;
+  fullName: string;
+};
+
 export const users = pgTable(
   "users",
   {
@@ -94,6 +99,21 @@ export const scans = pgTable(
     ),
   ],
 );
+
+export const githubInstallations = pgTable("github_installations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  installationId: text("installation_id").notNull().unique(),
+  accountLogin: text("account_login"),
+  repositories: jsonb("repositories")
+    .$type<GitHubInstallationRepository[]>()
+    .notNull()
+    .default([]),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
 
 export const notifications = pgTable(
   "notifications",
