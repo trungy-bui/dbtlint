@@ -10,9 +10,11 @@ export default async function ProjectPage() {
     getProjects(user.id),
   ]);
   const totalProjects = dashboardStats["Total Projects"].value;
+  const githubAppSlug = process.env.GITHUB_APP_SLUG ?? "your-github-app-slug";
 
   return (
     <Projects
+      githubInstallUrl={`https://github.com/apps/${githubAppSlug}/installations/new`}
       projects={dashboardProjects.map((project) => ({
         ...project,
         status: project.status as "processing" | "passed" | "failed",
