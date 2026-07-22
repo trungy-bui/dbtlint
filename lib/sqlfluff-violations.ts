@@ -19,6 +19,11 @@ export function hasReliableSourceLocation(violation: SqlfluffViolation) {
   return !SYNTHETIC_EXECUTION_CODES.has(violation.code?.toUpperCase() ?? "");
 }
 
+export function isErrorSqlfluffViolation(violation: SqlfluffViolation) {
+  const code = violation.code?.toUpperCase() ?? "";
+  return code.startsWith("PRS") || code.startsWith("TMP");
+}
+
 export function normalizeSqlfluffViolation(
   violation: SqlfluffViolation,
 ): SqlfluffViolation {

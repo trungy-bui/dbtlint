@@ -13,6 +13,11 @@ import {
   type LintReportJson,
 } from "@/db/schema";
 import { getInstallationToken } from "@/lib/github/app-auth";
+import {
+  completeCheckRun,
+  createCheckRun,
+  type PullRequestFileDiff,
+} from "@/lib/github/checks";
 import { githubLintPayload } from "@/lib/validation/github";
 import {
   createEmptyLintReport,
@@ -133,10 +138,13 @@ async function startGitHubPrScan({
         report: null,
       },
     })
-    .returning({ scanId: githubPrScans.scanId });
+    .returning({
+      scanId: githubPrScans.scanId,
+      checkRunId: githubPrScans.checkRunId,
+    });
 
   if (!scan) throw new Error("Failed to create GitHub PR scan");
-  return scan.scanId;
+  return scan;
 }
 
 async function finalizeGitHubPrScan({
@@ -160,35 +168,114 @@ async function finalizeGitHubPrScan({
     .where(eq(githubPrScans.scanId, scanId));
 }
 
+async function persistCheckRunId(scanId: string, checkRunId: string) {
+  await db
+    .update(githubPrScans)
+    .set({ checkRunId })
+    .where(eq(githubPrScans.scanId, scanId));
+}
+
+function reportCheckRunError({
+  operation,
+  error,
+  scanId,
+  repoFullName,
+  prNumber,
+  headSha,
+}: {
+  operation: "create" | "persist" | "complete";
+  error: unknown;
+  scanId: string;
+  repoFullName: string;
+  prNumber: number;
+  headSha: string;
+}) {
+  console.error(`Failed to ${operation} GitHub check run`, {
+    error,
+    scanId,
+    repoFullName,
+    prNumber,
+    headSha,
+  });
+  Sentry.captureException(error, {
+    tags: {
+      integration: "github_checks",
+      github_check_operation: operation,
+    },
+    extra: { scanId, repoFullName, prNumber, headSha },
+  });
+}
+
+async function completeCheckRunBestEffort({
+  octokit,
+  owner,
+  repo,
+  checkRunId,
+  conclusion,
+  report,
+  changedFiles,
+  scanId,
+  repoFullName,
+  prNumber,
+  headSha,
+}: {
+  octokit: Octokit | null;
+  owner: string;
+  repo: string;
+  checkRunId: string | null;
+  conclusion: "success" | "failure";
+  report: LintReportJson;
+  changedFiles: readonly PullRequestFileDiff[];
+  scanId: string;
+  repoFullName: string;
+  prNumber: number;
+  headSha: string;
+}) {
+  if (!octokit || !checkRunId) return;
+
+  try {
+    const { annotationsPosted } = await completeCheckRun({
+      octokit,
+      owner,
+      repo,
+      checkRunId,
+      conclusion,
+      report,
+      changedFiles,
+    });
+    console.log("GitHub check run completed", {
+      scanId,
+      checkRunId,
+      conclusion,
+      annotationsPosted,
+    });
+  } catch (error) {
+    reportCheckRunError({
+      operation: "complete",
+      error,
+      scanId,
+      repoFullName,
+      prNumber,
+      headSha,
+    });
+  }
+}
+
 async function fetchChangedSqlFiles({
-  installationId,
+  octokit,
   owner,
   repo,
   prNumber,
   headSha,
   rootDirectory,
 }: {
-  installationId: number;
+  octokit: Octokit;
   owner: string;
   repo: string;
   prNumber: number;
   headSha: string;
   rootDirectory: string;
 }) {
-  let token: string;
-  try {
-    token = await getInstallationToken(installationId);
-  } catch (error) {
-    console.error("Failed to create GitHub installation token", {
-      installationId,
-      error,
-    });
-    throw new UserFacingLintFailure(
-      "GitHub installation authentication failed. Reconnect the GitHub App and try again.",
-    );
-  }
-
-  const octokit = new Octokit({ auth: token });
   let changedFiles: Awaited<
     ReturnType<typeof octokit.rest.pulls.listFiles>
   >["data"];
@@ -269,7 +356,10 @@ async function fetchChangedSqlFiles({
     );
   }
 
-  return sqlFiles.length;
+  return {
+    count: sqlFiles.length,
+    files: sqlFiles.map(({ filename, patch }) => ({ filename, patch })),
+  };
 }
 
 export const githubLintTask = schemaTask({
@@ -287,28 +377,80 @@ export const githubLintTask = schemaTask({
   run: async ({ installationId, repoFullName, prNumber, headSha }) => {
     const { owner, repo } = parseRepositoryName(repoFullName);
     const userId = await getInstallationUserId(installationId);
-    const scanId = await startGitHubPrScan({
+    const scan = await startGitHubPrScan({
       userId,
       installationId,
       repoFullName,
       prNumber,
       headSha,
     });
+    const { scanId } = scan;
+    let checkRunId = scan.checkRunId;
+    let octokit: Octokit | null = null;
+    let changedSqlFiles: PullRequestFileDiff[] = [];
     const tmpDirectory = path.join(os.tmpdir(), "github-pr-scan", scanId);
     const repositoryDirectory = path.join(tmpDirectory, "repository");
     const lockedConfigPath = path.join(tmpDirectory, "sqlfluff.locked.ini");
 
     try {
+      let token: string;
+      try {
+        token = await getInstallationToken(installationId);
+      } catch (error) {
+        console.error("Failed to create GitHub installation token", {
+          installationId,
+          error,
+        });
+        throw new UserFacingLintFailure(
+          "GitHub installation authentication failed. Reconnect the GitHub App and try again.",
+        );
+      }
+      octokit = new Octokit({ auth: token });
+
+      if (!checkRunId) {
+        try {
+          checkRunId = await createCheckRun({
+            octokit,
+            owner,
+            repo,
+            headSha,
+            scanId,
+          });
+          try {
+            await persistCheckRunId(scanId, checkRunId);
+          } catch (error) {
+            reportCheckRunError({
+              operation: "persist",
+              error,
+              scanId,
+              repoFullName,
+              prNumber,
+              headSha,
+            });
+          }
+        } catch (error) {
+          reportCheckRunError({
+            operation: "create",
+            error,
+            scanId,
+            repoFullName,
+            prNumber,
+            headSha,
+          });
+        }
+      }
+
       mkdirSync(repositoryDirectory, { recursive: true });
       writeFileSync(lockedConfigPath, SQLFLUFF_LOCKED_CONFIG_CONTENTS, "utf8");
-      const fetchedSqlFileCount = await fetchChangedSqlFiles({
-        installationId,
+      const fetchedSqlFiles = await fetchChangedSqlFiles({
+        octokit,
         owner,
         repo,
         prNumber,
         headSha,
         rootDirectory: repositoryDirectory,
       });
+      changedSqlFiles = fetchedSqlFiles.files;
       const { report } = await runLintPipeline({
         rootDirectory: repositoryDirectory,
         dialect: "snowflake",
@@ -316,13 +458,26 @@ export const githubLintTask = schemaTask({
       });
       const status = report.totals.errors === 0 ? "passed" : "failed";
       await finalizeGitHubPrScan({ scanId, status, report });
+      await completeCheckRunBestEffort({
+        octokit,
+        owner,
+        repo,
+        checkRunId,
+        conclusion: report.totals.errors === 0 ? "success" : "failure",
+        report,
+        changedFiles: changedSqlFiles,
+        scanId,
+        repoFullName,
+        prNumber,
+        headSha,
+      });
       console.log("GitHub PR lint completed", {
         scanId,
         installationId,
         repoFullName,
         prNumber,
         headSha,
-        fetchedSqlFileCount,
+        fetchedSqlFileCount: fetchedSqlFiles.count,
         score: report.score,
         errors: report.totals.errors,
         warnings: report.totals.warnings,
@@ -336,6 +491,19 @@ export const githubLintTask = schemaTask({
           ? error.report
           : createEmptyLintReport(message);
       await finalizeGitHubPrScan({ scanId, status: "failed", report });
+      await completeCheckRunBestEffort({
+        octokit,
+        owner,
+        repo,
+        checkRunId,
+        conclusion: "failure",
+        report,
+        changedFiles: changedSqlFiles,
+        scanId,
+        repoFullName,
+        prNumber,
+        headSha,
+      });
       if (error instanceof UserFacingLintFailure) return report;
       Sentry.captureException(error, {
         extra: { installationId, repoFullName, prNumber, headSha, scanId },

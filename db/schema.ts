@@ -119,6 +119,7 @@ export const githubPrScans = pgTable(
     prNumber: integer("pr_number").notNull(),
     headSha: text("head_sha").notNull(),
     installationId: text("installation_id").notNull(),
+    checkRunId: text("check_run_id"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
