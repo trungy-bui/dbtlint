@@ -220,7 +220,11 @@ function PlanOverviewCard({
             {isFree ? (
               <Button
                 onClick={onUpgrade}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                className="relative bg-primary text-primary-foreground
+    border-2 border-transparent
+    transition-all duration-300 ease-out
+    hover:-translate-y-0.5 hover:bg-primary/90
+    active:translate-y-0 active:scale-[0.98] active:bg-primary/80"
               >
                 Upgrade to Team
               </Button>
@@ -387,7 +391,11 @@ function PlanComparisonTable({ onUpgrade }: { onUpgrade: () => void }) {
       <div className="mt-5 flex justify-center">
         <Button
           onClick={onUpgrade}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
+          className="relative bg-primary text-primary-foreground
+    border-2 border-transparent
+    transition-all duration-300 ease-out
+    hover:-translate-y-0.5 hover:bg-primary/90
+    active:translate-y-0 active:scale-[0.98] active:bg-primary/80"
         >
           Upgrade to Team - $19/mo
         </Button>
