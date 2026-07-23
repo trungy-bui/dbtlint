@@ -24,7 +24,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getUser } from "@/lib/auth";
 import { deriveProjectName, FREE_PLAN_PROJECT_LIMIT } from "@/lib/plan-limits";
 import { usePlanUsage } from "@/lib/plan-usage-context";
 import { createClient } from "@/lib/supabase/client";
@@ -243,12 +242,15 @@ export function UploadZone({
     );
 
     try {
-      const user = await getUser();
-      if (!user) {
+      const supabase = createClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (!user || userError) {
         setSubmitting(false);
         return;
       }
-      const supabase = createClient();
       const fileName = item.file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const filePath = `${user.id}/${Date.now()}-${fileName}`;
       const { data: uploadData, error: uploadError } = await supabase.storage

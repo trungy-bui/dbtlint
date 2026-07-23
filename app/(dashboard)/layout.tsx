@@ -4,7 +4,7 @@ import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getUser } from "@/lib/auth";
-import { getNotifications, getScanById } from "@/lib/dashboard";
+import { getNotifications, getScansByIds } from "@/lib/dashboard";
 import { getCombinedScanUsage, getUserPlan } from "@/lib/plan";
 import { FREE_PLAN_SCAN_LIMIT } from "@/lib/plan-limits";
 import {
@@ -33,6 +33,24 @@ async function getInitialPlanUsage(userId: string): Promise<PlanUsageState> {
   };
 }
 
+async function getNotificationsWithScanInfo(userId: string) {
+  const notifications = await getNotifications(userId);
+  const scanIds = notifications.flatMap(({ scanId }) =>
+    scanId ? [scanId] : [],
+  );
+  const scanInfos = await getScansByIds(scanIds);
+  const scanInfoById = new Map(
+    scanInfos.map((scanInfo) => [scanInfo.scanId, scanInfo]),
+  );
+
+  return notifications.map((notification) => ({
+    ...notification,
+    scanInfo: notification.scanId
+      ? scanInfoById.get(notification.scanId)
+      : undefined,
+  }));
+}
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -42,21 +60,7 @@ export default async function RootLayout({
   if (!user) return;
   const [initialPlanUsage, notifications] = await Promise.all([
     getInitialPlanUsage(user.id),
-    getNotifications(user.id).then((userNotifications) =>
-      Promise.all(
-        userNotifications.map(async (notification) => {
-          if (!notification.scanId) {
-            return { ...notification };
-          }
-
-          const [scanInfo] = await getScanById(notification.scanId);
-          return {
-            ...notification,
-            scanInfo,
-          };
-        }),
-      ),
-    ),
+    getNotificationsWithScanInfo(user.id),
   ]);
 
   return (

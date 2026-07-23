@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import db from "@/db";
@@ -51,6 +51,14 @@ async function fetchGithubPrScans(userId: string) {
 
 function fetchScanById(scanId: string) {
   return db.select().from(scans).where(eq(scans.scanId, scanId)).limit(1);
+}
+
+function fetchScansByIds(scanIds: string[]) {
+  if (scanIds.length === 0) {
+    return Promise.resolve([]);
+  }
+
+  return db.select().from(scans).where(inArray(scans.scanId, scanIds));
 }
 
 async function fetchRecentScans(userId: string, amountOfScans: number = 5) {
@@ -270,6 +278,7 @@ export const getNotifications = cache(fetchNotifications);
 
 export const getScans = cache(fetchScans);
 export const getScanById = cache(fetchScanById);
+export const getScansByIds = cache(fetchScansByIds);
 
 export const getRecentScans = cache(
   unstable_cache(fetchRecentScans, ["dashboard-recent-scans"], {
