@@ -3,6 +3,7 @@ import test from "node:test";
 import { explainFileViolations } from "./reports/report-recommendations";
 import {
   attachSourceLineToViolation,
+  formatViolationSourceSnippet,
   normalizeSqlfluffViolation,
 } from "./sqlfluff-violations";
 
@@ -13,6 +14,18 @@ const sourceLines = Array.from({ length: 35 }, (_, index) =>
       ? "left join actor_types on actors.type_id = actor_types.id"
       : `-- line ${index + 1}`,
 );
+
+test("formats a bounded source snippet for external annotations", () => {
+  assert.equal(
+    formatViolationSourceSnippet("one\ntwo\nthree\nfour"),
+    "one\ntwo\nthree\n…",
+  );
+  assert.equal(
+    formatViolationSourceSnippet("select * from orders", { maxLength: 10 }),
+    "select *…",
+  );
+  assert.equal(formatViolationSourceSnippet(undefined), undefined);
+});
 
 test("normalizes SQLFluff 4 start coordinates and attaches source lines", () => {
   const tmp = attachSourceLineToViolation(

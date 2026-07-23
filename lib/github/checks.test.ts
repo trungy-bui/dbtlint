@@ -68,6 +68,7 @@ test("builds friendly annotations only for violations on added lines", () => {
         code: "PRS",
         description: "Found unparsable section: 'from'",
         line_no: 11,
+        sourceLine: "select * form orders",
       },
       { code: "LT01", description: "Unexpected whitespace", line_no: 3 },
     ],
@@ -99,6 +100,11 @@ test("builds friendly annotations only for violations on added lines", () => {
   );
   assert.equal(annotations[0].title, "Inconsistent indentation");
   assert.equal(annotations[0].message.includes("LT02"), false);
+  assert.match(
+    annotations[1].message,
+    /Your SQL has a syntax error and won't run until this is fixed\./,
+  );
+  assert.equal(annotations[1].raw_details, "select * form orders");
   assert.equal(JSON.stringify(annotations).includes('"code"'), false);
 });
 

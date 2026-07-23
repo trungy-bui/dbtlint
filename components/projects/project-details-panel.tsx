@@ -12,7 +12,7 @@ import {
   Loader2,
   XCircle,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Line,
   LineChart,
@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LintReportJson } from "@/db/schema";
+import { useScanStatusPolling } from "@/hooks/use-scan-status-polling";
 import {
   buildRecommendations,
   explainFileViolations,
@@ -54,6 +55,7 @@ export type ProjectDetail = {
 
 type ProjectDetailPanelProps = {
   data: ProjectDetail;
+  scanId: string;
 };
 
 const CATEGORY_STYLES: Record<
@@ -653,7 +655,34 @@ function getStatusIcon(status: "passed" | "failed" | "processing"): string {
   return "▸";
 }
 
-export function ProjectDetailPanel({ data }: ProjectDetailPanelProps) {
+export function ProjectDetailPanel({
+  data: initialData,
+  scanId,
+}: ProjectDetailPanelProps) {
+  const [currentData, setCurrentData] = useState(initialData);
+  const scanStatuses = useScanStatusPolling(
+    currentData.status === "processing" ? [scanId] : [],
+  );
+  const currentScan = scanStatuses[scanId];
+
+  useEffect(() => {
+    setCurrentData(initialData);
+  }, [initialData]);
+
+  useEffect(() => {
+    if (!currentScan) return;
+
+    setCurrentData((current) => ({
+      ...current,
+      status: currentScan.status,
+      score: currentScan.score,
+      errors: currentScan.errors,
+      warnings: currentScan.warnings,
+      ...(currentScan.report ? { report: currentScan.report } : {}),
+    }));
+  }, [currentScan]);
+
+  const data = currentData;
   const recommendations = useMemo(
     () => (data.report ? buildRecommendations(data.report) : []),
     [data.report],

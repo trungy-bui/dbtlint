@@ -25,6 +25,16 @@ export type RecommendationGroup = {
   totalOccurrences: number;
 };
 
+export function formatFriendlyViolationMessage(
+  violation: Pick<FriendlyExplanation, "explanation" | "impact">,
+) {
+  if (violation.explanation === violation.impact) {
+    return violation.explanation;
+  }
+
+  return `${violation.explanation}\n\nWhy it matters: ${violation.impact}`;
+}
+
 const RECOMMENDATION_CATEGORY_ORDER: FriendlyExplanation["category"][] = [
   "Broken query",
   "Data risk",

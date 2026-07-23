@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import db from "@/db";
-import { scans } from "@/db/schema";
+import { githubPrScans, scans } from "@/db/schema";
 import { getUser } from "@/lib/auth";
 
 export async function GET(
@@ -13,19 +13,39 @@ export async function GET(
   }
 
   const { scanId } = await context.params;
-  const [scan] = await db
-    .select({
-      scanId: scans.scanId,
-      status: scans.status,
-      score: scans.score,
-      errors: scans.errors,
-      warnings: scans.warnings,
-      report: scans.report,
-    })
-    .from(scans)
-    // Ownership is enforced in the query so scan IDs cannot expose other users' results.
-    .where(and(eq(scans.scanId, scanId), eq(scans.userId, user.id)))
-    .limit(1);
+  const [[uploadScan], [githubScan]] = await Promise.all([
+    db
+      .select({
+        scanId: scans.scanId,
+        status: scans.status,
+        score: scans.score,
+        errors: scans.errors,
+        warnings: scans.warnings,
+        report: scans.report,
+      })
+      .from(scans)
+      // Ownership is enforced in both queries so scan IDs cannot expose other users' results.
+      .where(and(eq(scans.scanId, scanId), eq(scans.userId, user.id)))
+      .limit(1),
+    db
+      .select({
+        scanId: githubPrScans.scanId,
+        status: githubPrScans.status,
+        score: githubPrScans.score,
+        errors: githubPrScans.errors,
+        warnings: githubPrScans.warnings,
+        report: githubPrScans.report,
+      })
+      .from(githubPrScans)
+      .where(
+        and(
+          eq(githubPrScans.scanId, scanId),
+          eq(githubPrScans.userId, user.id),
+        ),
+      )
+      .limit(1),
+  ]);
+  const scan = uploadScan ?? githubScan;
 
   if (!scan) {
     return Response.json({ error: "Scan not found" }, { status: 404 });

@@ -14,6 +14,8 @@ const SYNTHETIC_EXECUTION_CODES = new Set([
   "TMP_FILE_READ_ERROR",
   "TMP_TIMEOUT",
 ]);
+const DEFAULT_SOURCE_SNIPPET_LINES = 3;
+const DEFAULT_SOURCE_SNIPPET_LENGTH = 2_000;
 
 export function hasReliableSourceLocation(violation: SqlfluffViolation) {
   return !SYNTHETIC_EXECUTION_CODES.has(violation.code?.toUpperCase() ?? "");
@@ -58,4 +60,26 @@ export function attachSourceLineToViolation(
 
   const sourceLine = sourceLines[lineNo - 1];
   return sourceLine === undefined ? normalized : { ...normalized, sourceLine };
+}
+
+export function formatViolationSourceSnippet(
+  source: string | undefined,
+  {
+    maxLines = DEFAULT_SOURCE_SNIPPET_LINES,
+    maxLength = DEFAULT_SOURCE_SNIPPET_LENGTH,
+  }: { maxLines?: number; maxLength?: number } = {},
+) {
+  if (!source) return undefined;
+
+  const sourceLines = source.split(/\r?\n/);
+  const selectedLines = sourceLines.slice(0, Math.max(1, maxLines));
+  let snippet = selectedLines.join("\n");
+  const wasTruncatedByLines = sourceLines.length > selectedLines.length;
+
+  if (snippet.length > maxLength) {
+    snippet = snippet.slice(0, Math.max(0, maxLength - 1)).trimEnd();
+    return `${snippet}…`;
+  }
+
+  return wasTruncatedByLines ? `${snippet}\n…` : snippet;
 }

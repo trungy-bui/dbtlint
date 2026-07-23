@@ -40,5 +40,5 @@ export default async function ProjectPanelPage({
     scoreHistory,
   };
 
-  return <ProjectDetailPanel data={data} />;
+  return <ProjectDetailPanel data={data} scanId={scanId} />;
 }

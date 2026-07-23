@@ -1,7 +1,13 @@
 import type { Octokit } from "@octokit/rest";
 import type { LintReportJson } from "@/db/schema";
-import { explainFileViolations } from "@/lib/reports/report-recommendations";
-import { isErrorSqlfluffViolation } from "@/lib/sqlfluff-violations";
+import {
+  explainFileViolations,
+  formatFriendlyViolationMessage,
+} from "@/lib/reports/report-recommendations";
+import {
+  formatViolationSourceSnippet,
+  isErrorSqlfluffViolation,
+} from "@/lib/sqlfluff-violations";
 
 const CHECK_RUN_NAME = "dbtlint";
 export const CHECK_ANNOTATION_BATCH_SIZE = 50;
@@ -18,6 +24,7 @@ export type CheckRunAnnotation = {
   annotation_level: "warning" | "failure";
   message: string;
   title: string;
+  raw_details?: string;
 };
 
 export function addedLinesFromPatch(patch: string | undefined) {
@@ -65,6 +72,9 @@ export function buildCheckRunAnnotations(
         ) {
           continue;
         }
+        const sourceSnippet = formatViolationSourceSnippet(
+          violation.sourceLine,
+        );
         annotations.push({
           path: file.filePath,
           start_line: violation.lineNo,
@@ -74,8 +84,9 @@ export function buildCheckRunAnnotations(
           })
             ? "failure"
             : "warning",
-          message: violation.explanation,
+          message: formatFriendlyViolationMessage(violation),
           title: violation.title,
+          ...(sourceSnippet ? { raw_details: sourceSnippet } : {}),
         });
       }
     }

@@ -10,7 +10,6 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useScanStatusPolling } from "@/hooks/use-scan-status-polling";
 import { EmptyProjects } from "./empty-projects";
 import { ScanProjectCard } from "./scan-project";
 
@@ -114,8 +114,34 @@ export function Projects({
   const [sort, setSort] = useState<SortOption>(
     isSortOption(initialSort) ? initialSort : "newest",
   );
+  const [currentProjects, setCurrentProjects] = useState(projects);
   const githubResultParam = searchParams.get("github");
   const [githubResult, setGithubResult] = useState<GitHubResult | null>(null);
+  const processingScanIds = useMemo(
+    () =>
+      currentProjects
+        .filter((project) => project.status === "processing")
+        .map((project) => project.scanId),
+    [currentProjects],
+  );
+  const scanStatuses = useScanStatusPolling(processingScanIds);
+
+  useEffect(() => {
+    setCurrentProjects(
+      projects.map((project) => {
+        const scan = scanStatuses[project.scanId];
+        return scan
+          ? {
+              ...project,
+              status: scan.status,
+              score: scan.score,
+              errors: scan.errors,
+              warnings: scan.warnings,
+            }
+          : project;
+      }),
+    );
+  }, [projects, scanStatuses]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearch(search), 300);
@@ -163,7 +189,7 @@ export function Projects({
 
   const filteredProjects = useMemo(() => {
     const normalizedSearch = debouncedSearch.trim().toLocaleLowerCase();
-    const matches = projects.filter(
+    const matches = currentProjects.filter(
       (project) =>
         (status === "all" || project.status === status) &&
         (!normalizedSearch ||
@@ -184,7 +210,7 @@ export function Projects({
           return Date.parse(b.createdAt) - Date.parse(a.createdAt);
       }
     });
-  }, [debouncedSearch, projects, sort, status]);
+  }, [currentProjects, debouncedSearch, sort, status]);
 
   const hasActiveFilters =
     debouncedSearch.trim() !== "" || status !== "all" || sort !== "newest";
