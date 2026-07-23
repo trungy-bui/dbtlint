@@ -3,17 +3,17 @@ import * as Sentry from "@sentry/nextjs";
 import { auth, tasks } from "@trigger.dev/sdk";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { and, count, eq, gte, lt } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import db from "@/db";
 import { scans, users } from "@/db/schema";
 import { getUser } from "@/lib/auth";
+import { getCombinedScanUsage } from "@/lib/plan";
 import {
   deriveProjectName,
   FREE_PLAN_PROJECT_LIMIT,
   FREE_PLAN_SCAN_LIMIT,
 } from "@/lib/plan-limits";
-import { getCalendarMonthRange } from "@/lib/utils/time";
 import type { dbtLintTask } from "@/trigger/dbtLintTask";
 
 const rateLimit = new Ratelimit({
@@ -90,22 +90,13 @@ export async function POST(request: Request) {
       });
 
     const scansCountSelectStart = performance.now();
-    const { monthStart, nextMonthStart } = getCalendarMonthRange();
-    const scansCountSelectPromise = db
-      .select({ scanCount: count() })
-      .from(scans)
-      .where(
-        and(
-          eq(scans.userId, user.id),
-          gte(scans.createdAt, monthStart),
-          lt(scans.createdAt, nextMonthStart),
-        ),
-      )
-      .finally(() => {
+    const scansCountSelectPromise = getCombinedScanUsage(user.id).finally(
+      () => {
         scansCountSelectMs = performance.now() - scansCountSelectStart;
-      });
+      },
+    );
 
-    const [{ success, reset }, , [currentUser], existingProjects, [scanUsage]] =
+    const [{ success, reset }, , [currentUser], existingProjects, scansUsed] =
       await Promise.all([
         rateLimitPromise,
         usersUpsertPromise,
@@ -136,7 +127,7 @@ export async function POST(request: Request) {
     const project = deriveProjectName(fileName);
 
     if (currentUser?.plan !== "team") {
-      if ((scanUsage?.scanCount ?? 0) >= FREE_PLAN_SCAN_LIMIT) {
+      if (scansUsed >= FREE_PLAN_SCAN_LIMIT) {
         return Response.json(
           {
             error:

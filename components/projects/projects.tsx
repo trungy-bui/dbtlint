@@ -4,12 +4,14 @@ import {
   CheckCircle2,
   CircleAlert,
   GitPullRequest,
+  Lock,
   Search,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useScanStatusPolling } from "@/hooks/use-scan-status-polling";
+import type { Plan } from "@/lib/plan-limits";
 import { EmptyProjects } from "./empty-projects";
 import { ScanProjectCard } from "./scan-project";
 
@@ -40,6 +43,7 @@ interface ProjectsProps {
   githubAccountLogin: string | null;
   githubConnected: boolean;
   githubInstallUrl: string;
+  plan: Plan;
 }
 
 type StatusFilter = "all" | ProjectScan["status"];
@@ -48,6 +52,7 @@ type GitHubResult =
   | "connected"
   | "error"
   | "invalid_setup"
+  | "plan_required"
   | "updated";
 type SortOption =
   | "newest"
@@ -89,6 +94,7 @@ function isGitHubResult(value: string | null): value is GitHubResult {
     value === "connected" ||
     value === "error" ||
     value === "invalid_setup" ||
+    value === "plan_required" ||
     value === "updated"
   );
 }
@@ -97,6 +103,7 @@ export function Projects({
   githubAccountLogin,
   githubConnected,
   githubInstallUrl,
+  plan,
   projects,
   totalProjects,
 }: ProjectsProps) {
@@ -241,7 +248,58 @@ export function Projects({
     });
   }
 
-  const githubButton = (
+  function showGithubUpgradeToast() {
+    toast.warning("You must upgrade your plan to Team to connect GitHub", {
+      id: "github-team-plan-required",
+      action: {
+        label: "View plans",
+        onClick: () => router.push("/billing"),
+      },
+      classNames: {
+        toast: "!border-amber-400/30 !bg-slate-900 !text-slate-100",
+        icon: "!text-amber-300",
+        actionButton: "!bg-emerald-400 !text-slate-950 hover:!bg-emerald-300",
+      },
+    });
+  }
+
+  const githubIntegrationLocked = plan !== "team" && !githubConnected;
+  const githubButtonLabel = githubConnected
+    ? githubAccountLogin
+      ? `Connected as ${githubAccountLogin}`
+      : "GitHub Connected"
+    : "Connect GitHub";
+
+  const githubButton = githubIntegrationLocked ? (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={showGithubUpgradeToast}
+      aria-disabled="true"
+      aria-label="Connect GitHub — locked, requires Team plan"
+      title="GitHub PR integration is a Team plan feature — upgrade to unlock."
+      className="relative h-10 cursor-pointer overflow-hidden border-amber-400/30 bg-slate-950/60 px-4 text-slate-100 ring-1 ring-amber-400/15 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-amber-300/45 hover:bg-slate-950/60 hover:text-slate-100 hover:shadow-[0_0_20px_rgba(251,191,36,0.16)] focus-visible:border-emerald-400 focus-visible:ring-emerald-400 motion-reduce:transform-none motion-reduce:transition-none"
+    >
+      <span aria-hidden="true" className="flex items-center gap-1.5 opacity-35">
+        <GitPullRequest className="size-4" />
+        Team plan required
+      </span>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-[2px] rounded-[calc(var(--radius-lg)-2px)] border border-white/10 bg-slate-700/20 backdrop-blur-sm"
+      >
+        <span className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent" />
+      </span>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 left-1/2 z-10 size-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-400/20 blur-md motion-safe:animate-pulse"
+      />
+      <Lock
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 left-1/2 z-20 size-5 -translate-x-1/2 -translate-y-1/2 text-amber-300 drop-shadow-[0_0_6px_rgba(252,211,77,0.65)]"
+      />
+    </Button>
+  ) : (
     <Button
       asChild
       variant="outline"
@@ -257,11 +315,7 @@ export function Projects({
         ) : (
           <GitPullRequest data-icon="inline-start" />
         )}
-        {githubConnected
-          ? githubAccountLogin
-            ? `Connected as ${githubAccountLogin}`
-            : "GitHub Connected"
-          : "Connect GitHub"}
+        {githubButtonLabel}
       </Link>
     </Button>
   );
@@ -424,6 +478,7 @@ function GitHubConnectionNotice({
     error: "We couldn't connect GitHub. Please try again.",
     invalid_setup:
       "GitHub returned an invalid installation setup. Please try again.",
+    plan_required: "Upgrade to Team to connect GitHub.",
     updated: "GitHub repository access was updated.",
   }[result];
 

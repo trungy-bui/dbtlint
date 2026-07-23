@@ -4,11 +4,12 @@ import db from "@/db";
 import { githubInstallations } from "@/db/schema";
 import { getUser } from "@/lib/auth";
 import { getDashboardStats, getProjects } from "@/lib/dashboard";
+import { getUserPlan } from "@/lib/plan";
 
 export default async function ProjectPage() {
   const user = await getUser();
   if (!user) return;
-  const [dashboardStats, dashboardProjects, githubInstallationRows] =
+  const [dashboardStats, dashboardProjects, githubInstallationRows, plan] =
     await Promise.all([
       getDashboardStats(user.id),
       getProjects(user.id),
@@ -17,6 +18,7 @@ export default async function ProjectPage() {
         .from(githubInstallations)
         .where(eq(githubInstallations.userId, user.id))
         .limit(1),
+      getUserPlan(user.id),
     ]);
   const [githubInstallation] = githubInstallationRows;
   const totalProjects = dashboardStats["Total Projects"].value;
@@ -27,6 +29,7 @@ export default async function ProjectPage() {
       githubAccountLogin={githubInstallation?.accountLogin ?? null}
       githubConnected={Boolean(githubInstallation)}
       githubInstallUrl={`https://github.com/apps/${githubAppSlug}/installations/new`}
+      plan={plan}
       projects={dashboardProjects.map((project) => ({
         ...project,
         status: project.status as "processing" | "passed" | "failed",

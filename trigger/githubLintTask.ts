@@ -7,17 +7,14 @@ import * as Sentry from "@sentry/nextjs";
 import { schemaTask } from "@trigger.dev/sdk";
 import { eq } from "drizzle-orm";
 import db from "@/db";
-import {
-  githubInstallations,
-  githubPrScans,
-  type LintReportJson,
-} from "@/db/schema";
+import { githubPrScans, type LintReportJson } from "@/db/schema";
 import { getInstallationToken } from "@/lib/github/app-auth";
 import {
   completeCheckRun,
   createCheckRun,
   type PullRequestFileDiff,
 } from "@/lib/github/checks";
+import { getInstallationUserId } from "@/lib/github/installations";
 import { githubLintPayload } from "@/lib/validation/github";
 import {
   createEmptyLintReport,
@@ -82,21 +79,6 @@ function safeDestinationPath(rootDirectory: string, repoPath: string) {
     );
   }
   return destination;
-}
-
-async function getInstallationUserId(installationId: number) {
-  const [installation] = await db
-    .select({ userId: githubInstallations.userId })
-    .from(githubInstallations)
-    .where(eq(githubInstallations.installationId, String(installationId)))
-    .limit(1);
-
-  if (!installation) {
-    throw new UserFacingLintFailure(
-      `GitHub installation ${installationId} is not connected to a dbtLint user`,
-    );
-  }
-  return installation.userId;
 }
 
 async function startGitHubPrScan({
@@ -377,6 +359,11 @@ export const githubLintTask = schemaTask({
   run: async ({ installationId, repoFullName, prNumber, headSha }) => {
     const { owner, repo } = parseRepositoryName(repoFullName);
     const userId = await getInstallationUserId(installationId);
+    if (!userId) {
+      throw new UserFacingLintFailure(
+        `GitHub installation ${installationId} is not connected to a dbtLint user`,
+      );
+    }
     const scan = await startGitHubPrScan({
       userId,
       installationId,

@@ -5,6 +5,7 @@ import db from "@/db";
 import { githubInstallations } from "@/db/schema";
 import { getUser } from "@/lib/auth";
 import { getAppJwt, getInstallationToken } from "@/lib/github/app-auth";
+import { getUserPlan } from "@/lib/plan";
 
 const SETUP_ACTIONS = new Set(["install", "update"]);
 
@@ -21,6 +22,10 @@ export async function GET(request: Request) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", new URL(request.url).pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  if ((await getUserPlan(user.id)) !== "team") {
+    return redirectToProjects(request, "plan_required");
   }
 
   const searchParams = new URL(request.url).searchParams;

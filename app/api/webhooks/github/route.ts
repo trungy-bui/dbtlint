@@ -1,6 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { tasks } from "@trigger.dev/sdk";
 import { z } from "zod";
+import { getInstallationUserId } from "@/lib/github/installations";
+import { getUserPlan } from "@/lib/plan";
 import { githubPullRequestWebhookPayload } from "@/lib/validation/github";
 import type { githubLintTask } from "@/trigger/githubLintTask";
 
@@ -76,6 +78,12 @@ export async function POST(request: Request) {
     repository,
     pull_request: pullRequest,
   } = payloadResult.data;
+  const userId = await getInstallationUserId(installation.id);
+  if (!userId) return noOp("installation_not_connected");
+  if ((await getUserPlan(userId)) !== "team") {
+    return noOp("plan_downgraded");
+  }
+
   const taskPayload = {
     installationId: installation.id,
     repoFullName: repository.full_name,

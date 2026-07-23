@@ -1,9 +1,9 @@
-import { and, count, eq, gte, lt } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import db from "@/db";
-import { scans, users } from "@/db/schema";
+import { users } from "@/db/schema";
 import { getUser } from "@/lib/auth";
+import { getCombinedScanUsage } from "@/lib/plan";
 import { FREE_PLAN_SCAN_LIMIT } from "@/lib/plan-limits";
-import { getCalendarMonthRange } from "@/lib/utils/time";
 
 type UserPlan = "free" | "team";
 
@@ -31,9 +31,7 @@ export async function GET() {
   }
 
   try {
-    const { monthStart, nextMonthStart } = getCalendarMonthRange();
-
-    const [[currentUser], [scanUsage]] = await Promise.all([
+    const [[currentUser], scansUsed] = await Promise.all([
       db
         .select({
           plan: users.plan,
@@ -44,16 +42,7 @@ export async function GET() {
         .from(users)
         .where(eq(users.id, user.id))
         .limit(1),
-      db
-        .select({ scanCount: count() })
-        .from(scans)
-        .where(
-          and(
-            eq(scans.userId, user.id),
-            gte(scans.createdAt, monthStart),
-            lt(scans.createdAt, nextMonthStart),
-          ),
-        ),
+      getCombinedScanUsage(user.id),
     ]);
 
     const plan: UserPlan = currentUser?.plan === "team" ? "team" : "free";
@@ -63,7 +52,7 @@ export async function GET() {
       email: currentUser?.email ?? user.email ?? null,
       subscriptionStatus: currentUser?.subscriptionStatus ?? null,
       nextBillingDate: currentUser?.subscriptionRenewsAt?.toISOString() ?? null,
-      scansUsed: plan === "team" ? null : (scanUsage?.scanCount ?? 0),
+      scansUsed: plan === "team" ? null : scansUsed,
       scansLimit: plan === "team" ? null : FREE_PLAN_SCAN_LIMIT,
     } satisfies UserPlanResponse);
   } catch (error) {

@@ -54,12 +54,41 @@ function fetchScanById(scanId: string) {
 }
 
 async function fetchRecentScans(userId: string, amountOfScans: number = 5) {
-  return db
-    .select()
-    .from(scans)
-    .orderBy(desc(scans.createdAt))
-    .where(eq(scans.userId, userId))
-    .limit(amountOfScans);
+  const selection = {
+    id: scans.id,
+    project: scans.project,
+    scanId: scans.scanId,
+    createdAt: scans.createdAt,
+    errors: scans.errors,
+    warnings: scans.warnings,
+    status: scans.status,
+  };
+  const [uploadScans, githubScans] = await Promise.all([
+    db
+      .select(selection)
+      .from(scans)
+      .orderBy(desc(scans.createdAt))
+      .where(eq(scans.userId, userId))
+      .limit(amountOfScans),
+    db
+      .select({
+        id: githubPrScans.id,
+        project: githubPrScans.project,
+        scanId: githubPrScans.scanId,
+        createdAt: githubPrScans.createdAt,
+        errors: githubPrScans.errors,
+        warnings: githubPrScans.warnings,
+        status: githubPrScans.status,
+      })
+      .from(githubPrScans)
+      .orderBy(desc(githubPrScans.createdAt))
+      .where(eq(githubPrScans.userId, userId))
+      .limit(amountOfScans),
+  ]);
+
+  return [...uploadScans, ...githubScans]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, amountOfScans);
 }
 
 function fetchNotifications(userId: string) {
