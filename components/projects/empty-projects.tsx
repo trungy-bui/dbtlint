@@ -48,7 +48,13 @@ export function EmptyProjects({ onUpload }: EmptyProjectsProps) {
         <EmptyContent>
           <Button
             onClick={onUpload}
-            className="h-11 cursor-pointer bg-emerald-400 px-5 font-semibold text-slate-950 hover:bg-emerald-300"
+            className="relative h-10 w-full cursor-pointer bg-emerald-400 text-xs font-semibold text-slate-950 
+    border-2 border-transparent
+    transition-all duration-300 ease-out
+    hover:-translate-y-0.5 hover:bg-emerald-300
+    hover:shadow-[0_0_20px_rgba(52,211,153,0.5)]
+    active:translate-y-0 active:scale-[0.98] active:bg-emerald-500
+    active:shadow-[0_0_10px_rgba(52,211,153,0.3)]"
           >
             <Upload data-icon="inline-start" />
             Upload your first dbt project

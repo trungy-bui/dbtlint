@@ -256,8 +256,8 @@ export function Projects({
         onClick: () => router.push("/billing"),
       },
       classNames: {
-        toast: "!border-amber-400/30 !bg-slate-900 !text-slate-100",
-        icon: "!text-amber-300",
+        toast: "!border-emerald-400/30 !bg-slate-900 !text-slate-100",
+        icon: "!text-emerald-300",
         actionButton: "!bg-emerald-400 !text-slate-950 hover:!bg-emerald-300",
       },
     });
@@ -278,36 +278,57 @@ export function Projects({
       aria-disabled="true"
       aria-label="Connect GitHub — locked, requires Team plan"
       title="GitHub PR integration is a Team plan feature — upgrade to unlock."
-      className="group relative h-10 cursor-pointer overflow-hidden border-amber-400/30 bg-slate-900/60 px-4 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-amber-400/15 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-amber-300/45 hover:bg-slate-900/60 hover:text-slate-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_20px_rgba(251,191,36,0.16)] focus-visible:border-emerald-400 focus-visible:ring-emerald-400 motion-reduce:transform-none motion-reduce:transition-none"
+      className="group relative h-10 cursor-pointer overflow-hidden border-emerald-400/30 bg-slate-900 px-4 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-emerald-400/15 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-emerald-300/45 hover:bg-slate-900 hover:text-slate-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_20px_rgba(52,211,153,0.16)] focus-visible:border-emerald-400 focus-visible:ring-emerald-400 motion-reduce:transform-none motion-reduce:transition-none"
     >
+      {/* black glass tint base */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-[2px] z-[1] rounded-[calc(var(--radius-lg)-2px)] border border-white/10 bg-slate-700/10 backdrop-blur-sm"
+        className="pointer-events-none absolute inset-0 z-0 bg-black/65"
       />
 
+      {/* ghost label, centered, blurred, sitting behind the lock */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center gap-1.5 text-slate-200 opacity-35 blur-[1px]"
+        className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center gap-1.5 text-slate-400 opacity-25 blur-[1.5px]"
       >
         <GitPullRequest className="size-4" />
         Connect GitHub
       </span>
 
+      {/* diagonal light sheen */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-[2px] z-[3] rounded-[calc(var(--radius-lg)-2px)] bg-gradient-to-br from-white/20 via-white/[0.04] to-transparent"
+        className="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-br from-white/[0.06] via-transparent to-transparent"
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -inset-x-4 top-0 z-[2] h-1/2 bg-gradient-to-b from-white/[0.05] to-transparent"
       />
 
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 left-1/2 z-10 size-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-400/25 blur-md motion-safe:animate-pulse"
+        className="pointer-events-none absolute -inset-y-2 left-0 z-[2] w-1/3 -skew-x-12 bg-gradient-to-r from-white/[0.07] to-transparent"
       />
 
+      {/* thin glass edge border */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-[2px] z-[2] rounded-[calc(var(--radius-lg)-2px)] border border-emerald-400/25"
+      />
+
+      {/* emerald glow behind the lock, centered */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 left-1/2 z-[3] size-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400/25 blur-md motion-safe:animate-pulse"
+      />
+
+      {/* lock icon, dead center, the sole focal point */}
       <Lock
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 left-1/2 z-20 size-5 -translate-x-1/2 -translate-y-1/2 text-amber-300 drop-shadow-[0_0_6px_rgba(252,211,77,0.65)]"
+        className="pointer-events-none absolute top-1/2 left-1/2 z-[4] size-5 -translate-x-1/2 -translate-y-1/2 text-emerald-300 drop-shadow-[0_0_6px_rgba(52,211,153,0.65)]"
       />
 
+      {/* invisible spacer to preserve the button's natural width */}
       <span aria-hidden="true" className="invisible flex items-center gap-1.5">
         <GitPullRequest className="size-4" />
         Connect GitHub
@@ -387,7 +408,10 @@ export function Projects({
           >
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="border border-slate-800 bg-slate-900 text-slate-200">
+          <SelectContent
+            position="popper"
+            className="border border-slate-800 bg-slate-900 text-slate-200"
+          >
             {STATUS_OPTIONS.map((option) => (
               <SelectItem
                 key={option.value}
@@ -414,7 +438,10 @@ export function Projects({
           >
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="border border-slate-800 bg-slate-900 text-slate-200">
+          <SelectContent
+            position="popper"
+            className="border border-slate-800 bg-slate-900 text-slate-200"
+          >
             {SORT_OPTIONS.map((option) => (
               <SelectItem
                 key={option.value}
