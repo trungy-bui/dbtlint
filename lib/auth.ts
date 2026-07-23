@@ -1,7 +1,7 @@
-"use server";
-
 import type { User } from "@supabase/supabase-js";
 import { headers } from "next/headers";
+import { cache } from "react";
+import "server-only";
 import { createClient } from "@/lib/supabase/server";
 
 export type OAuthProvider = "google" | "github";
@@ -24,7 +24,7 @@ function parseForwardedUserMetadata(value: string | null) {
   }
 }
 
-export async function getUser() {
+export const getUser = cache(async function getUser() {
   const headerStore = await headers();
   const forwardedUserId = headerStore.get("x-user-id");
 
@@ -52,4 +52,4 @@ export async function getUser() {
   }
 
   return user;
-}
+});

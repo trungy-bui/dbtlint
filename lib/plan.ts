@@ -1,11 +1,12 @@
 import { and, count, eq, gte, lt } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/pg-core";
+import { cache } from "react";
 import db from "@/db";
 import { githubPrScans, scans, users } from "@/db/schema";
 import type { Plan } from "@/lib/plan-limits";
 import { getCalendarMonthRange } from "@/lib/utils/time";
 
-export async function getUserPlan(userId: string): Promise<Plan> {
+async function fetchUserPlan(userId: string): Promise<Plan> {
   const [currentUser] = await db
     .select({ plan: users.plan })
     .from(users)
@@ -15,7 +16,7 @@ export async function getUserPlan(userId: string): Promise<Plan> {
   return currentUser?.plan === "team" ? "team" : "free";
 }
 
-export async function getCombinedScanUsage(userId: string): Promise<number> {
+async function fetchCombinedScanUsage(userId: string): Promise<number> {
   const { monthStart, nextMonthStart } = getCalendarMonthRange();
   const usageBySource = await unionAll(
     db
@@ -42,3 +43,6 @@ export async function getCombinedScanUsage(userId: string): Promise<number> {
 
   return usageBySource.reduce((total, usage) => total + usage.scanCount, 0);
 }
+
+export const getUserPlan = cache(fetchUserPlan);
+export const getCombinedScanUsage = cache(fetchCombinedScanUsage);
