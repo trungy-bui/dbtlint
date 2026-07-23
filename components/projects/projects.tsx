@@ -24,6 +24,7 @@ import {
 import { useScanStatusPolling } from "@/hooks/use-scan-status-polling";
 import type { Plan } from "@/lib/plan-limits";
 import { EmptyProjects } from "./empty-projects";
+import { matchesProjectSearch } from "./project-search";
 import { ScanProjectCard } from "./scan-project";
 
 interface ProjectScan {
@@ -195,12 +196,10 @@ export function Projects({
   }, [githubResultParam, pathname, router]);
 
   const filteredProjects = useMemo(() => {
-    const normalizedSearch = debouncedSearch.trim().toLocaleLowerCase();
     const matches = currentProjects.filter(
       (project) =>
         (status === "all" || project.status === status) &&
-        (!normalizedSearch ||
-          project.project.toLocaleLowerCase().includes(normalizedSearch)),
+        matchesProjectSearch(project.project, debouncedSearch),
     );
 
     return matches.sort((a, b) => {
