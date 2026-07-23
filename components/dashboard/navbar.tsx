@@ -9,6 +9,7 @@ import {
   Settings,
   User,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import type { getScanById, Notification } from "@/lib/dashboard";
 import { markNotificationsAsRead } from "@/lib/notifications";
+import { usePlanUsage } from "@/lib/plan-usage-context";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -90,6 +92,7 @@ export function DashboardNavbar({
 }: DashboardNavbarProps) {
   const router = useRouter();
   const supabase = createClient();
+  const { plan } = usePlanUsage();
   const [isPending, startTransition] = useTransition();
 
   const email = user.email ?? "";
@@ -136,6 +139,18 @@ export function DashboardNavbar({
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
+        {plan === "free" ? (
+          <Button
+            asChild
+            size="sm"
+            className="hidden h-8 cursor-pointer rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 text-xs font-semibold text-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.08)] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-400 hover:text-slate-950 hover:shadow-[0_0_18px_rgba(52,211,153,0.3)] focus-visible:border-emerald-400 focus-visible:ring-emerald-400 active:translate-y-0 sm:inline-flex"
+          >
+            <Link href="/billing" aria-label="Upgrade to Team plan">
+              Upgrade
+            </Link>
+          </Button>
+        ) : null}
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

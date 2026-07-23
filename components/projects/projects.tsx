@@ -278,26 +278,40 @@ export function Projects({
       aria-disabled="true"
       aria-label="Connect GitHub — locked, requires Team plan"
       title="GitHub PR integration is a Team plan feature — upgrade to unlock."
-      className="relative h-10 cursor-pointer overflow-hidden border-amber-400/30 bg-slate-950/60 px-4 text-slate-100 ring-1 ring-amber-400/15 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-amber-300/45 hover:bg-slate-950/60 hover:text-slate-100 hover:shadow-[0_0_20px_rgba(251,191,36,0.16)] focus-visible:border-emerald-400 focus-visible:ring-emerald-400 motion-reduce:transform-none motion-reduce:transition-none"
+      className="group relative h-10 cursor-pointer overflow-hidden border-amber-400/30 bg-slate-900/60 px-4 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-amber-400/15 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-amber-300/45 hover:bg-slate-900/60 hover:text-slate-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_20px_rgba(251,191,36,0.16)] focus-visible:border-emerald-400 focus-visible:ring-emerald-400 motion-reduce:transform-none motion-reduce:transition-none"
     >
-      <span aria-hidden="true" className="flex items-center gap-1.5 opacity-35">
-        <GitPullRequest className="size-4" />
-        Team plan required
-      </span>
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-[2px] rounded-[calc(var(--radius-lg)-2px)] border border-white/10 bg-slate-700/20 backdrop-blur-sm"
-      >
-        <span className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent" />
-      </span>
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 left-1/2 z-10 size-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-400/20 blur-md motion-safe:animate-pulse"
+        className="pointer-events-none absolute inset-[2px] z-[1] rounded-[calc(var(--radius-lg)-2px)] border border-white/10 bg-slate-700/10 backdrop-blur-sm"
       />
+
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center gap-1.5 text-slate-200 opacity-35 blur-[1px]"
+      >
+        <GitPullRequest className="size-4" />
+        Connect GitHub
+      </span>
+
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-[2px] z-[3] rounded-[calc(var(--radius-lg)-2px)] bg-gradient-to-br from-white/20 via-white/[0.04] to-transparent"
+      />
+
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 left-1/2 z-10 size-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-400/25 blur-md motion-safe:animate-pulse"
+      />
+
       <Lock
         aria-hidden="true"
         className="pointer-events-none absolute top-1/2 left-1/2 z-20 size-5 -translate-x-1/2 -translate-y-1/2 text-amber-300 drop-shadow-[0_0_6px_rgba(252,211,77,0.65)]"
       />
+
+      <span aria-hidden="true" className="invisible flex items-center gap-1.5">
+        <GitPullRequest className="size-4" />
+        Connect GitHub
+      </span>
     </Button>
   ) : (
     <Button
