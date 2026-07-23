@@ -1,6 +1,12 @@
 "use client";
 
-import { CheckCircle2, GitPullRequest, Search } from "lucide-react";
+import {
+  CheckCircle2,
+  CircleAlert,
+  GitPullRequest,
+  Search,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -31,10 +37,18 @@ interface ProjectScan {
 interface ProjectsProps {
   totalProjects: number;
   projects: ProjectScan[];
+  githubAccountLogin: string | null;
+  githubConnected: boolean;
   githubInstallUrl: string;
 }
 
 type StatusFilter = "all" | ProjectScan["status"];
+type GitHubResult =
+  | "already_connected"
+  | "connected"
+  | "error"
+  | "invalid_setup"
+  | "updated";
 type SortOption =
   | "newest"
   | "oldest"
@@ -69,7 +83,19 @@ function isSortOption(value: string | null): value is SortOption {
   return SORT_OPTIONS.some((option) => option.value === value);
 }
 
+function isGitHubResult(value: string | null): value is GitHubResult {
+  return (
+    value === "already_connected" ||
+    value === "connected" ||
+    value === "error" ||
+    value === "invalid_setup" ||
+    value === "updated"
+  );
+}
+
 export function Projects({
+  githubAccountLogin,
+  githubConnected,
   githubInstallUrl,
   projects,
   totalProjects,
@@ -88,6 +114,8 @@ export function Projects({
   const [sort, setSort] = useState<SortOption>(
     isSortOption(initialSort) ? initialSort : "newest",
   );
+  const githubResultParam = searchParams.get("github");
+  const [githubResult, setGithubResult] = useState<GitHubResult | null>(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearch(search), 300);
@@ -115,6 +143,23 @@ export function Projects({
       router.replace(nextUrl, { scroll: false });
     }
   }, [debouncedSearch, pathname, router, searchParams, sort, status]);
+
+  useEffect(() => {
+    if (!isGitHubResult(githubResultParam)) return;
+
+    setGithubResult(githubResultParam);
+    const timeout = window.setTimeout(() => {
+      setGithubResult(null);
+      const params = new URLSearchParams(window.location.search);
+      params.delete("github");
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      });
+    }, 6_000);
+
+    return () => window.clearTimeout(timeout);
+  }, [githubResultParam, pathname, router]);
 
   const filteredProjects = useMemo(() => {
     const normalizedSearch = debouncedSearch.trim().toLocaleLowerCase();
@@ -160,19 +205,37 @@ export function Projects({
     });
   }
 
-  const githubResult = searchParams.get("github");
-  const githubConnected =
-    githubResult === "connected" || githubResult === "updated";
+  function dismissGithubResult() {
+    setGithubResult(null);
+    const params = new URLSearchParams(window.location.search);
+    params.delete("github");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  }
 
   const githubButton = (
     <Button
       asChild
       variant="outline"
-      className="h-10 cursor-pointer border-slate-700 bg-slate-950/60 px-4 text-slate-100 hover:bg-slate-800 hover:text-white focus-visible:ring-emerald-400"
+      className={
+        githubConnected
+          ? "h-10 cursor-pointer border-emerald-400/30 bg-emerald-400/10 px-4 text-emerald-200 hover:bg-emerald-400/20 hover:text-emerald-100 focus-visible:ring-emerald-400"
+          : "h-10 cursor-pointer border-slate-700 bg-slate-950/60 px-4 text-slate-100 hover:bg-slate-800 hover:text-white focus-visible:ring-emerald-400"
+      }
     >
       <Link href={githubInstallUrl}>
-        <GitPullRequest data-icon="inline-start" />
-        Connect GitHub
+        {githubConnected ? (
+          <CheckCircle2 data-icon="inline-start" />
+        ) : (
+          <GitPullRequest data-icon="inline-start" />
+        )}
+        {githubConnected
+          ? githubAccountLogin
+            ? `Connected as ${githubAccountLogin}`
+            : "GitHub Connected"
+          : "Connect GitHub"}
       </Link>
     </Button>
   );
@@ -180,8 +243,11 @@ export function Projects({
   if (totalProjects === 0) {
     return (
       <div className="space-y-4">
-        {githubConnected && (
-          <GitHubConnectionSuccess updated={githubResult === "updated"} />
+        {githubResult && (
+          <GitHubConnectionNotice
+            result={githubResult}
+            onDismiss={dismissGithubResult}
+          />
         )}
         <div className="flex justify-end">{githubButton}</div>
         <EmptyProjects onUpload={() => router.push("/upload")} />
@@ -191,8 +257,11 @@ export function Projects({
 
   return (
     <div className="space-y-4 text-slate-100">
-      {githubConnected && (
-        <GitHubConnectionSuccess updated={githubResult === "updated"} />
+      {githubResult && (
+        <GitHubConnectionNotice
+          result={githubResult}
+          onDismiss={dismissGithubResult}
+        />
       )}
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:flex-row">
         <div className="relative min-w-0 flex-1">
@@ -314,13 +383,47 @@ export function Projects({
   );
 }
 
-function GitHubConnectionSuccess({ updated }: { updated: boolean }) {
+function GitHubConnectionNotice({
+  onDismiss,
+  result,
+}: {
+  onDismiss: () => void;
+  result: GitHubResult;
+}) {
+  const isSuccess = result === "connected" || result === "updated";
+  const message = {
+    already_connected:
+      "This GitHub installation is already connected to another account.",
+    connected: "GitHub was connected successfully.",
+    error: "We couldn't connect GitHub. Please try again.",
+    invalid_setup:
+      "GitHub returned an invalid installation setup. Please try again.",
+    updated: "GitHub repository access was updated.",
+  }[result];
+
   return (
-    <output className="flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
-      <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
-      {updated
-        ? "GitHub repository access was updated."
-        : "GitHub was connected successfully."}
+    <output
+      aria-live="polite"
+      className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm ${
+        isSuccess
+          ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+          : "border-rose-400/20 bg-rose-400/10 text-rose-200"
+      }`}
+    >
+      {isSuccess ? (
+        <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+      ) : (
+        <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+      )}
+      <span className="flex-1">{message}</span>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss GitHub connection message"
+        className="cursor-pointer rounded-sm p-1 opacity-70 transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-current focus-visible:outline-none"
+      >
+        <X className="size-4" aria-hidden="true" />
+      </button>
     </output>
   );
 }

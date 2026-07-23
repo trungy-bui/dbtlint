@@ -264,7 +264,7 @@ async function validatePythonExecutableCandidate({
 export async function resolvePythonExecutable() {
   if (resolvedPythonExecutablePromise) return resolvedPythonExecutablePromise;
 
-  resolvedPythonExecutablePromise = (async () => {
+  const resolutionPromise = (async () => {
     const configured =
       process.env.PYTHON_EXECUTABLE ?? process.env.PYTHON_BIN_PATH;
     if (configured && path.isAbsolute(configured)) {
@@ -351,7 +351,16 @@ export async function resolvePythonExecutable() {
       `Unable to resolve a Python executable with sqlfluff importable. Set PYTHON_EXECUTABLE to an absolute interpreter path. Attempts: ${failures.join(" | ")}`,
     );
   })();
-  return resolvedPythonExecutablePromise;
+  resolvedPythonExecutablePromise = resolutionPromise;
+
+  try {
+    return await resolutionPromise;
+  } catch (error) {
+    if (resolvedPythonExecutablePromise === resolutionPromise) {
+      resolvedPythonExecutablePromise = null;
+    }
+    throw error;
+  }
 }
 
 function logSqlfluffSubprocessOutput({
