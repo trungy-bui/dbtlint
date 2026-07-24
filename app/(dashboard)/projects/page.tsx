@@ -5,6 +5,7 @@ import { githubInstallations } from "@/db/schema";
 import { getUser } from "@/lib/auth";
 import { getDashboardStats, getProjects } from "@/lib/dashboard";
 import { getUserPlan } from "@/lib/plan";
+import { uploadedZipExists } from "@/lib/uploaded-zip-storage";
 
 export default async function ProjectPage() {
   const user = await getUser();
@@ -23,6 +24,20 @@ export default async function ProjectPage() {
   const [githubInstallation] = githubInstallationRows;
   const totalProjects = dashboardStats["Total Projects"].value;
   const githubAppSlug = process.env.GITHUB_APP_SLUG ?? "your-github-app-slug";
+  const projects = await Promise.all(
+    dashboardProjects.map(async (project) => ({
+      ...project,
+      canRerun:
+        project.source === "upload"
+          ? await uploadedZipExists(project.scanPath)
+          : true,
+      status: project.status as "processing" | "passed" | "failed",
+      createdAt:
+        project.createdAt instanceof Date
+          ? project.createdAt.toISOString()
+          : project.createdAt,
+    })),
+  );
 
   return (
     <Projects
@@ -30,14 +45,7 @@ export default async function ProjectPage() {
       githubConnected={Boolean(githubInstallation)}
       githubInstallUrl={`https://github.com/apps/${githubAppSlug}/installations/new`}
       plan={plan}
-      projects={dashboardProjects.map((project) => ({
-        ...project,
-        status: project.status as "processing" | "passed" | "failed",
-        createdAt:
-          project.createdAt instanceof Date
-            ? project.createdAt.toISOString()
-            : project.createdAt,
-      }))}
+      projects={projects}
       totalProjects={totalProjects}
     />
   );

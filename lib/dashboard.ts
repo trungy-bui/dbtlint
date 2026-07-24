@@ -134,6 +134,7 @@ export async function fetchProjects(userId: string, limit?: number) {
         createdAt: githubPrScans.createdAt,
         scanId: githubPrScans.scanId,
         repositoryFullName: githubPrScans.repositoryFullName,
+        prNumber: githubPrScans.prNumber,
         headSha: githubPrScans.headSha,
       })
       .from(githubPrScans)
@@ -142,7 +143,12 @@ export async function fetchProjects(userId: string, limit?: number) {
   ]);
 
   const merged = [
-    ...uploadProjects,
+    ...uploadProjects.map((scan) => ({
+      ...scan,
+      source: "upload" as const,
+      repositoryFullName: null,
+      prNumber: null,
+    })),
     ...githubProjects.map((scan) => ({
       project: scan.project,
       status: scan.status,
@@ -152,6 +158,9 @@ export async function fetchProjects(userId: string, limit?: number) {
       createdAt: scan.createdAt,
       scanId: scan.scanId,
       scanPath: `github:${scan.repositoryFullName}@${scan.headSha}`,
+      source: "github" as const,
+      repositoryFullName: scan.repositoryFullName,
+      prNumber: scan.prNumber,
     })),
   ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
