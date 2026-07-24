@@ -267,9 +267,14 @@ export function Projects({
         onClick: () => router.push("/billing"),
       },
       classNames: {
-        toast: "!border-emerald-400/30 !bg-slate-900 !text-slate-100",
+        toast:
+          "!rounded-2xl !border-emerald-400/30 !bg-slate-900 !text-slate-100 !shadow-[0_8px_30px_rgba(0,0,0,0.4)] animate-in fade-in slide-in-from-top-2 duration-300",
         icon: "!text-emerald-300",
-        actionButton: "!bg-emerald-400 !text-slate-950 hover:!bg-emerald-300",
+        actionButton:
+          "!rounded-full !bg-emerald-400 !text-slate-950 !font-medium !px-3.5 !transition-all !duration-200 hover:!bg-emerald-300 hover:!scale-105 hover:!shadow-[0_0_16px_rgba(52,211,153,0.45)] active:!scale-95",
+        cancelButton: "!rounded-full",
+        closeButton:
+          "!rounded-full !border-slate-700 !bg-slate-800 !text-slate-300 hover:!bg-slate-700 hover:!text-slate-100 !transition-colors",
       },
     });
   }
