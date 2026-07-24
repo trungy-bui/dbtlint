@@ -24,6 +24,10 @@ import {
 import { useScanStatusPolling } from "@/hooks/use-scan-status-polling";
 import type { Plan } from "@/lib/plan-limits";
 import { EmptyProjects } from "./empty-projects";
+import {
+  getNextOpenProjectMenuId,
+  getProjectCardId,
+} from "./project-card-state";
 import { matchesProjectSearch } from "./project-search";
 import { type ScanAction, ScanProjectCard } from "./scan-project";
 
@@ -130,6 +134,7 @@ export function Projects({
   const [pendingActions, setPendingActions] = useState<
     Record<string, ScanAction | undefined>
   >({});
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const githubResultParam = searchParams.get("github");
   const [githubResult, setGithubResult] = useState<GitHubResult | null>(null);
   const processingScanIds = useMemo(
@@ -276,18 +281,25 @@ export function Projects({
     return body?.error ?? "Something went wrong. Please try again.";
   }
 
-  function setPendingAction(scanId: string, action?: ScanAction) {
-    setPendingActions((current) => ({ ...current, [scanId]: action }));
+  function setPendingAction(cardId: string, action?: ScanAction) {
+    setPendingActions((current) => ({ ...current, [cardId]: action }));
+  }
+
+  function setProjectMenuOpen(cardId: string, open: boolean) {
+    setOpenMenuId((current) => getNextOpenProjectMenuId(current, cardId, open));
   }
 
   async function renameProject(scan: ProjectScan, project: string) {
     const nextProject = project.trim();
     if (!nextProject || nextProject === scan.project) return true;
+    const cardId = getProjectCardId(scan);
 
-    setPendingAction(scan.scanId, "rename");
+    setPendingAction(cardId, "rename");
     setCurrentProjects((current) =>
       current.map((item) =>
-        item.scanId === scan.scanId ? { ...item, project: nextProject } : item,
+        getProjectCardId(item) === cardId
+          ? { ...item, project: nextProject }
+          : item,
       ),
     );
 
@@ -308,7 +320,7 @@ export function Projects({
     } catch (error) {
       setCurrentProjects((current) =>
         current.map((item) =>
-          item.scanId === scan.scanId
+          getProjectCardId(item) === cardId
             ? { ...item, project: scan.project }
             : item,
         ),
@@ -316,15 +328,16 @@ export function Projects({
       toast.error(error instanceof Error ? error.message : "Rename failed");
       return false;
     } finally {
-      setPendingAction(scan.scanId);
+      setPendingAction(cardId);
     }
   }
 
   async function rerunProject(scan: ProjectScan) {
-    setPendingAction(scan.scanId, "rerun");
+    const cardId = getProjectCardId(scan);
+    setPendingAction(cardId, "rerun");
     setCurrentProjects((current) =>
       current.map((item) =>
-        item.scanId === scan.scanId
+        getProjectCardId(item) === cardId
           ? {
               ...item,
               status: "processing",
@@ -348,19 +361,20 @@ export function Projects({
     } catch (error) {
       setCurrentProjects((current) =>
         current.map((item) =>
-          item.scanId === scan.scanId ? { ...item, ...scan } : item,
+          getProjectCardId(item) === cardId ? { ...item, ...scan } : item,
         ),
       );
       toast.error(error instanceof Error ? error.message : "Re-run failed");
     } finally {
-      setPendingAction(scan.scanId);
+      setPendingAction(cardId);
     }
   }
 
   async function deleteProject(scan: ProjectScan) {
-    setPendingAction(scan.scanId, "delete");
+    const cardId = getProjectCardId(scan);
+    setPendingAction(cardId, "delete");
     setCurrentProjects((current) =>
-      current.filter((item) => item.scanId !== scan.scanId),
+      current.filter((item) => getProjectCardId(item) !== cardId),
     );
 
     try {
@@ -374,13 +388,13 @@ export function Projects({
       router.refresh();
     } catch (error) {
       setCurrentProjects((current) =>
-        current.some((item) => item.scanId === scan.scanId)
+        current.some((item) => getProjectCardId(item) === cardId)
           ? current
           : [...current, scan],
       );
       toast.error(error instanceof Error ? error.message : "Delete failed");
     } finally {
-      setPendingAction(scan.scanId);
+      setPendingAction(cardId);
     }
   }
 
@@ -605,27 +619,33 @@ export function Projects({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {filteredProjects.map((p) => (
-            <ScanProjectCard
-              key={p.scanId}
-              project={p.project}
-              status={p.status}
-              score={p.score}
-              errors={p.errors}
-              warnings={p.warnings}
-              createdAt={p.createdAt}
-              scanId={p.scanId}
-              source={p.source}
-              repositoryFullName={p.repositoryFullName}
-              prNumber={p.prNumber}
-              canRerun={p.canRerun}
-              pendingAction={pendingActions[p.scanId]}
-              onClick={() => router.push(`/projects/${p.scanId}`)}
-              onRename={(project) => renameProject(p, project)}
-              onRerun={() => rerunProject(p)}
-              onDelete={() => deleteProject(p)}
-            />
-          ))}
+          {filteredProjects.map((p) => {
+            const cardId = getProjectCardId(p);
+
+            return (
+              <ScanProjectCard
+                key={cardId}
+                project={p.project}
+                status={p.status}
+                score={p.score}
+                errors={p.errors}
+                warnings={p.warnings}
+                createdAt={p.createdAt}
+                scanId={p.scanId}
+                source={p.source}
+                repositoryFullName={p.repositoryFullName}
+                prNumber={p.prNumber}
+                canRerun={p.canRerun}
+                menuOpen={openMenuId === cardId}
+                pendingAction={pendingActions[cardId]}
+                onClick={() => router.push(`/projects/${p.scanId}`)}
+                onMenuOpenChange={(open) => setProjectMenuOpen(cardId, open)}
+                onRename={(project) => renameProject(p, project)}
+                onRerun={() => rerunProject(p)}
+                onDelete={() => deleteProject(p)}
+              />
+            );
+          })}
         </div>
       )}
     </div>
