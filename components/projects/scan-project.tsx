@@ -64,8 +64,10 @@ interface ScanProjectCardProps {
   repositoryFullName: string | null;
   prNumber: number | null;
   canRerun: boolean;
+  menuOpen: boolean;
   pendingAction?: ScanAction;
   onClick?: () => void;
+  onMenuOpenChange: (open: boolean) => void;
   onRename: (project: string) => Promise<boolean>;
   onRerun: () => Promise<void>;
   onDelete: () => Promise<void>;
@@ -133,8 +135,10 @@ export function ScanProjectCard({
   repositoryFullName,
   prNumber,
   canRerun,
+  menuOpen,
   pendingAction,
   onClick,
+  onMenuOpenChange,
   onRename,
   onRerun,
   onDelete,
@@ -233,7 +237,7 @@ export function ScanProjectCard({
               <span className="capitalize">{status}</span>
             </div>
 
-            <DropdownMenu>
+            <DropdownMenu open={menuOpen} onOpenChange={onMenuOpenChange}>
               <DropdownMenuTrigger asChild>
                 <Button
                   type="button"
