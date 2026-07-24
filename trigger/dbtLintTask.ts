@@ -25,6 +25,7 @@ import {
   getScoreLabel,
 } from "@/lib/discord-lint-report";
 import { getScanningUser } from "@/lib/discord-scanning-user";
+import { deleteUploadedZip } from "@/lib/uploaded-zip-storage";
 import {
   type LintMetadata,
   lintMetadata,
@@ -418,16 +419,6 @@ export const scanCompletionEmailTask = task({
     return { scanId, sent: true };
   },
 });
-
-async function deleteUploadedZip(storageFilePath: string) {
-  const { error } = await supabase.storage
-    .from("dbt-uploads")
-    .remove([storageFilePath]);
-
-  if (error) {
-    throw new Error(`Failed to delete uploaded zip: ${error.message}`);
-  }
-}
 
 export const uploadedZipCleanupTask = task({
   id: "cleanup-dbt-upload",

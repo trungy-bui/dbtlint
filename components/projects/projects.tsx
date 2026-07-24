@@ -25,7 +25,7 @@ import { useScanStatusPolling } from "@/hooks/use-scan-status-polling";
 import type { Plan } from "@/lib/plan-limits";
 import { EmptyProjects } from "./empty-projects";
 import { matchesProjectSearch } from "./project-search";
-import { ScanProjectCard } from "./scan-project";
+import { type ScanAction, ScanProjectCard } from "./scan-project";
 
 interface ProjectScan {
   project: string;
@@ -36,6 +36,10 @@ interface ProjectScan {
   createdAt: string;
   scanId: string;
   scanPath: string;
+  source: "upload" | "github";
+  repositoryFullName: string | null;
+  prNumber: number | null;
+  canRerun: boolean;
 }
 
 interface ProjectsProps {
@@ -123,6 +127,9 @@ export function Projects({
     isSortOption(initialSort) ? initialSort : "newest",
   );
   const [currentProjects, setCurrentProjects] = useState(projects);
+  const [pendingActions, setPendingActions] = useState<
+    Record<string, ScanAction | undefined>
+  >({});
   const githubResultParam = searchParams.get("github");
   const [githubResult, setGithubResult] = useState<GitHubResult | null>(null);
   const processingScanIds = useMemo(
@@ -260,6 +267,121 @@ export function Projects({
         actionButton: "!bg-emerald-400 !text-slate-950 hover:!bg-emerald-300",
       },
     });
+  }
+
+  async function getResponseError(response: Response) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    return body?.error ?? "Something went wrong. Please try again.";
+  }
+
+  function setPendingAction(scanId: string, action?: ScanAction) {
+    setPendingActions((current) => ({ ...current, [scanId]: action }));
+  }
+
+  async function renameProject(scan: ProjectScan, project: string) {
+    const nextProject = project.trim();
+    if (!nextProject || nextProject === scan.project) return true;
+
+    setPendingAction(scan.scanId, "rename");
+    setCurrentProjects((current) =>
+      current.map((item) =>
+        item.scanId === scan.scanId ? { ...item, project: nextProject } : item,
+      ),
+    );
+
+    try {
+      const response = await fetch(
+        `/api/scans/${encodeURIComponent(scan.scanId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project: nextProject }),
+        },
+      );
+      if (!response.ok) throw new Error(await getResponseError(response));
+
+      toast.success("Project renamed");
+      router.refresh();
+      return true;
+    } catch (error) {
+      setCurrentProjects((current) =>
+        current.map((item) =>
+          item.scanId === scan.scanId
+            ? { ...item, project: scan.project }
+            : item,
+        ),
+      );
+      toast.error(error instanceof Error ? error.message : "Rename failed");
+      return false;
+    } finally {
+      setPendingAction(scan.scanId);
+    }
+  }
+
+  async function rerunProject(scan: ProjectScan) {
+    setPendingAction(scan.scanId, "rerun");
+    setCurrentProjects((current) =>
+      current.map((item) =>
+        item.scanId === scan.scanId
+          ? {
+              ...item,
+              status: "processing",
+              score: 0,
+              errors: 0,
+              warnings: 0,
+            }
+          : item,
+      ),
+    );
+
+    try {
+      const response = await fetch(
+        `/api/scans/${encodeURIComponent(scan.scanId)}`,
+        { method: "POST" },
+      );
+      if (!response.ok) throw new Error(await getResponseError(response));
+
+      toast.success("Scan queued");
+      router.refresh();
+    } catch (error) {
+      setCurrentProjects((current) =>
+        current.map((item) =>
+          item.scanId === scan.scanId ? { ...item, ...scan } : item,
+        ),
+      );
+      toast.error(error instanceof Error ? error.message : "Re-run failed");
+    } finally {
+      setPendingAction(scan.scanId);
+    }
+  }
+
+  async function deleteProject(scan: ProjectScan) {
+    setPendingAction(scan.scanId, "delete");
+    setCurrentProjects((current) =>
+      current.filter((item) => item.scanId !== scan.scanId),
+    );
+
+    try {
+      const response = await fetch(
+        `/api/scans/${encodeURIComponent(scan.scanId)}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) throw new Error(await getResponseError(response));
+
+      toast.success("Scan deleted");
+      router.refresh();
+    } catch (error) {
+      setCurrentProjects((current) =>
+        current.some((item) => item.scanId === scan.scanId)
+          ? current
+          : [...current, scan],
+      );
+      toast.error(error instanceof Error ? error.message : "Delete failed");
+    } finally {
+      setPendingAction(scan.scanId);
+    }
   }
 
   const githubIntegrationLocked = plan !== "team" && !githubConnected;
@@ -493,8 +615,15 @@ export function Projects({
               warnings={p.warnings}
               createdAt={p.createdAt}
               scanId={p.scanId}
-              scanPath={p.scanPath}
+              source={p.source}
+              repositoryFullName={p.repositoryFullName}
+              prNumber={p.prNumber}
+              canRerun={p.canRerun}
+              pendingAction={pendingActions[p.scanId]}
               onClick={() => router.push(`/projects/${p.scanId}`)}
+              onRename={(project) => renameProject(p, project)}
+              onRerun={() => rerunProject(p)}
+              onDelete={() => deleteProject(p)}
             />
           ))}
         </div>
