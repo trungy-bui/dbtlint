@@ -144,7 +144,10 @@ export function ScanProjectCard({
   const [nextProjectName, setNextProjectName] = useState(project);
   const isProcessing = status === "processing";
   const isBusy = pendingAction !== undefined;
-  const displayName = getProjectName(project);
+  const displayName =
+    source === "github" && repositoryFullName && prNumber !== null
+      ? `${repositoryFullName} #${prNumber}`
+      : getProjectName(project);
   const rerunUnavailable = source === "upload" && !canRerun;
 
   async function handleRename(event: FormEvent<HTMLFormElement>) {
@@ -194,12 +197,18 @@ export function ScanProjectCard({
           className="absolute inset-0 z-0 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
         />
 
-        <div className="pointer-events-none relative z-10 flex items-start justify-between gap-3">
-          <h3 className="line-clamp-2 min-w-0 flex-1 text-base font-semibold tracking-[-0.02em] text-slate-50">
-            {displayName}
+        <div className="pointer-events-none relative z-10 flex items-start gap-3">
+          <h3
+            title={displayName}
+            className="min-w-0 flex-1 text-base font-semibold tracking-[-0.02em] text-slate-50"
+          >
+            <span aria-hidden="true" className="line-clamp-2">
+              {displayName}
+            </span>
+            <span className="sr-only">{displayName}</span>
           </h3>
 
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex w-36 shrink-0 items-center justify-end gap-1.5">
             <div
               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
                 status === "passed"
@@ -237,8 +246,12 @@ export function ScanProjectCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
+                side="top"
                 align="end"
-                className="pointer-events-auto z-50 min-w-52 border border-slate-800 bg-slate-900 p-1.5 text-slate-200 shadow-xl"
+                sideOffset={8}
+                avoidCollisions
+                collisionPadding={12}
+                className="pointer-events-auto z-50 min-w-52 border border-slate-800 bg-slate-900 p-1.5 text-slate-200 shadow-xl duration-150 ease-out data-[side=bottom]:data-closed:slide-out-to-top-2 data-[side=top]:data-closed:slide-out-to-bottom-2 data-closed:ease-in motion-reduce:duration-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none"
               >
                 {source === "upload" && (
                   <DropdownMenuItem
