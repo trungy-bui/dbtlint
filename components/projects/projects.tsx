@@ -413,54 +413,54 @@ export function Projects({
       aria-disabled="true"
       aria-label="Connect GitHub — locked, requires Team plan"
       title="GitHub PR integration is a Team plan feature — upgrade to unlock."
-      className="group relative h-10 cursor-pointer overflow-hidden border-emerald-400/30 bg-slate-900 px-4 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-emerald-400/15 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-emerald-300/45 hover:bg-slate-900 hover:text-slate-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_20px_rgba(52,211,153,0.16)] focus-visible:border-emerald-400 focus-visible:ring-emerald-400 motion-reduce:transform-none motion-reduce:transition-none"
+      className="group relative h-10 cursor-pointer overflow-hidden border-emerald-400/15 bg-slate-950 px-4 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-emerald-400/10 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-emerald-300/25 hover:bg-slate-950 hover:text-slate-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_14px_rgba(52,211,153,0.08)] focus-visible:border-emerald-400 focus-visible:ring-emerald-400 motion-reduce:transform-none motion-reduce:transition-none"
     >
-      {/* black glass tint base */}
+      {/* black glass tint base — deeper */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0 bg-black/65"
+        className="pointer-events-none absolute inset-0 z-0 bg-black/85"
       />
 
       {/* ghost label, centered, blurred, sitting behind the lock */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center gap-1.5 text-slate-400 opacity-25 blur-[1.5px]"
+        className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center gap-1.5 text-slate-500 opacity-15 blur-[1.5px]"
       >
         <GitPullRequest className="size-4" />
         Connect GitHub
       </span>
 
-      {/* diagonal light sheen */}
+      {/* diagonal light sheen — subdued */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-br from-white/[0.06] via-transparent to-transparent"
+        className="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-br from-white/[0.03] via-transparent to-transparent"
       />
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -inset-x-4 top-0 z-[2] h-1/2 bg-gradient-to-b from-white/[0.05] to-transparent"
-      />
-
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -inset-y-2 left-0 z-[2] w-1/3 -skew-x-12 bg-gradient-to-r from-white/[0.07] to-transparent"
+        className="pointer-events-none absolute -inset-x-4 top-0 z-[2] h-1/2 bg-gradient-to-b from-white/[0.02] to-transparent"
       />
 
-      {/* thin glass edge border */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-[2px] z-[2] rounded-[calc(var(--radius-lg)-2px)] border border-emerald-400/25"
+        className="pointer-events-none absolute -inset-y-2 left-0 z-[2] w-1/3 -skew-x-12 bg-gradient-to-r from-white/[0.03] to-transparent"
       />
 
-      {/* emerald glow behind the lock, centered */}
+      {/* thin glass edge border — dimmer */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 left-1/2 z-[3] size-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400/25 blur-md motion-safe:animate-pulse"
+        className="pointer-events-none absolute inset-[2px] z-[2] rounded-[calc(var(--radius-lg)-2px)] border border-emerald-400/10"
       />
 
-      {/* lock icon, dead center, the sole focal point */}
+      {/* emerald glow behind the lock — much dimmer, smaller */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 left-1/2 z-[3] size-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400/10 blur-md motion-safe:animate-pulse"
+      />
+
+      {/* lock icon, dead center — muted emerald, softer glow */}
       <Lock
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 left-1/2 z-[4] size-5 -translate-x-1/2 -translate-y-1/2 text-emerald-300 drop-shadow-[0_0_6px_rgba(52,211,153,0.65)]"
+        className="pointer-events-none absolute top-1/2 left-1/2 z-[4] size-5 -translate-x-1/2 -translate-y-1/2 text-emerald-400/70 drop-shadow-[0_0_4px_rgba(52,211,153,0.35)]"
       />
 
       {/* invisible spacer to preserve the button's natural width */}
@@ -469,6 +469,7 @@ export function Projects({
         Connect GitHub
       </span>
     </Button>
+    // ...unchanged unlocked/connected variant
   ) : (
     <Button
       asChild
