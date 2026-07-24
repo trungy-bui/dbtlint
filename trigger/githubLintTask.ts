@@ -8,12 +8,14 @@ import { schemaTask } from "@trigger.dev/sdk";
 import { eq } from "drizzle-orm";
 import db from "@/db";
 import { githubPrScans, type LintReportJson } from "@/db/schema";
+import { getScanningUser } from "@/lib/discord-scanning-user";
 import { getInstallationToken } from "@/lib/github/app-auth";
 import {
   completeCheckRun,
   createCheckRun,
   type PullRequestFileDiff,
 } from "@/lib/github/checks";
+import { sendGitHubPrScanDiscordAlertBestEffort } from "@/lib/github/discord-notification";
 import { getInstallationUserId } from "@/lib/github/installations";
 import { githubLintPayload } from "@/lib/validation/github";
 import {
@@ -445,6 +447,15 @@ export const githubLintTask = schemaTask({
       });
       const status = report.totals.errors === 0 ? "passed" : "failed";
       await finalizeGitHubPrScan({ scanId, status, report });
+      const scanningUser = await getScanningUser(userId);
+      await sendGitHubPrScanDiscordAlertBestEffort({
+        scanId,
+        repoFullName,
+        prNumber,
+        headSha,
+        report,
+        scanningUser,
+      });
       await completeCheckRunBestEffort({
         octokit,
         owner,

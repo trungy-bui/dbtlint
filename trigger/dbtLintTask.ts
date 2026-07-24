@@ -16,8 +16,15 @@ import { metadata, retry, schemaTask, task } from "@trigger.dev/sdk";
 import AdmZip from "adm-zip";
 import { eq } from "drizzle-orm";
 import db from "@/db";
-import { type LintReportJson, notifications, scans, users } from "@/db/schema";
+import { type LintReportJson, notifications, scans } from "@/db/schema";
 import { sendDiscordAlert } from "@/lib/discord";
+import {
+  formatCategoryBreakdown,
+  formatIssueSummary,
+  getBrandIconUrl,
+  getScoreLabel,
+} from "@/lib/discord-lint-report";
+import { getScanningUser } from "@/lib/discord-scanning-user";
 import {
   type LintMetadata,
   lintMetadata,
@@ -25,7 +32,6 @@ import {
 } from "@/lib/validation/lint";
 import {
   createEmptyLintReport,
-  DBT_FOLDERS,
   MAX_DIRECTORY_DEPTH,
   MAX_PROJECT_FILES,
   resolvePythonExecutable,
@@ -250,83 +256,6 @@ function countProjectFiles(directory: string, depth = 0): number {
   }
 
   return fileCount;
-}
-
-function getScoreLabel(score: number) {
-  if (score >= 90) return "Excellent";
-  if (score >= 70) return "Good";
-  if (score >= 50) return "Needs work";
-  return "Poor";
-}
-
-function formatIssueSummary(errors: number, warnings: number) {
-  if (errors === 0 && warnings === 0) {
-    return "No issues found — nice work!";
-  }
-
-  const errorLabel = errors === 1 ? "error" : "errors";
-  const warningLabel = warnings === 1 ? "warning" : "warnings";
-
-  return `Found ${errors} ${errorLabel} and ${warnings} ${warningLabel} across this dbt project.`;
-}
-
-function formatCategoryBreakdown(categories: LintReportJson["categories"]) {
-  return DBT_FOLDERS.map((category) => {
-    const categoryReport = categories[category];
-    const label = category[0].toUpperCase() + category.slice(1);
-
-    if (categoryReport.skipped) {
-      return `**${label}** — skipped`;
-    }
-
-    const errors = categoryReport.files.reduce(
-      (total, file) => total + file.errors,
-      0,
-    );
-    const warnings = categoryReport.files.reduce(
-      (total, file) => total + file.warnings,
-      0,
-    );
-
-    return `**${label}** — ${errors} errors · ${warnings} warnings`;
-  }).join("\n");
-}
-
-function getBrandIconUrl() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!siteUrl) return undefined;
-
-  try {
-    return new URL("/favicon.ico", siteUrl).toString();
-  } catch {
-    return undefined;
-  }
-}
-
-async function getScanningUser(userId: string) {
-  try {
-    const [user] = await db
-      .select({
-        fullName: users.fullName,
-        email: users.email,
-        avatarUrl: users.avatarUrl,
-      })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    return user ?? null;
-  } catch (error) {
-    console.error("Failed to load scanning user for Discord alert", {
-      error,
-      userId,
-    });
-    Sentry.captureException(error, {
-      tags: { notification_provider: "discord" },
-      extra: { userId },
-    });
-    return null;
-  }
 }
 
 function getScanDetailsUrl(scanId: string) {
