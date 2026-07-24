@@ -13,7 +13,7 @@ export type DiscordAlertAuthor = {
   iconUrl?: string;
 };
 
-type SendDiscordAlertInput = {
+export type SendDiscordAlertInput = {
   webhookUrl?: string;
   title: string;
   description: string;
