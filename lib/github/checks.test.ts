@@ -8,6 +8,7 @@ import {
   CHECK_ANNOTATION_BATCH_SIZE,
   completeCheckRun,
   formatCheckRunSummary,
+  formatCheckRunText,
 } from "./checks";
 
 function createReport({
@@ -123,6 +124,98 @@ test("skips all inline annotations when GitHub omits the file patch", () => {
   );
 });
 
+test("formats errors-only check text with file, line, rule, and message", () => {
+  const text = formatCheckRunText(
+    createReport({
+      errors: 2,
+      warnings: 0,
+      violations: [
+        {
+          code: "PRS",
+          description: "Found unparsable section: 'from'",
+          line_no: 11,
+        },
+        {
+          code: "TMP_TIMEOUT",
+          description: "Lint command timed out",
+        },
+      ],
+    }),
+  );
+
+  assert.match(text, /^### Errors/);
+  assert.match(
+    text,
+    /`models\/orders\.sql:11` — `PRS` — Found unparsable section: 'from'/,
+  );
+  assert.match(
+    text,
+    /`models\/orders\.sql` — `TMP_TIMEOUT` — Lint command timed out/,
+  );
+  assert.equal(text.includes("### Warnings"), false);
+});
+
+test("formats warnings-only check text with the same detail structure", () => {
+  const text = formatCheckRunText(
+    createReport({
+      violations: [
+        {
+          code: "LT02",
+          description: "Expected 4 spaces",
+          line_no: 2,
+        },
+      ],
+    }),
+  );
+
+  assert.equal(
+    text,
+    "### Warnings\n\n- `models/orders.sql:2` — `LT02` — Expected 4 spaces",
+  );
+});
+
+test("formats mixed check text with errors before warnings", () => {
+  const text = formatCheckRunText(
+    createReport({
+      errors: 1,
+      warnings: 1,
+      violations: [
+        { code: "LT01", description: "Unexpected whitespace", line_no: 3 },
+        { code: "PRS", description: "Syntax error", line_no: 8 },
+      ],
+    }),
+  );
+
+  assert.ok(text.indexOf("### Errors") < text.indexOf("### Warnings"));
+  assert.match(text, /`PRS` — Syntax error/);
+  assert.match(text, /`LT01` — Unexpected whitespace/);
+});
+
+test("truncates oversized check text with omitted severity counts", () => {
+  const report = createReport({
+    errors: 3,
+    warnings: 2,
+    violations: [
+      ...Array.from({ length: 3 }, (_, index) => ({
+        code: "PRS",
+        description: `Error ${index} ${"x".repeat(80)}`,
+        line_no: index + 1,
+      })),
+      ...Array.from({ length: 2 }, (_, index) => ({
+        code: "LT01",
+        description: `Warning ${index} ${"y".repeat(80)}`,
+        line_no: index + 10,
+      })),
+    ],
+  });
+
+  const text = formatCheckRunText(report, 260);
+
+  assert.ok(text.length <= 260);
+  assert.match(text, /\d+ more errors and \d+ more warnings truncated/);
+  assert.match(text, /full DBTLint report/);
+});
+
 test("completes one check run across 50-annotation PATCH batches", async () => {
   const violations = Array.from({ length: 101 }, (_, index) => ({
     code: "LT01",
@@ -130,7 +223,9 @@ test("completes one check run across 50-annotation PATCH batches", async () => {
     line_no: index + 1,
   }));
   const report = createReport({ violations, warnings: violations.length });
-  const updates: Array<{ output?: { annotations?: unknown[] } }> = [];
+  const updates: Array<{
+    output?: { annotations?: unknown[]; text?: string };
+  }> = [];
   const octokit = {
     rest: {
       checks: {
@@ -166,6 +261,10 @@ test("completes one check run across 50-annotation PATCH batches", async () => {
     updates.map((update) => update.output?.annotations?.length),
     [CHECK_ANNOTATION_BATCH_SIZE, CHECK_ANNOTATION_BATCH_SIZE, 1],
   );
+  assert.ok(
+    updates.every((update) => update.output?.text === updates[0].output?.text),
+  );
+  assert.match(updates[0].output?.text ?? "", /### Warnings/);
 });
 
 test("formats the concise check summary with singular labels", () => {
