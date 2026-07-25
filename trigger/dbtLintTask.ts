@@ -43,6 +43,7 @@ import {
   TASK_QUEUE_CONCURRENCY,
   UserFacingLintFailure,
 } from "@/trigger/lintPipeline";
+import { resolvePackageMacroAllowlist } from "@/trigger/macroResolution";
 
 type ScanStatus = "processing" | "passed" | "failed";
 const supabase = createClient(
@@ -548,6 +549,38 @@ export const dbtLintTask = schemaTask({
       }
 
       updateLintMetadata({
+        statusMessage: "Installing dbt packages...",
+        status: "PROCESSING",
+        progress: 18,
+      });
+      // The locked Jinja templater cannot execute dbt packages, and the
+      // untrusted dbt_project.yml is intentionally quarantined. Parse the
+      // bounded manifests and allow only supported, declared package
+      // namespaces to avoid false undefined-variable findings.
+      const packageMacroResolution = await measurePhase(
+        timings,
+        "packageMacroResolutionMs",
+        () =>
+          resolvePackageMacroAllowlist(extractedDirectory, MAX_DIRECTORY_DEPTH),
+      );
+      if (packageMacroResolution.warnings.length > 0) {
+        console.warn(
+          "dbt package macro resolution completed with reduced awareness",
+          {
+            scanId,
+            warnings: packageMacroResolution.warnings,
+          },
+        );
+      }
+      console.log("Resolved dbt package macro namespaces", {
+        scanId,
+        manifests: packageMacroResolution.manifestPaths.map((filePath) =>
+          path.relative(extractedDirectory, filePath).split(path.sep).join("/"),
+        ),
+        namespaces: Array.from(packageMacroResolution.namespaces),
+      });
+
+      updateLintMetadata({
         statusMessage: "Starting lint...",
         status: "PROCESSING",
         progress: 20,
@@ -559,6 +592,7 @@ export const dbtLintTask = schemaTask({
         dialect,
         lockedConfigPath,
         pythonExecutable,
+        packageMacroNamespaces: packageMacroResolution.namespaces,
         onPhaseComplete: (phase, durationMs) => {
           timings[phase] = durationMs;
         },
