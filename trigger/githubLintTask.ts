@@ -20,18 +20,27 @@ import { getInstallationUserId } from "@/lib/github/installations";
 import { githubLintPayload } from "@/lib/validation/github";
 import {
   createEmptyLintReport,
+  MAX_DIRECTORY_DEPTH,
+  MAX_PROJECT_FILES,
   MAX_SQL_FILES,
   runLintPipeline,
   SQLFLUFF_LOCKED_CONFIG_CONTENTS,
   TASK_QUEUE_CONCURRENCY,
   UserFacingLintFailure,
 } from "@/trigger/lintPipeline";
+import {
+  isMacroResolutionSupportPath,
+  resolveMacroAllowlist,
+} from "@/trigger/macroResolution";
 
 type GitHubFileContent = {
   type?: string;
   encoding?: string;
   content?: string;
 };
+
+const MAX_MACRO_RESOLUTION_FILE_BYTES = 1024 * 1024;
+const MAX_MACRO_RESOLUTION_TOTAL_BYTES = 20 * 1024 * 1024;
 
 function parseRepositoryName(repoFullName: string) {
   const parts = repoFullName.split("/");
@@ -346,6 +355,116 @@ async function fetchChangedSqlFiles({
   };
 }
 
+async function fetchMacroResolutionFiles({
+  octokit,
+  owner,
+  repo,
+  headSha,
+  rootDirectory,
+}: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  headSha: string;
+  rootDirectory: string;
+}) {
+  let tree: Awaited<ReturnType<typeof octokit.rest.git.getTree>>["data"];
+  try {
+    const response = await octokit.rest.git.getTree({
+      owner,
+      repo,
+      tree_sha: headSha,
+      recursive: "1",
+    });
+    tree = response.data;
+  } catch (error) {
+    if (authenticationFailure(error)) {
+      throw new UserFacingLintFailure(
+        "GitHub installation authentication is invalid or expired. Reconnect the GitHub App and try again.",
+      );
+    }
+    throw new Error(
+      `GitHub failed to inspect macro-resolution files for ${owner}/${repo} at ${headSha}`,
+      { cause: error },
+    );
+  }
+
+  if (tree.truncated) {
+    throw new UserFacingLintFailure(
+      "GitHub returned a truncated repository tree, so project macros cannot be resolved safely",
+    );
+  }
+
+  const supportFiles = tree.tree.filter(
+    (entry) =>
+      entry.type === "blob" &&
+      entry.mode !== "120000" &&
+      isMacroResolutionSupportPath(entry.path),
+  );
+  if (supportFiles.length > MAX_PROJECT_FILES) {
+    throw new UserFacingLintFailure(
+      `Macro-resolution file count exceeds the limit of ${MAX_PROJECT_FILES.toLocaleString()}`,
+    );
+  }
+
+  const warnings: string[] = [];
+  let downloadedFileCount = 0;
+  let downloadedBytes = 0;
+  for (const file of supportFiles) {
+    if (
+      typeof file.size === "number" &&
+      file.size > MAX_MACRO_RESOLUTION_FILE_BYTES
+    ) {
+      warnings.push(`Ignoring oversized macro-resolution file ${file.path}`);
+      continue;
+    }
+
+    let data: Awaited<ReturnType<typeof octokit.rest.git.getBlob>>["data"];
+    try {
+      const response = await octokit.rest.git.getBlob({
+        owner,
+        repo,
+        file_sha: file.sha,
+      });
+      data = response.data;
+    } catch (error) {
+      if (authenticationFailure(error)) {
+        throw new UserFacingLintFailure(
+          "GitHub installation authentication is invalid or expired. Reconnect the GitHub App and try again.",
+        );
+      }
+      throw new Error(
+        `GitHub failed to fetch macro-resolution file ${file.path} at ${headSha}`,
+        { cause: error },
+      );
+    }
+
+    if (data.encoding !== "base64") {
+      throw new UserFacingLintFailure(
+        `GitHub did not return downloadable file content for ${file.path}`,
+      );
+    }
+    const contents = Buffer.from(data.content.replace(/\s/g, ""), "base64");
+    if (contents.byteLength > MAX_MACRO_RESOLUTION_FILE_BYTES) {
+      warnings.push(`Ignoring oversized macro-resolution file ${file.path}`);
+      continue;
+    }
+    downloadedBytes += contents.byteLength;
+    if (downloadedBytes > MAX_MACRO_RESOLUTION_TOTAL_BYTES) {
+      throw new UserFacingLintFailure(
+        `Macro-resolution files exceed the combined limit of ${MAX_MACRO_RESOLUTION_TOTAL_BYTES.toLocaleString()} bytes`,
+      );
+    }
+
+    const destination = safeDestinationPath(rootDirectory, file.path);
+    mkdirSync(path.dirname(destination), { recursive: true });
+    writeFileSync(destination, contents);
+    downloadedFileCount += 1;
+  }
+
+  return { downloadedFileCount, warnings };
+}
+
 export const githubLintTask = schemaTask({
   id: "github-lint",
   schema: githubLintPayload,
@@ -379,6 +498,10 @@ export const githubLintTask = schemaTask({
     let changedSqlFiles: PullRequestFileDiff[] = [];
     const tmpDirectory = path.join(os.tmpdir(), "github-pr-scan", scanId);
     const repositoryDirectory = path.join(tmpDirectory, "repository");
+    const macroResolutionDirectory = path.join(
+      tmpDirectory,
+      "macro-resolution",
+    );
     const lockedConfigPath = path.join(tmpDirectory, "sqlfluff.locked.ini");
 
     try {
@@ -440,10 +563,36 @@ export const githubLintTask = schemaTask({
         rootDirectory: repositoryDirectory,
       });
       changedSqlFiles = fetchedSqlFiles.files;
+      mkdirSync(macroResolutionDirectory, { recursive: true });
+      const fetchedMacroResolutionFiles = await fetchMacroResolutionFiles({
+        octokit,
+        owner,
+        repo,
+        headSha,
+        rootDirectory: macroResolutionDirectory,
+      });
+      const macroResolution = resolveMacroAllowlist(
+        macroResolutionDirectory,
+        MAX_DIRECTORY_DEPTH,
+      );
+      const macroResolutionWarnings = [
+        ...fetchedMacroResolutionFiles.warnings,
+        ...macroResolution.warnings,
+      ];
+      if (macroResolutionWarnings.length > 0) {
+        console.warn(
+          "GitHub PR macro resolution completed with reduced awareness",
+          {
+            scanId,
+            warnings: macroResolutionWarnings,
+          },
+        );
+      }
       const { report } = await runLintPipeline({
         rootDirectory: repositoryDirectory,
         dialect: "snowflake",
         lockedConfigPath,
+        allowedMacroVariables: macroResolution.allowedVariables,
       });
       const status = report.totals.errors === 0 ? "passed" : "failed";
       await finalizeGitHubPrScan({ scanId, status, report });
@@ -476,6 +625,10 @@ export const githubLintTask = schemaTask({
         prNumber,
         headSha,
         fetchedSqlFileCount: fetchedSqlFiles.count,
+        fetchedMacroResolutionFileCount:
+          fetchedMacroResolutionFiles.downloadedFileCount,
+        resolvedPackageMacroNamespaces: Array.from(macroResolution.namespaces),
+        resolvedLocalMacros: Array.from(macroResolution.localMacros),
         score: report.score,
         errors: report.totals.errors,
         warnings: report.totals.warnings,

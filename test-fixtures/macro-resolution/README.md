@@ -11,6 +11,9 @@ downloading dbt packages. Each directory is a deliberately tiny dbt project:
 - `nested-call` vendors a three-level package macro call chain.
 - `project-local` defines an unqualified project macro that calls a second
   project macro in a nested `macros/` subdirectory.
+- `project-local-pr-sparse` reproduces a GitHub PR scan where the changed model
+  calls an unchanged top-level `macros/format_int.sql` definition. Its
+  `changed-files.txt` records the sparse changed-file checkout.
 
 Every package fixture contains:
 
@@ -32,6 +35,12 @@ The project-local fixture contains only `dbt_project.yml`,
 package manifest or vendored dependencies. The integration test lints both the
 model and local macro source so nested local calls follow the application
 boundary.
+
+The sparse PR fixture keeps the full source layout in the fixture, then tests
+the GitHub path in two separate directories: changed SQL is linted from the
+sparse checkout, while unchanged package manifests and local macro sources are
+hydrated into a resolution-only context. Resolution support files are never
+reported as changed-file lint results.
 
 ## Adding a package fixture
 

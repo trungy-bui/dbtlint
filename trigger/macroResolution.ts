@@ -81,6 +81,25 @@ export function parseLocalMacroNames(contents: string) {
   );
 }
 
+export function isMacroResolutionSupportPath(repoPath: string) {
+  const segments = repoPath.replace(/\\/g, "/").split("/").filter(Boolean);
+  if (
+    segments.length === 0 ||
+    segments.some((segment) => IGNORED_DIRECTORIES.has(segment))
+  ) {
+    return false;
+  }
+
+  const fileName = segments.at(-1);
+  if (!fileName) return false;
+  if (PACKAGE_MANIFEST_NAMES.has(fileName)) return true;
+
+  return (
+    path.posix.extname(fileName).toLowerCase() === ".sql" &&
+    segments.slice(0, -1).includes("macros")
+  );
+}
+
 function safeDirectoryEntries(directory: string, warnings: string[]) {
   try {
     return readdirSync(directory, { withFileTypes: true });
