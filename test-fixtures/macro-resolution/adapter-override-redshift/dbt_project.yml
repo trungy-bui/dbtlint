@@ -1,0 +1,5 @@
+name: macro_resolution_redshift_override
+version: "1.0"
+config-version: 2
+profile: macro_resolution
+model-paths: ["models"]
