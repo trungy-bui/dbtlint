@@ -4,12 +4,20 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
-  filterAllowedPackageUndefinedVariables,
+  filterAllowedMacroUndefinedVariables,
+  parseLocalMacroNames,
   parsePackageMacroNamespaces,
-  resolvePackageMacroAllowlist,
+  resolveMacroAllowlist,
 } from "../trigger/macroResolution";
 
 const fixturesRoot = path.resolve("test-fixtures/macro-resolution");
+
+type FixtureCase = {
+  name: string;
+  dialect: string;
+  namespace?: "dbt_utils" | "dbt_expectations" | "codegen" | "audit_helper";
+  localMacros?: readonly string[];
+};
 
 const fixtureCases = [
   {
@@ -33,7 +41,12 @@ const fixtureCases = [
   { name: "dbt-utils", namespace: "dbt_utils", dialect: "ansi" },
   { name: "dispatch-pattern", namespace: "dbt_utils", dialect: "ansi" },
   { name: "nested-call", namespace: "dbt_utils", dialect: "ansi" },
-] as const;
+  {
+    name: "project-local",
+    dialect: "ansi",
+    localMacros: ["format_int", "normalize_int"],
+  },
+] as const satisfies readonly FixtureCase[];
 
 function findSqlFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -56,28 +69,49 @@ test("fixture inventory is complete, minimal, and fully offline", () => {
     .sort();
   assert.deepEqual(fixtureNames, fixtureCases.map(({ name }) => name).sort());
 
-  for (const { name, namespace } of fixtureCases) {
+  for (const { name, ...fixture } of fixtureCases) {
     const fixtureDirectory = path.join(fixturesRoot, name);
     assert.ok(existsSync(path.join(fixtureDirectory, "dbt_project.yml")), name);
-    assert.ok(existsSync(path.join(fixtureDirectory, "packages.yml")), name);
     assert.deepEqual(
       readdirSync(path.join(fixtureDirectory, "models")),
       ["example.sql"],
       name,
     );
-    assert.ok(
-      findSqlFiles(
-        path.join(fixtureDirectory, "dbt_packages", namespace, "macros"),
-      ).length > 0,
-      `${name} must vendor at least one package macro stub`,
-    );
+
+    if ("namespace" in fixture) {
+      assert.ok(existsSync(path.join(fixtureDirectory, "packages.yml")), name);
+      assert.ok(
+        findSqlFiles(
+          path.join(
+            fixtureDirectory,
+            "dbt_packages",
+            fixture.namespace,
+            "macros",
+          ),
+        ).length > 0,
+        `${name} must vendor at least one package macro stub`,
+      );
+    } else {
+      assert.equal(
+        existsSync(path.join(fixtureDirectory, "packages.yml")),
+        false,
+        `${name} must not need package declarations`,
+      );
+      assert.equal(
+        findSqlFiles(path.join(fixtureDirectory, "macros")).length,
+        fixture.localMacros.length,
+        `${name} must contain only its local macro stubs`,
+      );
+    }
   }
 });
 
 test("declared package macros produce no false undefined-variable findings", () => {
-  for (const { name, namespace } of fixtureCases) {
+  for (const fixture of fixtureCases) {
+    if (!("namespace" in fixture)) continue;
+    const { name, namespace } = fixture;
     const fixtureDirectory = path.join(fixturesRoot, name);
-    const resolution = resolvePackageMacroAllowlist(fixtureDirectory, 20);
+    const resolution = resolveMacroAllowlist(fixtureDirectory, 20);
     assert.equal(resolution.warnings.length, 0, name);
     assert.ok(resolution.manifestPaths.length > 0, name);
     assert.deepEqual(resolution.namespaces, new Set([namespace]), name);
@@ -93,14 +127,55 @@ test("declared package macros produce no false undefined-variable findings", () 
     );
     assert.ok(simulatedSqlfluffFindings.length > 0, name);
     assert.deepEqual(
-      filterAllowedPackageUndefinedVariables(
+      filterAllowedMacroUndefinedVariables(
         simulatedSqlfluffFindings,
-        resolution.namespaces,
+        resolution.allowedVariables,
       ),
       [],
       name,
     );
   }
+});
+
+test("project-local macros produce no false undefined-variable findings", () => {
+  const fixture = fixtureCases.find(({ name }) => name === "project-local");
+  assert.ok(fixture && "localMacros" in fixture);
+  const fixtureDirectory = path.join(fixturesRoot, fixture.name);
+  const resolution = resolveMacroAllowlist(fixtureDirectory, 20);
+
+  assert.equal(resolution.warnings.length, 0);
+  assert.deepEqual(resolution.manifestPaths, []);
+  assert.equal(resolution.localMacroPaths.length, fixture.localMacros.length);
+  assert.deepEqual(resolution.namespaces, new Set());
+  assert.deepEqual(resolution.localMacros, new Set(fixture.localMacros));
+  assert.deepEqual(resolution.allowedVariables, new Set(fixture.localMacros));
+
+  const modelSource = readSqlFiles(path.join(fixtureDirectory, "models"));
+  const macroSource = readSqlFiles(path.join(fixtureDirectory, "macros"));
+  assert.match(modelSource, /\bformat_int\(/);
+  assert.match(macroSource, /\bnormalize_int\(/);
+  assert.deepEqual(
+    parseLocalMacroNames(macroSource),
+    new Set(fixture.localMacros),
+  );
+
+  const simulatedSqlfluffFindings = [
+    {
+      code: "TMP",
+      description: "Undefined jinja template variable: 'format_int'",
+    },
+    {
+      code: "TMP",
+      description: "Undefined jinja template variable: 'normalize_int'",
+    },
+  ];
+  assert.deepEqual(
+    filterAllowedMacroUndefinedVariables(
+      simulatedSqlfluffFindings,
+      resolution.allowedVariables,
+    ),
+    [],
+  );
 });
 
 test("specialized fixtures contain the intended resolution patterns", () => {
@@ -151,7 +226,7 @@ test("undeclared namespaces and non-undefined TMP findings are preserved", () =>
   ];
 
   assert.deepEqual(
-    filterAllowedPackageUndefinedVariables(violations, new Set(["dbt_utils"])),
+    filterAllowedMacroUndefinedVariables(violations, new Set(["dbt_utils"])),
     violations.slice(1),
   );
 });
@@ -168,15 +243,20 @@ test("package-lock.yml entries are parsed independently", () => {
 });
 
 test(
-  "SQLFluff reports zero package undefined-variable findings across fixtures",
+  "SQLFluff reports zero macro undefined-variable findings across fixtures",
   { skip: process.env.RUN_SQLFLUFF_INTEGRATION !== "1" },
   () => {
     const pythonExecutable = process.env.DBT_LINT_PYTHON_EXECUTABLE ?? "python";
 
-    for (const { name, dialect } of fixtureCases) {
+    for (const fixture of fixtureCases) {
+      const { name, dialect } = fixture;
       const fixtureDirectory = path.join(fixturesRoot, name);
-      const resolution = resolvePackageMacroAllowlist(fixtureDirectory, 20);
+      const resolution = resolveMacroAllowlist(fixtureDirectory, 20);
       const modelFiles = findSqlFiles(path.join(fixtureDirectory, "models"));
+      const localMacroFiles =
+        "localMacros" in fixture
+          ? findSqlFiles(path.join(fixtureDirectory, "macros"))
+          : [];
       const lint = spawnSync(
         pythonExecutable,
         [
@@ -184,6 +264,7 @@ test(
           "sqlfluff",
           "lint",
           ...modelFiles,
+          ...localMacroFiles,
           "--format",
           "json",
           "--dialect",
@@ -210,9 +291,9 @@ test(
         /undefined jinja template variable/i.test(finding.description),
       );
       assert.deepEqual(
-        filterAllowedPackageUndefinedVariables(
+        filterAllowedMacroUndefinedVariables(
           undefinedFindings,
-          resolution.namespaces,
+          resolution.allowedVariables,
         ),
         [],
         name,

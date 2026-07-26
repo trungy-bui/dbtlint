@@ -1,0 +1,6 @@
+name: macro_resolution_project_local
+version: "1.0"
+config-version: 2
+profile: macro_resolution
+model-paths: ["models"]
+macro-paths: ["macros"]
