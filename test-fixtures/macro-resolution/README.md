@@ -11,6 +11,8 @@ downloading dbt packages. Each directory is a deliberately tiny dbt project:
 - `nested-call` vendors a three-level package macro call chain.
 - `project-local` defines an unqualified project macro that calls a second
   project macro in a nested `macros/` subdirectory.
+- `project-local-nested` calls unqualified project macros stored one and two
+  directory levels below `macros/`.
 - `project-local-pr-sparse` reproduces a GitHub PR scan where the changed model
   calls an unchanged top-level `macros/format_int.sql` definition. Its
   `changed-files.txt` records the sparse changed-file checkout.
@@ -57,7 +59,8 @@ reported as changed-file lint results.
 
 For a project-local fixture, omit `packages.yml` and `dbt_packages/`, place
 minimal definitions under `macros/`, and list every expected macro name in the
-fixture case.
+fixture case. Nested-macro fixtures must call the nested definitions directly
+from a model and cover each intended directory depth.
 
 Do not add generated artifacts, a dbt profile, seeds, snapshots, or downloaded
 package contents. A fixture should demonstrate one resolution behavior only.

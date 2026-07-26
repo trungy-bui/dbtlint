@@ -60,6 +60,11 @@ const fixtureCases = [
     localMacros: ["format_int", "normalize_int"],
   },
   {
+    name: "project-local-nested",
+    dialect: "ansi",
+    localMacros: ["round_number", "clamp_number"],
+  },
+  {
     name: "project-local-pr-sparse",
     dialect: "ansi",
     localMacros: ["format_int"],
@@ -280,6 +285,46 @@ test("project-local macros produce no false undefined-variable findings", () => 
       description: "Undefined jinja template variable: 'normalize_int'",
     },
   ];
+  assert.deepEqual(
+    filterAllowedMacroUndefinedVariables(
+      simulatedSqlfluffFindings,
+      resolution.allowedVariables,
+    ),
+    [],
+  );
+});
+
+test("project-local macros resolve at every depth below macros", () => {
+  const fixture = fixtureCases.find(
+    ({ name }) => name === "project-local-nested",
+  );
+  assert.ok(fixture && "localMacros" in fixture);
+  const fixtureDirectory = path.join(fixturesRoot, fixture.name);
+
+  // maxDepth limits project discovery, not traversal within a discovered
+  // macros directory.
+  const resolution = resolveMacroAllowlist(fixtureDirectory, 0);
+  const relativeMacroPaths = resolution.localMacroPaths
+    .map((filePath) => fixtureRelativePath(fixtureDirectory, filePath))
+    .sort();
+
+  assert.equal(resolution.warnings.length, 0);
+  assert.deepEqual(relativeMacroPaths, [
+    "macros/helpers/numeric/clamp_number.sql",
+    "macros/utils/round_number.sql",
+  ]);
+  assert.deepEqual(resolution.localMacros, new Set(fixture.localMacros));
+  assert.deepEqual(resolution.allowedVariables, new Set(fixture.localMacros));
+
+  const modelSource = readSqlFiles(path.join(fixtureDirectory, "models"));
+  for (const macroName of fixture.localMacros) {
+    assert.match(modelSource, new RegExp(`\\b${macroName}\\(`));
+  }
+
+  const simulatedSqlfluffFindings = fixture.localMacros.map((macroName) => ({
+    code: "TMP",
+    description: `Undefined jinja template variable: '${macroName}'`,
+  }));
   assert.deepEqual(
     filterAllowedMacroUndefinedVariables(
       simulatedSqlfluffFindings,
