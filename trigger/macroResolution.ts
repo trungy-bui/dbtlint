@@ -131,49 +131,54 @@ export function resolveMacroAllowlist(
     warnings: [],
   };
 
-  function visitLocalMacros(directory: string, depth: number) {
-    if (depth > maxDepth) return;
+  function visitLocalMacros(macroDirectory: string) {
+    const directories = [macroDirectory];
 
-    for (const entry of safeDirectoryEntries(directory, result.warnings)) {
-      const entryPath = path.join(directory, entry.name);
-      let stats: Stats;
-      try {
-        stats = lstatSync(entryPath);
-      } catch (error) {
-        result.warnings.push(
-          `Unable to inspect ${entryPath}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-        continue;
-      }
-
-      if (stats.isSymbolicLink()) continue;
-      if (stats.isDirectory()) {
-        visitLocalMacros(entryPath, depth + 1);
-        continue;
-      }
-      if (path.extname(entry.name).toLowerCase() !== ".sql") continue;
-
-      result.localMacroPaths.push(entryPath);
-      if (stats.size > MAX_LOCAL_MACRO_BYTES) {
-        result.warnings.push(`Ignoring oversized dbt macro file ${entryPath}`);
-        continue;
-      }
-
-      try {
-        for (const macroName of parseLocalMacroNames(
-          readFileSync(entryPath, "utf8"),
-        )) {
-          result.localMacros.add(macroName);
-          result.allowedVariables.add(macroName);
+    for (let index = 0; index < directories.length; index += 1) {
+      const directory = directories[index];
+      for (const entry of safeDirectoryEntries(directory, result.warnings)) {
+        const entryPath = path.join(directory, entry.name);
+        let stats: Stats;
+        try {
+          stats = lstatSync(entryPath);
+        } catch (error) {
+          result.warnings.push(
+            `Unable to inspect ${entryPath}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+          continue;
         }
-      } catch (error) {
-        result.warnings.push(
-          `Unable to parse ${entryPath}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
+
+        if (stats.isSymbolicLink()) continue;
+        if (stats.isDirectory()) {
+          directories.push(entryPath);
+          continue;
+        }
+        if (path.extname(entry.name).toLowerCase() !== ".sql") continue;
+
+        result.localMacroPaths.push(entryPath);
+        if (stats.size > MAX_LOCAL_MACRO_BYTES) {
+          result.warnings.push(
+            `Ignoring oversized dbt macro file ${entryPath}`,
+          );
+          continue;
+        }
+
+        try {
+          for (const macroName of parseLocalMacroNames(
+            readFileSync(entryPath, "utf8"),
+          )) {
+            result.localMacros.add(macroName);
+            result.allowedVariables.add(macroName);
+          }
+        } catch (error) {
+          result.warnings.push(
+            `Unable to parse ${entryPath}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
       }
     }
   }
@@ -199,7 +204,7 @@ export function resolveMacroAllowlist(
       if (stats.isDirectory()) {
         if (IGNORED_DIRECTORIES.has(entry.name)) continue;
         if (entry.name === "macros") {
-          visitLocalMacros(entryPath, 0);
+          visitLocalMacros(entryPath);
           continue;
         }
         visit(entryPath, depth + 1);
