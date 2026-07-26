@@ -1,7 +1,7 @@
 # Macro-resolution fixtures
 
-These fixtures lock down package macro resolution without downloading dbt
-packages. Each directory is a deliberately tiny dbt project:
+These fixtures lock down package and project-local macro resolution without
+downloading dbt packages. Each directory is a deliberately tiny dbt project:
 
 - `dbt-utils`, `dbt-expectations`, `codegen`, and `audit-helper` cover the
   supported package namespaces.
@@ -9,8 +9,10 @@ packages. Each directory is a deliberately tiny dbt project:
 - `adapter-override-{snowflake,bigquery,redshift}` vendor the corresponding
   `adapter__macro` implementation.
 - `nested-call` vendors a three-level package macro call chain.
+- `project-local` defines an unqualified project macro that calls a second
+  project macro in a nested `macros/` subdirectory.
 
-Every fixture contains:
+Every package fixture contains:
 
 1. `dbt_project.yml`, with a unique project name and the standard `models`
    directory.
@@ -25,6 +27,12 @@ The integration test intentionally lints project models, not vendored package
 source, matching the application boundary: dependency macros provide template
 symbols but are not user-authored files to report on.
 
+The project-local fixture contains only `dbt_project.yml`,
+`models/example.sql`, and the two macro definitions under `macros/`. It has no
+package manifest or vendored dependencies. The integration test lints both the
+model and local macro source so nested local calls follow the application
+boundary.
+
 ## Adding a package fixture
 
 1. Add its canonical namespace and accepted manifest aliases to
@@ -37,6 +45,10 @@ symbols but are not user-authored files to report on.
    `tests/macroResolution.test.ts`.
 7. Run `npm run test:macro-resolution`. To include the pinned SQLFluff
    integration test, set `RUN_SQLFLUFF_INTEGRATION=1`.
+
+For a project-local fixture, omit `packages.yml` and `dbt_packages/`, place
+minimal definitions under `macros/`, and list every expected macro name in the
+fixture case.
 
 Do not add generated artifacts, a dbt profile, seeds, snapshots, or downloaded
 package contents. A fixture should demonstrate one resolution behavior only.

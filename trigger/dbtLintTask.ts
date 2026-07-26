@@ -43,7 +43,7 @@ import {
   TASK_QUEUE_CONCURRENCY,
   UserFacingLintFailure,
 } from "@/trigger/lintPipeline";
-import { resolvePackageMacroAllowlist } from "@/trigger/macroResolution";
+import { resolveMacroAllowlist } from "@/trigger/macroResolution";
 
 type ScanStatus = "processing" | "passed" | "failed";
 const supabase = createClient(
@@ -553,31 +553,31 @@ export const dbtLintTask = schemaTask({
         status: "PROCESSING",
         progress: 18,
       });
-      // The locked Jinja templater cannot execute dbt packages, and the
-      // untrusted dbt_project.yml is intentionally quarantined. Parse the
-      // bounded manifests and allow only supported, declared package
-      // namespaces to avoid false undefined-variable findings.
-      const packageMacroResolution = await measurePhase(
+      // The locked Jinja templater cannot execute dbt packages or load
+      // project-local macros, and the untrusted dbt_project.yml is
+      // intentionally quarantined. Parse bounded manifests and local macro
+      // definitions before filtering false undefined-variable findings.
+      const macroResolution = await measurePhase(
         timings,
-        "packageMacroResolutionMs",
-        () =>
-          resolvePackageMacroAllowlist(extractedDirectory, MAX_DIRECTORY_DEPTH),
+        "macroResolutionMs",
+        () => resolveMacroAllowlist(extractedDirectory, MAX_DIRECTORY_DEPTH),
       );
-      if (packageMacroResolution.warnings.length > 0) {
-        console.warn(
-          "dbt package macro resolution completed with reduced awareness",
-          {
-            scanId,
-            warnings: packageMacroResolution.warnings,
-          },
-        );
+      if (macroResolution.warnings.length > 0) {
+        console.warn("dbt macro resolution completed with reduced awareness", {
+          scanId,
+          warnings: macroResolution.warnings,
+        });
       }
-      console.log("Resolved dbt package macro namespaces", {
+      console.log("Resolved dbt macro variables", {
         scanId,
-        manifests: packageMacroResolution.manifestPaths.map((filePath) =>
+        manifests: macroResolution.manifestPaths.map((filePath) =>
           path.relative(extractedDirectory, filePath).split(path.sep).join("/"),
         ),
-        namespaces: Array.from(packageMacroResolution.namespaces),
+        localMacroFiles: macroResolution.localMacroPaths.map((filePath) =>
+          path.relative(extractedDirectory, filePath).split(path.sep).join("/"),
+        ),
+        namespaces: Array.from(macroResolution.namespaces),
+        localMacros: Array.from(macroResolution.localMacros),
       });
 
       updateLintMetadata({
@@ -592,7 +592,7 @@ export const dbtLintTask = schemaTask({
         dialect,
         lockedConfigPath,
         pythonExecutable,
-        packageMacroNamespaces: packageMacroResolution.namespaces,
+        allowedMacroVariables: macroResolution.allowedVariables,
         onPhaseComplete: (phase, durationMs) => {
           timings[phase] = durationMs;
         },

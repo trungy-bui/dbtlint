@@ -10,8 +10,8 @@ import {
   type SqlfluffViolation,
 } from "@/lib/sqlfluff-violations";
 import {
-  filterAllowedPackageUndefinedVariables,
-  resolvePackageMacroAllowlist,
+  filterAllowedMacroUndefinedVariables,
+  resolveMacroAllowlist,
 } from "@/trigger/macroResolution";
 
 export const DBT_FOLDERS = ["models", "tests", "macros"] as const;
@@ -523,7 +523,7 @@ async function lintFilesWithConcurrency({
   rootDirectory,
   sourceLinesByFile,
   onFileLinted,
-  packageMacroNamespaces,
+  allowedMacroVariables,
 }: {
   files: string[];
   dialect: string;
@@ -532,7 +532,7 @@ async function lintFilesWithConcurrency({
   rootDirectory: string;
   sourceLinesByFile: ReadonlyMap<string, readonly string[]>;
   onFileLinted: (filePath: string) => void;
-  packageMacroNamespaces: ReadonlySet<string>;
+  allowedMacroVariables: ReadonlySet<string>;
 }) {
   const batchResults = await mapWithConcurrency(
     chunkFiles(files, SQLFLUFF_BATCH_SIZE),
@@ -548,11 +548,11 @@ async function lintFilesWithConcurrency({
         const rawViolations =
           violationsByFile.get(normalizeSqlfluffFilePath(filePath)) ?? [];
         const sourceLines = sourceLinesByFile.get(filePath) ?? [];
-        const violations = filterAllowedPackageUndefinedVariables(
+        const violations = filterAllowedMacroUndefinedVariables(
           rawViolations.map((violation) =>
             attachSourceLineToViolation(violation, sourceLines),
           ),
-          packageMacroNamespaces,
+          allowedMacroVariables,
         );
         const errors = violations.filter(isErrorSqlfluffViolation).length;
         onFileLinted(filePath);
@@ -641,7 +641,7 @@ export async function runLintPipeline({
   pythonExecutable,
   onProgress,
   onPhaseComplete,
-  packageMacroNamespaces,
+  allowedMacroVariables,
 }: {
   rootDirectory: string;
   dialect: string;
@@ -649,7 +649,7 @@ export async function runLintPipeline({
   pythonExecutable?: string;
   onProgress?: (progress: LintPipelineProgress) => void;
   onPhaseComplete?: (phase: string, durationMs: number) => void;
-  packageMacroNamespaces?: ReadonlySet<string>;
+  allowedMacroVariables?: ReadonlySet<string>;
 }): Promise<LintPipelineResult> {
   const resolvedPythonExecutable =
     pythonExecutable ??
@@ -658,9 +658,9 @@ export async function runLintPipeline({
       resolvePythonExecutable,
       onPhaseComplete,
     ));
-  const resolvedPackageMacroNamespaces =
-    packageMacroNamespaces ??
-    resolvePackageMacroAllowlist(rootDirectory, MAX_DIRECTORY_DEPTH).namespaces;
+  const resolvedAllowedMacroVariables =
+    allowedMacroVariables ??
+    resolveMacroAllowlist(rootDirectory, MAX_DIRECTORY_DEPTH).allowedVariables;
   const folders = await measure(
     "folderDiscoveryMs",
     () =>
@@ -741,7 +741,7 @@ export async function runLintPipeline({
           lintedFiles += 1;
           onProgress?.({ filePath, lintedFiles, totalFiles: allFiles.length });
         },
-        packageMacroNamespaces: resolvedPackageMacroNamespaces,
+        allowedMacroVariables: resolvedAllowedMacroVariables,
       }),
     onPhaseComplete,
   );

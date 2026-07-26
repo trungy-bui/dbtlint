@@ -24,8 +24,8 @@ on:
       - ".github/workflows/macro-resolution.yml"
 
 jobs:
-  package-macro-fixtures:
-    name: Package macro fixtures
+  macro-fixtures:
+    name: Package and project-local macro fixtures
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
