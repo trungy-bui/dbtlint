@@ -1,0 +1,1 @@
+models/staging/stg_energy_generation.sql

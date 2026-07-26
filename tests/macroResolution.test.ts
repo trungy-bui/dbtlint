@@ -1,10 +1,21 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { runLintPipeline } from "../trigger/lintPipeline";
 import {
   filterAllowedMacroUndefinedVariables,
+  isMacroResolutionSupportPath,
   parseLocalMacroNames,
   parsePackageMacroNamespaces,
   resolveMacroAllowlist,
@@ -17,6 +28,8 @@ type FixtureCase = {
   dialect: string;
   namespace?: "dbt_utils" | "dbt_expectations" | "codegen" | "audit_helper";
   localMacros?: readonly string[];
+  modelPaths?: readonly string[];
+  changedFiles?: readonly string[];
 };
 
 const fixtureCases = [
@@ -46,6 +59,13 @@ const fixtureCases = [
     dialect: "ansi",
     localMacros: ["format_int", "normalize_int"],
   },
+  {
+    name: "project-local-pr-sparse",
+    dialect: "ansi",
+    localMacros: ["format_int"],
+    modelPaths: ["models/staging/stg_energy_generation.sql"],
+    changedFiles: ["models/staging/stg_energy_generation.sql"],
+  },
 ] as const satisfies readonly FixtureCase[];
 
 function findSqlFiles(directory: string): string[] {
@@ -62,6 +82,30 @@ function readSqlFiles(directory: string) {
     .join("\n");
 }
 
+function findFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(directory, entry.name);
+    return entry.isDirectory() ? findFiles(entryPath) : [entryPath];
+  });
+}
+
+function fixtureRelativePath(fixtureDirectory: string, filePath: string) {
+  return path.relative(fixtureDirectory, filePath).split(path.sep).join("/");
+}
+
+function copyRelativeFiles(
+  sourceDirectory: string,
+  destinationDirectory: string,
+  relativePaths: readonly string[],
+) {
+  for (const relativePath of relativePaths) {
+    const source = path.join(sourceDirectory, relativePath);
+    const destination = path.join(destinationDirectory, relativePath);
+    mkdirSync(path.dirname(destination), { recursive: true });
+    copyFileSync(source, destination);
+  }
+}
+
 test("fixture inventory is complete, minimal, and fully offline", () => {
   const fixtureNames = readdirSync(fixturesRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
@@ -73,8 +117,12 @@ test("fixture inventory is complete, minimal, and fully offline", () => {
     const fixtureDirectory = path.join(fixturesRoot, name);
     assert.ok(existsSync(path.join(fixtureDirectory, "dbt_project.yml")), name);
     assert.deepEqual(
-      readdirSync(path.join(fixtureDirectory, "models")),
-      ["example.sql"],
+      findSqlFiles(path.join(fixtureDirectory, "models")).map((filePath) =>
+        fixtureRelativePath(fixtureDirectory, filePath),
+      ),
+      "modelPaths" in fixture
+        ? Array.from(fixture.modelPaths)
+        : ["models/example.sql"],
       name,
     );
 
@@ -103,6 +151,69 @@ test("fixture inventory is complete, minimal, and fully offline", () => {
         `${name} must contain only its local macro stubs`,
       );
     }
+  }
+});
+
+test("GitHub sparse PR resolution includes unchanged project-local macros", () => {
+  assert.equal(isMacroResolutionSupportPath("packages.yml"), true);
+  assert.equal(
+    isMacroResolutionSupportPath("nested/project/package-lock.yml"),
+    true,
+  );
+  assert.equal(
+    isMacroResolutionSupportPath("dbt_packages/dbt_utils/macros/test.sql"),
+    false,
+  );
+  assert.equal(isMacroResolutionSupportPath("models/example.sql"), false);
+
+  const fixture = fixtureCases.find(
+    ({ name }) => name === "project-local-pr-sparse",
+  );
+  assert.ok(fixture && "changedFiles" in fixture);
+  const fixtureDirectory = path.join(fixturesRoot, fixture.name);
+  const temporaryDirectory = mkdtempSync(
+    path.join(os.tmpdir(), "macro-resolution-pr-sparse-"),
+  );
+  const changedFileDirectory = path.join(temporaryDirectory, "changed");
+  const resolutionDirectory = path.join(temporaryDirectory, "resolution");
+  const formatIntFinding = {
+    code: "TMP",
+    description: "Undefined jinja template variable: 'format_int'",
+  };
+
+  try {
+    copyRelativeFiles(
+      fixtureDirectory,
+      changedFileDirectory,
+      fixture.changedFiles,
+    );
+    const sparseResolution = resolveMacroAllowlist(changedFileDirectory, 20);
+    assert.deepEqual(
+      filterAllowedMacroUndefinedVariables(
+        [formatIntFinding],
+        sparseResolution.allowedVariables,
+      ),
+      [formatIntFinding],
+      "changed SQL alone reproduces the pre-fix false positive",
+    );
+
+    const supportPaths = findFiles(fixtureDirectory)
+      .map((filePath) => fixtureRelativePath(fixtureDirectory, filePath))
+      .filter(isMacroResolutionSupportPath);
+    assert.deepEqual(supportPaths, ["macros/format_int.sql"]);
+    copyRelativeFiles(fixtureDirectory, resolutionDirectory, supportPaths);
+
+    const hydratedResolution = resolveMacroAllowlist(resolutionDirectory, 20);
+    assert.deepEqual(hydratedResolution.localMacros, new Set(["format_int"]));
+    assert.deepEqual(
+      filterAllowedMacroUndefinedVariables(
+        [formatIntFinding],
+        hydratedResolution.allowedVariables,
+      ),
+      [],
+    );
+  } finally {
+    rmSync(temporaryDirectory, { recursive: true, force: true });
   }
 });
 
@@ -298,6 +409,59 @@ test(
         [],
         name,
       );
+    }
+  },
+);
+
+test(
+  "GitHub sparse PR lint reports no undefined format_int finding",
+  { skip: process.env.RUN_SQLFLUFF_INTEGRATION !== "1" },
+  async () => {
+    const fixture = fixtureCases.find(
+      ({ name }) => name === "project-local-pr-sparse",
+    );
+    assert.ok(fixture && "changedFiles" in fixture);
+    const fixtureDirectory = path.join(fixturesRoot, fixture.name);
+    const temporaryDirectory = mkdtempSync(
+      path.join(os.tmpdir(), "macro-resolution-pr-pipeline-"),
+    );
+    const changedFileDirectory = path.join(temporaryDirectory, "changed");
+    const resolutionDirectory = path.join(temporaryDirectory, "resolution");
+
+    try {
+      copyRelativeFiles(
+        fixtureDirectory,
+        changedFileDirectory,
+        fixture.changedFiles,
+      );
+      const supportPaths = findFiles(fixtureDirectory)
+        .map((filePath) => fixtureRelativePath(fixtureDirectory, filePath))
+        .filter(isMacroResolutionSupportPath);
+      copyRelativeFiles(fixtureDirectory, resolutionDirectory, supportPaths);
+      const resolution = resolveMacroAllowlist(resolutionDirectory, 20);
+      const { report } = await runLintPipeline({
+        rootDirectory: changedFileDirectory,
+        dialect: fixture.dialect,
+        lockedConfigPath: path.resolve(
+          "test-fixtures/macro-resolution/.sqlfluff",
+        ),
+        pythonExecutable: process.env.DBT_LINT_PYTHON_EXECUTABLE ?? "python",
+        allowedMacroVariables: resolution.allowedVariables,
+      });
+      const undefinedFindings = report.categories.models.files.flatMap((file) =>
+        file.violations.filter((finding) =>
+          /undefined jinja template variable/i.test(finding.description ?? ""),
+        ),
+      );
+
+      assert.deepEqual(undefinedFindings, []);
+      assert.deepEqual(
+        report.categories.models.files.map(({ filePath }) => filePath),
+        fixture.changedFiles,
+      );
+      assert.equal(report.categories.macros.files.length, 0);
+    } finally {
+      rmSync(temporaryDirectory, { recursive: true, force: true });
     }
   },
 );
