@@ -1,0 +1,4 @@
+name: audit_helper
+version: "0.12.1"
+config-version: 2
+macro-paths: ["macros"]

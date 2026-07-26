@@ -2,12 +2,32 @@ name: Macro resolution
 
 on:
   pull_request:
+    paths:
+      - "trigger/**"
+      - "lib/sqlfluff-violations.ts"
+      - "tests/macroResolution.test.ts"
+      - "test-fixtures/macro-resolution/**"
+      - "requirement.txt"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/macro-resolution.yml"
   push:
     branches: [main]
+    paths:
+      - "trigger/**"
+      - "lib/sqlfluff-violations.ts"
+      - "tests/macroResolution.test.ts"
+      - "test-fixtures/macro-resolution/**"
+      - "requirement.txt"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/macro-resolution.yml"
 
 jobs:
-  test:
+  package-macro-fixtures:
+    name: Package macro fixtures
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,6 +37,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirement.txt
       - run: npm ci
       - run: python -m pip install -r requirement.txt
       - run: npm run test:macro-resolution

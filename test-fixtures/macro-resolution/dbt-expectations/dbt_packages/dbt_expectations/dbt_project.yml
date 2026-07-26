@@ -1,0 +1,4 @@
+name: dbt_expectations
+version: "0.10.10"
+config-version: 2
+macro-paths: ["macros"]
