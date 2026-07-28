@@ -562,7 +562,7 @@ export function DagBackground({ className = "" }: { className?: string }) {
       className={`pointer-events-none absolute overflow-hidden ${className}`}
     >
       <svg
-        className="absolute inset-0 size-full opacity-35 sm:opacity-50"
+        className="absolute inset-0 size-full opacity-[0.12] blur-[0.6px] sm:opacity-[0.14]"
         preserveAspectRatio="xMidYMid slice"
         viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
       >
