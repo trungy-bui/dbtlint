@@ -65,17 +65,21 @@ export function DashboardOverview({
   }, []);
 
   return (
-    <>
+    <section className="space-y-6" aria-labelledby="dashboard-overview-title">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className="flex flex-col gap-1"
+        className="flex flex-col gap-2"
       >
-        <h2 className="text-2xl font-semibold tracking-tight text-balance">
+        <p className="terminal-label text-emerald-400">Workspace overview</p>
+        <h1
+          id="dashboard-overview-title"
+          className="text-balance text-2xl font-semibold tracking-[-0.03em] text-slate-50 sm:text-3xl"
+        >
           {greeting}, {fullName}
-        </h2>
-        <p className="text-sm text-muted-foreground">
+        </h1>
+        <p className="max-w-2xl text-sm leading-6 text-slate-400">
           Here&apos;s what&apos;s happening across your dbt projects today.
         </p>
       </motion.div>
@@ -94,6 +98,6 @@ export function DashboardOverview({
           );
         })}
       </div>
-    </>
+    </section>
   );
 }

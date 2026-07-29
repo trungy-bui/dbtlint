@@ -193,12 +193,12 @@ export function ScanProjectCard({
 
   return (
     <>
-      <article className="group relative flex min-h-11 flex-col gap-5 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 text-left transition-colors duration-200 hover:border-slate-700 hover:bg-slate-900">
+      <article className="group relative flex min-h-11 flex-col gap-5 rounded-2xl border border-surface-border bg-surface-card p-5 text-left shadow-[0_18px_48px_rgba(2,6,23,0.2),inset_0_1px_0_rgba(255,255,255,0.035)] transition-[border-color,background-color,box-shadow] duration-200 hover:border-emerald-400/35 hover:bg-slate-900 hover:shadow-[0_20px_54px_rgba(2,6,23,0.3),0_0_0_1px_rgba(52,211,153,0.06)] motion-reduce:transition-none">
         <button
           type="button"
           onClick={onClick}
           aria-label={`Open scan details for ${displayName}`}
-          className="absolute inset-0 z-0 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+          className="absolute inset-0 z-0 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         />
 
         <div className="pointer-events-none relative z-10 flex items-start gap-3">
@@ -387,7 +387,7 @@ export function ScanProjectCard({
           </div>
         </div>
 
-        <div className="pointer-events-none relative z-10 border-t border-slate-800 pt-3 font-mono text-[10px] tracking-[0.1em] text-slate-500 uppercase">
+        <div className="pointer-events-none relative z-10 border-t border-surface-border pt-3 font-mono text-[10px] tracking-[0.1em] text-slate-400 uppercase">
           {getRelativeTime(createdAt)}
         </div>
       </article>

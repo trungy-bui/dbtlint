@@ -40,13 +40,25 @@ export default async function ProjectPage() {
   );
 
   return (
-    <Projects
-      githubAccountLogin={githubInstallation?.accountLogin ?? null}
-      githubConnected={Boolean(githubInstallation)}
-      githubInstallUrl={`https://github.com/apps/${githubAppSlug}/installations/new`}
-      plan={plan}
-      projects={projects}
-      totalProjects={totalProjects}
-    />
+    <div className="space-y-6">
+      <header>
+        <p className="terminal-label text-emerald-400">Project registry</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-50 sm:text-3xl">
+          Projects
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+          Review scan history, compare quality scores, and manage connected dbt
+          projects.
+        </p>
+      </header>
+      <Projects
+        githubAccountLogin={githubInstallation?.accountLogin ?? null}
+        githubConnected={Boolean(githubInstallation)}
+        githubInstallUrl={`https://github.com/apps/${githubAppSlug}/installations/new`}
+        plan={plan}
+        projects={projects}
+        totalProjects={totalProjects}
+      />
+    </div>
   );
 }
