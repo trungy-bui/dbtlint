@@ -5,11 +5,11 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
-  Clock,
   Download,
   File,
   Lightbulb,
   Loader2,
+  TrendingUp,
   XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -181,22 +181,10 @@ function SourceLineBlock({
   );
 }
 
-function getScoreColor(
-  score: number,
-):
-  | "from-emerald-500 to-emerald-600"
-  | "from-amber-500 to-amber-600"
-  | "from-red-500 to-red-600" {
-  if (score >= 90) return "from-emerald-500 to-emerald-600";
-  if (score >= 70) return "from-amber-500 to-amber-600";
-  return "from-red-500 to-red-600";
-}
-
 function ScoreGauge({ score, status }: { score: number; status: string }) {
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
-  const colorClass = getScoreColor(score);
   let strokeColor = "#4FBF9F";
   if (score < 70) strokeColor = "#E3A63E";
   if (score < 50) strokeColor = "#D65C4B";
@@ -245,15 +233,6 @@ function ScoreGauge({ score, status }: { score: number; status: string }) {
           }
           className="transform -rotate-90 origin-center"
         />
-        <text
-          x="60"
-          y="60"
-          textAnchor="middle"
-          dy="0.3em"
-          className="fill-ink font-mono text-2xl font-bold"
-        >
-          {score}
-        </text>
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center">
@@ -268,8 +247,30 @@ function ScoreGauge({ score, status }: { score: number; status: string }) {
 function ScoreTrendChart({ data }: { data: ScoreTrendPoint[] }) {
   if (data.length < 2) {
     return (
-      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-        Not enough history yet — check back after a few more runs
+      <div className="relative flex min-h-48 overflow-hidden rounded-xl border border-dashed border-surface-border bg-surface-nested px-6 py-8">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 opacity-35 [background-image:linear-gradient(to_right,rgba(100,116,139,0.13)_1px,transparent_1px),linear-gradient(to_bottom,rgba(100,116,139,0.13)_1px,transparent_1px)] [background-size:40px_32px]"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute right-8 bottom-8 left-8 h-px bg-gradient-to-r from-transparent via-emerald-400/35 to-transparent"
+        />
+        <div className="relative z-10 m-auto flex max-w-md flex-col items-center text-center">
+          <span className="flex size-11 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-300 shadow-[0_0_24px_rgba(52,211,153,0.08)]">
+            <TrendingUp aria-hidden="true" className="size-5" />
+          </span>
+          <h3 className="mt-4 text-sm font-semibold text-slate-100">
+            Your score trend starts here
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            Run this project again to compare quality scores and reveal the
+            direction of change over time.
+          </p>
+          <span className="terminal-label mt-4 rounded-full border border-surface-border bg-slate-950/70 px-3 py-1.5 text-slate-300">
+            {data.length === 1 ? "1 run recorded" : "No history recorded"}
+          </span>
+        </div>
       </div>
     );
   }
@@ -288,23 +289,25 @@ function ScoreTrendChart({ data }: { data: ScoreTrendPoint[] }) {
               minute: "2-digit",
             })
           }
-          tick={{ fill: "#64748b", fontSize: 11 }}
+          tick={{ fill: "#94a3b8", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
           domain={[0, 100]}
-          tick={{ fill: "#64748b", fontSize: 11 }}
+          tick={{ fill: "#94a3b8", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           width={28}
         />
         <Tooltip
           contentStyle={{
-            background: "#18181b",
-            border: "1px solid #27272a",
-            borderRadius: 8,
+            background: "#0f172a",
+            border: "1px solid #475569",
+            borderRadius: 12,
             fontSize: 12,
+            color: "#f8fafc",
+            boxShadow: "0 16px 40px rgba(2, 6, 23, 0.42)",
           }}
           labelFormatter={(d) =>
             new Date(d).toLocaleString(undefined, {
@@ -364,7 +367,7 @@ function CategorySection({
 
   if (data.skipped) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-slate-800 bg-slate-900/50 py-8 text-center">
+      <div className="surface-nested flex flex-col items-center justify-center border-dashed py-10 text-center">
         <File className="mb-2 size-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">
           {data.statusMessage ||
@@ -384,14 +387,14 @@ function CategorySection({
         return (
           <div
             key={file.filePath}
-            className="overflow-hidden rounded-md border border-slate-800 bg-slate-900"
+            className="overflow-hidden rounded-xl border border-surface-border bg-surface-nested"
           >
             <button
               type="button"
-              className="group w-full"
+              className="group w-full cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400/70"
               onClick={() => toggleFile(file.filePath)}
             >
-              <div className="flex w-full min-w-0 items-center gap-2 rounded-md border border-slate-800 bg-slate-900 p-2.5 hover:bg-slate-800">
+              <div className="flex w-full min-w-0 items-center gap-2 bg-surface-nested p-3 transition-colors duration-200 hover:bg-slate-800 motion-reduce:transition-none">
                 <motion.span
                   animate={{ rotate: isExpanded ? 180 : 0 }}
                   transition={{ duration: 0.2, ease: "easeOut" }}
@@ -434,7 +437,7 @@ function CategorySection({
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                   className="overflow-hidden"
                 >
-                  <div className="mt-2 space-y-2 pl-6 border-l border-slate-800">
+                  <div className="space-y-2 border-t border-surface-border bg-slate-950/35 p-3">
                     {friendlyViolations.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
                         No violations found
@@ -448,7 +451,7 @@ function CategorySection({
                         return (
                           <div
                             key={key}
-                            className="rounded-md border border-slate-800 bg-slate-900/50 p-3"
+                            className="rounded-lg border border-surface-border bg-surface-card p-3"
                           >
                             <div className="flex items-start gap-2">
                               <AlertTriangle className="mt-0.5 size-4 flex-shrink-0 text-amber-500" />
@@ -483,7 +486,7 @@ function CategorySection({
                                 <button
                                   type="button"
                                   onClick={() => toggleViolationDetails(key)}
-                                  className="mt-2 text-xs text-emerald-400 hover:underline"
+                                  className="mt-2 cursor-pointer rounded-sm text-xs text-emerald-300 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
                                 >
                                   {showTechnicalDetails ? "Hide" : "Show"}{" "}
                                   technical details
@@ -529,13 +532,13 @@ function RecommendationGroupSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="overflow-hidden rounded-md border border-slate-800 bg-slate-900">
+    <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-nested">
       <button
         type="button"
-        className="group w-full"
+        className="group w-full cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400/70"
         onClick={() => setIsOpen((open) => !open)}
       >
-        <div className="flex w-full items-center gap-3 rounded-md border border-slate-800 bg-slate-900 p-3 hover:bg-slate-800">
+        <div className="flex w-full items-center gap-3 bg-surface-nested p-3 transition-colors duration-200 hover:bg-slate-800 motion-reduce:transition-none">
           <motion.span
             animate={{ rotate: isOpen ? 180 : 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
@@ -562,7 +565,7 @@ function RecommendationGroupSection({
             transition={{ duration: 0.25, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="mt-2 border-l border-slate-800 pl-6">
+            <div className="border-t border-surface-border bg-slate-950/35 px-4 py-2">
               <ul className="space-y-4 py-2">
                 {group.items.map((rec) => {
                   const [onlyOccurrence] = rec.occurrences;
@@ -649,12 +652,6 @@ function RecommendationGroupSection({
   );
 }
 
-function getStatusIcon(status: "passed" | "failed" | "processing"): string {
-  if (status === "passed") return "✓";
-  if (status === "failed") return "✗";
-  return "▸";
-}
-
 export function ProjectDetailPanel({
   data: initialData,
   scanId,
@@ -712,23 +709,40 @@ export function ProjectDetailPanel({
   };
 
   const status = statusConfig[data.status];
-  const StatusIcon = getStatusIcon(data.status);
+  const StatusIcon = status.icon;
 
   return (
-    <div className="rounded-2xl bg-slate-950 px-4 text-ink font-sans space-y-6">
+    <div className="space-y-8 font-sans text-ink">
       {/* Header */}
-      <div className="flex items-baseline justify-between mb-8 gap-4">
-        <div className="mt-2 text-ink-muted">
-          <span className="ml-2">
+      <div className="surface-card flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="min-w-0">
+          <p className="terminal-label text-emerald-400">Scan results</p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <h1 className="truncate text-2xl font-semibold tracking-[-0.03em] text-slate-50 sm:text-3xl">
+              {data.project}
+            </h1>
+            <Badge className={status.color}>
+              <StatusIcon
+                aria-hidden="true"
+                className={
+                  data.status === "processing"
+                    ? "animate-spin motion-reduce:animate-none"
+                    : undefined
+                }
+              />
+              {status.label}
+            </Badge>
+          </div>
+          <p className="mt-2 text-sm text-slate-400">
             {data.report?.totals.files || 0} files linted ·{" "}
-            {data.report?.totals.lines} lines scanned · {relativeTime}
-          </span>
+            {data.report?.totals.lines || 0} lines scanned · {relativeTime}
+          </p>
         </div>
         {data.report && (
           <button
             type="button"
             onClick={() => downloadReportCSV(data)}
-            className="inline-flex flex-shrink-0 items-center gap-2 rounded-md border border-slate-800 bg-slate-900 px-4 py-2 mt-4 text-sm font-medium text-foreground transition-colors hover:bg-slate-800"
+            className="interactive-surface inline-flex h-10 flex-shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-surface-border bg-surface-nested px-4 text-sm font-medium text-slate-100"
           >
             <Download className="size-4" aria-hidden="true" />
             Export CSV
@@ -737,82 +751,86 @@ export function ProjectDetailPanel({
       </div>
 
       {/* Score and Stats */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div className="flex justify-center md:col-span-1">
+      <section
+        aria-label="Scan score summary"
+        className="surface-card grid grid-cols-1 gap-6 p-5 sm:p-6 md:grid-cols-3"
+      >
+        <div className="surface-nested flex min-h-48 items-center justify-center p-6 md:col-span-1">
           <ScoreGauge score={data.score} status={data.status} />
         </div>
         <div className="space-y-4 md:col-span-2">
           <div className="grid grid-cols-2 gap-3">
-            <Card className="border border-slate-800 bg-slate-900 p-4">
-              <div className="text-xs text-muted-foreground">Errors</div>
+            <Card className="border-surface-border bg-surface-nested p-4 shadow-none">
+              <div className="terminal-label">Errors</div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-red-400">
+                <span className="font-mono text-2xl font-bold text-rose-300">
                   {data.errors}
                 </span>
               </div>
             </Card>
-            <Card className="border border-slate-800 bg-slate-900 p-4">
-              <div className="text-xs text-muted-foreground">Warnings</div>
+            <Card className="border-surface-border bg-surface-nested p-4 shadow-none">
+              <div className="terminal-label">Warnings</div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-amber-400">
+                <span className="font-mono text-2xl font-bold text-amber-300">
                   {data.warnings}
                 </span>
               </div>
             </Card>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-md border border-slate-800 bg-slate-900/50 px-3 py-2">
-              <p className="text-xs text-muted-foreground">Files Linted</p>
-              <p className="font-semibold text-foreground">
+            <div className="surface-nested px-4 py-3">
+              <p className="terminal-label">Files linted</p>
+              <p className="mt-1 font-mono font-semibold text-slate-100">
                 {data.report?.totals.files || 0}
               </p>
             </div>
-            <div className="rounded-md border border-slate-800 bg-slate-900/50 px-3 py-2">
-              <p className="text-xs text-muted-foreground">Lines Scanned</p>
-              <p className="font-semibold text-foreground">
+            <div className="surface-nested px-4 py-3">
+              <p className="terminal-label">Lines scanned</p>
+              <p className="mt-1 font-mono font-semibold text-slate-100">
                 {data.report?.totals.lines || 0}
               </p>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Score Trend */}
-      {data.scoreHistory && data.scoreHistory.length > 0 && (
-        <Card className="border border-slate-800 bg-slate-900 p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              Score trend (weekly)
-            </span>
-            {data.scoreHistory.length >= 2 && (
-              <span
-                className={`text-xs font-medium ${
-                  data.scoreHistory[data.scoreHistory.length - 1].score >=
-                  data.scoreHistory[0].score
-                    ? "text-emerald-400"
-                    : "text-red-400"
-                }`}
-              >
-                {data.scoreHistory[data.scoreHistory.length - 1].score -
-                  data.scoreHistory[0].score >=
-                0
-                  ? "+"
-                  : ""}
-                {data.scoreHistory[data.scoreHistory.length - 1].score -
-                  data.scoreHistory[0].score}{" "}
-                over period
-              </span>
-            )}
+      <Card className="border-surface-border bg-surface-card p-5 sm:p-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="terminal-label text-emerald-400">Quality history</p>
+            <h2 className="mt-1 text-base font-semibold text-slate-100">
+              Score trend
+            </h2>
           </div>
-          <ScoreTrendChart data={data.scoreHistory} />
-        </Card>
-      )}
+          {data.scoreHistory && data.scoreHistory.length >= 2 && (
+            <span
+              className={`text-xs font-medium ${
+                data.scoreHistory[data.scoreHistory.length - 1].score >=
+                data.scoreHistory[0].score
+                  ? "text-emerald-400"
+                  : "text-rose-300"
+              }`}
+            >
+              {data.scoreHistory[data.scoreHistory.length - 1].score -
+                data.scoreHistory[0].score >=
+              0
+                ? "+"
+                : ""}
+              {data.scoreHistory[data.scoreHistory.length - 1].score -
+                data.scoreHistory[0].score}{" "}
+              over period
+            </span>
+          )}
+        </div>
+        <ScoreTrendChart data={data.scoreHistory ?? []} />
+      </Card>
 
       {/* Tabs Section */}
       {data.report && (
-        <Card className="border border-slate-800 bg-slate-900 p-0 overflow-x-hidden">
+        <Card className="overflow-x-hidden border-surface-border bg-surface-card p-0">
           <Tabs defaultValue="models" className="w-full">
-            <TabsList className="border-b border-hairline bg-slate-950 rounded-none p-0 h-auto gap-6 w-full justify-start">
+            <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b border-surface-border bg-surface-nested p-0">
               <TabsTrigger
                 value="models"
                 className="px-0 py-3 font-sans text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-code-accent data-[state=active]:bg-transparent"
@@ -857,7 +875,7 @@ export function ProjectDetailPanel({
       )}
 
       {/* Recommendations */}
-      <Card className="border border-slate-800 bg-slate-900 p-6">
+      <Card className="border-surface-border bg-surface-card p-6">
         <div className="mb-4 flex items-center gap-2">
           <Lightbulb className="size-5 text-amber-500" />
           <h3 className="font-semibold text-foreground">Recommendations</h3>

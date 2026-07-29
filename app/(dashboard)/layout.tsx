@@ -68,14 +68,14 @@ export default async function RootLayout({
       <TooltipProvider>
         <PlanUsageProvider initial={initialPlanUsage}>
           <DashboardSidebar />
-          <SidebarInset>
+          <SidebarInset className="bg-surface-base">
             <DashboardNavbar
               title="Dashboard"
               user={user}
               notifications={notifications}
             />
             <NotificationsListener userId={user.id} />
-            <main className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+            <main className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col gap-8 p-4 sm:p-6 lg:p-8">
               {children}
             </main>
           </SidebarInset>

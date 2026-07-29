@@ -48,12 +48,12 @@ export function Dashboard({ user }: DashboardProps) {
   const fullName = user.user_metadata.full_name ?? user.email ?? "there";
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <Suspense fallback={<DashboardStatsSkeleton />}>
         <DashboardStats fullName={fullName} userId={user.id} />
       </Suspense>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <Suspense fallback={<RecentScansSkeleton />}>
             <RecentScans userId={user.id} />

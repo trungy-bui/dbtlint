@@ -10,6 +10,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { SignalCard } from "@/components/ui/signal-card";
 
 const features = [
   {
@@ -124,37 +125,27 @@ export function FeaturesSection() {
           className="mt-12 grid grid-cols-1 gap-9.5 md:grid-cols-2 lg:grid-cols-3"
         >
           {features.map((feature) => (
-            <motion.article
+            <motion.div
               key={feature.title}
               variants={item}
-              className={`group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/55 p-6 transition-colors duration-200 hover:border-slate-700 hover:bg-slate-900 ${feature.span}`}
+              className={feature.span}
             >
-              <div
-                aria-hidden="true"
-                className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              <SignalCard
+                icon={feature.icon}
+                label={feature.label}
+                metric={feature.title}
+                description={feature.description}
+                footer={
+                  <>
+                    <ShieldCheck
+                      aria-hidden="true"
+                      className="size-3.5 text-emerald-300"
+                    />
+                    {feature.detail}
+                  </>
+                }
               />
-              <div className="flex items-start justify-between gap-4">
-                <span className="flex size-10 items-center justify-center rounded-lg border border-slate-700 bg-slate-950 text-emerald-400">
-                  <feature.icon aria-hidden="true" className="size-4.5" />
-                </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">
-                  {feature.label}
-                </span>
-              </div>
-              <h3 className="mt-8 max-w-md text-xl font-semibold tracking-[-0.02em] text-slate-100">
-                {feature.title}
-              </h3>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-                {feature.description}
-              </p>
-              <div className="mt-6 flex items-center gap-2 border-t border-slate-800 pt-4 font-mono text-[11px] text-slate-500">
-                <ShieldCheck
-                  aria-hidden="true"
-                  className="size-3.5 text-emerald-400/80"
-                />
-                {feature.detail}
-              </div>
-            </motion.article>
+            </motion.div>
           ))}
         </motion.div>
       </div>

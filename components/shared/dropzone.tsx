@@ -501,11 +501,12 @@ export function UploadZone({
     return (
       <Card
         className={cn(
-          "border border-slate-800 bg-slate-900/60 text-slate-100 shadow-none ring-0",
+          "border-surface-border bg-surface-card text-slate-100",
           className,
         )}
       >
-        <CardHeader className="border-b border-slate-800 pb-4">
+        <CardHeader className="border-b border-surface-border pb-4">
+          <p className="terminal-label text-emerald-400">New scan</p>
           <CardTitle className="text-slate-100">Quick upload</CardTitle>
           <CardDescription className="text-slate-400">
             Lint dbt projects in seconds.

@@ -649,12 +649,15 @@ export default function BillingPage() {
 
   return (
     <div className="max-w-6xl space-y-6 pb-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink mb-1">Billing & plan</h1>
-        <p className="text-sm text-ink-muted">
+      <header>
+        <p className="terminal-label text-emerald-400">Account controls</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-50 sm:text-3xl">
+          Billing & plan
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-slate-400">
           Manage your subscription and usage.
         </p>
-      </div>
+      </header>
 
       {isLoading ? (
         <BillingPageSkeleton />

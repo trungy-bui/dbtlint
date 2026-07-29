@@ -512,14 +512,14 @@ export function Projects({
   }
 
   return (
-    <div className="space-y-4 text-slate-100">
+    <div className="space-y-6 text-slate-100">
       {githubResult && (
         <GitHubConnectionNotice
           result={githubResult}
           onDismiss={dismissGithubResult}
         />
       )}
-      <div className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:flex-row">
+      <div className="surface-card flex flex-col gap-3 p-3 sm:flex-row">
         <div className="relative min-w-0 flex-1">
           <label htmlFor="project-search" className="sr-only">
             Search projects
@@ -535,7 +535,7 @@ export function Projects({
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search projects…"
             aria-label="Search projects"
-            className="h-10 border-slate-800 bg-slate-900 pr-3 pl-9 text-slate-100 placeholder:text-slate-500 focus-visible:border-emerald-400 focus-visible:ring-emerald-400/30"
+            className="h-10 border-surface-border bg-surface-nested pr-3 pl-9 text-slate-100 placeholder:text-slate-400 focus-visible:border-emerald-400 focus-visible:ring-emerald-400/30"
           />
         </div>
 
@@ -545,7 +545,7 @@ export function Projects({
         >
           <SelectTrigger
             aria-label="Filter projects by status"
-            className="h-10 w-full border-slate-800 bg-slate-900 text-slate-200 focus-visible:border-emerald-400 focus-visible:ring-emerald-400/30 sm:w-40"
+            className="h-10 w-full border-surface-border bg-surface-nested text-slate-200 focus-visible:border-emerald-400 focus-visible:ring-emerald-400/30 sm:w-40"
           >
             <SelectValue />
           </SelectTrigger>
@@ -575,7 +575,7 @@ export function Projects({
         >
           <SelectTrigger
             aria-label="Sort projects"
-            className="h-10 w-full border-slate-800 bg-slate-900 text-slate-200 focus-visible:border-emerald-400 focus-visible:ring-emerald-400/30 sm:w-48"
+            className="h-10 w-full border-surface-border bg-surface-nested text-slate-200 focus-visible:border-emerald-400 focus-visible:ring-emerald-400/30 sm:w-48"
           >
             <SelectValue />
           </SelectTrigger>
@@ -605,7 +605,7 @@ export function Projects({
       )}
 
       {filteredProjects.length === 0 ? (
-        <div className="flex min-h-56 flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 px-6 py-12 text-center">
+        <div className="surface-card flex min-h-56 flex-col items-center justify-center gap-4 border-dashed px-6 py-12 text-center">
           <div className="space-y-1">
             <h2 className="font-semibold text-slate-100">
               No projects match your filters

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { type LucideIcon, Minus, TrendingDown, TrendingUp } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { SignalCard } from "@/components/ui/signal-card";
 import type { DashboardTrendDirection } from "@/lib/dashboard";
 import { cn } from "@/lib/utils";
 
@@ -35,35 +35,28 @@ export function StatCard({ stat, value, index }: StatCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.07, ease: "easeOut" }}
     >
-      <Card className="bg-slate-900/60 transition-colors hover:border-primary/40">
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{stat.label}</span>
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Icon className="size-4.5" />
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="text-3xl font-semibold tracking-tight tabular-nums">
-              {value}
+      <SignalCard
+        icon={Icon}
+        label={stat.label}
+        metric={<span className="tabular-nums">{value}</span>}
+        metricClassName="font-mono text-3xl tracking-[-0.04em]"
+        footer={
+          <>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 font-medium",
+                stat.trendDirection === "up" && "text-emerald-300",
+                stat.trendDirection === "down" && "text-rose-300",
+                stat.trendDirection === "flat" && "text-slate-300",
+              )}
+            >
+              <TrendIcon aria-hidden="true" className="size-3.5" />
+              {stat.trend}
             </span>
-            <div className="flex items-center gap-1.5 text-xs">
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1 font-medium",
-                  stat.trendDirection === "up" && "text-primary",
-                  stat.trendDirection === "down" && "text-destructive",
-                  stat.trendDirection === "flat" && "text-muted-foreground",
-                )}
-              >
-                <TrendIcon className="size-3.5" />
-                {stat.trend}
-              </span>
-              <span className="text-muted-foreground">{stat.hint}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            <span className="text-slate-400">{stat.hint}</span>
+          </>
+        }
+      />
     </motion.div>
   );
 }
