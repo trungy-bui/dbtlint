@@ -17,6 +17,7 @@ import {
 } from "@/lib/github/checks";
 import { sendGitHubPrScanDiscordAlertBestEffort } from "@/lib/github/discord-notification";
 import { getInstallationUserId } from "@/lib/github/installations";
+import { replacePullRequestReviewComments } from "@/lib/github/reviews";
 import { githubLintPayload } from "@/lib/validation/github";
 import {
   createEmptyLintReport,
@@ -250,6 +251,62 @@ async function completeCheckRunBestEffort({
       repoFullName,
       prNumber,
       headSha,
+    });
+  }
+}
+
+async function replaceReviewCommentsBestEffort({
+  octokit,
+  owner,
+  repo,
+  prNumber,
+  headSha,
+  checkRunId,
+  report,
+  changedFiles,
+  scanId,
+}: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  prNumber: number;
+  headSha: string;
+  checkRunId: string | null;
+  report: LintReportJson;
+  changedFiles: readonly PullRequestFileDiff[];
+  scanId: string;
+}) {
+  const reportUrl = checkRunId
+    ? `https://github.com/${owner}/${repo}/runs/${checkRunId}`
+    : `https://github.com/${owner}/${repo}/commit/${headSha}/checks`;
+
+  try {
+    const result = await replacePullRequestReviewComments({
+      octokit,
+      owner,
+      repo,
+      pullNumber: prNumber,
+      headSha,
+      report,
+      changedFiles,
+      reportUrl,
+    });
+    console.log("GitHub pull request review comments replaced", {
+      scanId,
+      ...result,
+    });
+  } catch (error) {
+    console.error("Failed to replace GitHub pull request review comments", {
+      error,
+      scanId,
+      owner,
+      repo,
+      prNumber,
+      headSha,
+    });
+    Sentry.captureException(error, {
+      tags: { integration: "github_reviews" },
+      extra: { scanId, owner, repo, prNumber, headSha },
     });
   }
 }
@@ -617,6 +674,17 @@ export const githubLintTask = schemaTask({
         repoFullName,
         prNumber,
         headSha,
+      });
+      await replaceReviewCommentsBestEffort({
+        octokit,
+        owner,
+        repo,
+        prNumber,
+        headSha,
+        checkRunId,
+        report,
+        changedFiles: changedSqlFiles,
+        scanId,
       });
       console.log("GitHub PR lint completed", {
         scanId,
