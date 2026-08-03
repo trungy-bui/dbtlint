@@ -1,6 +1,8 @@
 import type { Octokit } from "@octokit/rest";
 import type { LintReportJson } from "@/db/schema";
 import { explainFileViolations } from "@/lib/reports/report-recommendations";
+import { isAutofixableRule } from "@/lib/rules/rule-engine";
+import type { DeterministicFix } from "@/lib/sqlfluff-violations";
 import { isErrorSqlfluffViolation } from "@/lib/sqlfluff-violations";
 import { addedLinesFromPatch, type PullRequestFileDiff } from "./checks";
 
@@ -12,6 +14,8 @@ export type PullRequestReviewComment = {
   path: string;
   line: number;
   side: "RIGHT";
+  start_line?: number;
+  start_side?: "RIGHT";
   body: string;
 };
 
@@ -22,6 +26,8 @@ type ReviewFinding = {
   title: string;
   severity: "error" | "warning";
   explanation: string;
+  autofixable: boolean;
+  fix?: DeterministicFix;
 };
 
 type FriendlyViolation = ReturnType<typeof explainFileViolations>[number];
@@ -31,16 +37,21 @@ function findingFromViolation(
   violation: FriendlyViolation,
 ): ReviewFinding | null {
   if (violation.lineNo === undefined) return null;
+  const rule = violation.rawCode?.trim() || "Unknown rule";
+  const autofixable =
+    violation.autofixable && isAutofixableRule(rule) && Boolean(violation.fix);
 
   return {
     path,
     line: violation.lineNo,
-    rule: violation.rawCode?.trim() || "Unknown rule",
+    rule,
     title: violation.title,
     severity: isErrorSqlfluffViolation({ code: violation.rawCode })
       ? "error"
       : "warning",
     explanation: violation.explanation,
+    autofixable,
+    fix: autofixable ? violation.fix : undefined,
   };
 }
 
@@ -54,8 +65,15 @@ function formatReviewComment(
     omittedForFile > 0
       ? `\n\n[+${omittedForFile} more ${omittedForFile === 1 ? "finding" : "findings"} in this file; see the full DBTLint report](${reportUrl})`
       : "";
+  const suggestion =
+    finding.autofixable &&
+    finding.fix &&
+    isAutofixableRule(finding.rule) &&
+    !finding.fix.newText.includes("```")
+      ? `\n\n\`\`\`suggestion\n${finding.fix.newText}\n\`\`\``
+      : "";
 
-  return `${heading}\n\n${finding.explanation}${truncation}\n\n${REVIEW_COMMENT_MARKER}`;
+  return `${heading}\n\n${finding.explanation}${suggestion}${truncation}\n\n${REVIEW_COMMENT_MARKER}`;
 }
 
 function findingsByFile(
@@ -78,6 +96,16 @@ function findingsByFile(
       for (const violation of explainFileViolations(file.violations)) {
         const finding = findingFromViolation(file.filePath, violation);
         if (!finding || !addedLines.has(finding.line)) continue;
+        const fixRange = finding.fix?.range;
+        if (
+          fixRange &&
+          !Array.from(
+            { length: fixRange.end.line - fixRange.start.line + 1 },
+            (_, index) => fixRange.start.line + index,
+          ).every((line) => addedLines.has(line))
+        ) {
+          finding.fix = undefined;
+        }
         const fileFindings = grouped.get(file.filePath) ?? [];
         fileFindings.push(finding);
         grouped.set(file.filePath, fileFindings);
@@ -144,8 +172,15 @@ export function buildPullRequestReviewComments({
       const isLastForFile = index === fileSelection.length - 1;
       comments.push({
         path: finding.path,
-        line: finding.line,
+        line: finding.fix?.range.end.line ?? finding.line,
         side: "RIGHT",
+        ...(finding.fix &&
+        finding.fix.range.start.line < finding.fix.range.end.line
+          ? {
+              start_line: finding.fix.range.start.line,
+              start_side: "RIGHT" as const,
+            }
+          : {}),
         body: formatReviewComment(
           finding,
           isLastForFile ? totalForFile - fileSelection.length : 0,

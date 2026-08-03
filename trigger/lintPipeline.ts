@@ -3,6 +3,7 @@ import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { promisify, TextDecoder } from "node:util";
 import type { LintReportJson } from "@/db/schema";
+import { attachDeterministicFix } from "@/lib/autofix";
 import {
   attachSourceLineToViolation,
   isErrorSqlfluffViolation,
@@ -550,7 +551,10 @@ async function lintFilesWithConcurrency({
         const sourceLines = sourceLinesByFile.get(filePath) ?? [];
         const violations = filterAllowedMacroUndefinedVariables(
           rawViolations.map((violation) =>
-            attachSourceLineToViolation(violation, sourceLines),
+            attachDeterministicFix(
+              attachSourceLineToViolation(violation, sourceLines),
+              sourceLines,
+            ),
           ),
           allowedMacroVariables,
         );

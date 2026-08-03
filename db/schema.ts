@@ -19,6 +19,24 @@ type SqlfluffViolationJson = {
   start_line_no?: number;
   start_line_pos?: number;
   sourceLine?: string;
+  fixes?: Array<{
+    type?: string;
+    edit?: string;
+    start_line_no?: number;
+    start_line_pos?: number;
+    end_line_no?: number;
+    end_line_pos?: number;
+    [key: string]: unknown;
+  }>;
+  autofixable?: true;
+  fix?: {
+    oldText: string;
+    newText: string;
+    range: {
+      start: { line: number; column: number };
+      end: { line: number; column: number };
+    };
+  };
   [key: string]: unknown;
 };
 

@@ -136,6 +136,8 @@ export function explainFileViolations(
       lineNo: hasSourceLocation ? normalized.line_no : undefined,
       linePos: hasSourceLocation ? normalized.line_pos : undefined,
       sourceLine: hasSourceLocation ? normalized.sourceLine : undefined,
+      autofixable: normalized.autofixable === true,
+      fix: normalized.fix,
       rawCode: normalized.code,
       rawDescription: normalized.description,
     };
