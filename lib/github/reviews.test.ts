@@ -154,3 +154,88 @@ test("truncates noisy files and links the omitted count to the check report", ()
   assert.match(result.comments[1].body, /\+3 more findings in this file/);
   assert.match(result.comments[1].body, new RegExp(reportUrl));
 });
+
+test("renders deterministic fixes with GitHub's native suggestion syntax", () => {
+  const result = buildPullRequestReviewComments({
+    report: createReport([
+      {
+        code: "LT01",
+        description: "Expected one space",
+        line_no: 1,
+        autofixable: true,
+        fix: {
+          oldText: "select  amount from orders",
+          newText: "select amount from orders",
+          range: {
+            start: { line: 1, column: 1 },
+            end: { line: 1, column: 27 },
+          },
+        },
+      },
+    ]),
+    changedFiles: [changedFile(1)],
+    reportUrl: "https://github.com/acme/analytics/runs/126",
+  });
+
+  assert.match(
+    result.comments[0].body,
+    /```suggestion\nselect amount from orders\n```/,
+  );
+  assert.deepEqual(
+    {
+      line: result.comments[0].line,
+      side: result.comments[0].side,
+      startLine: result.comments[0].start_line,
+    },
+    { line: 1, side: "RIGHT", startLine: undefined },
+  );
+});
+
+test("never renders suggestions for non-autofixable rules", () => {
+  const result = buildPullRequestReviewComments({
+    report: createReport([
+      {
+        code: "PRS",
+        description: "Syntax error",
+        line_no: 1,
+        autofixable: true,
+        fix: {
+          oldText: "broken!",
+          newText: "select 1",
+          range: {
+            start: { line: 1, column: 1 },
+            end: { line: 1, column: 8 },
+          },
+        },
+      },
+    ]),
+    changedFiles: [changedFile(1)],
+    reportUrl: "https://github.com/acme/analytics/runs/127",
+  });
+
+  assert.doesNotMatch(result.comments[0].body, /```suggestion/);
+});
+
+test("does not render a fix payload unless the finding is marked autofixable", () => {
+  const result = buildPullRequestReviewComments({
+    report: createReport([
+      {
+        code: "LT01",
+        description: "Expected one space",
+        line_no: 1,
+        fix: {
+          oldText: "select  amount",
+          newText: "select amount",
+          range: {
+            start: { line: 1, column: 1 },
+            end: { line: 1, column: 15 },
+          },
+        },
+      },
+    ]),
+    changedFiles: [changedFile(1)],
+    reportUrl: "https://github.com/acme/analytics/runs/128",
+  });
+
+  assert.doesNotMatch(result.comments[0].body, /```suggestion/);
+});

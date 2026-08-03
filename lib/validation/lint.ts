@@ -15,6 +15,31 @@ const sqlfluffViolation = z
     start_line_no: z.number().optional(),
     start_line_pos: z.number().optional(),
     sourceLine: z.string().optional(),
+    fixes: z
+      .array(
+        z
+          .object({
+            type: z.string().optional(),
+            edit: z.string().optional(),
+            start_line_no: z.number().optional(),
+            start_line_pos: z.number().optional(),
+            end_line_no: z.number().optional(),
+            end_line_pos: z.number().optional(),
+          })
+          .catchall(z.unknown()),
+      )
+      .optional(),
+    autofixable: z.literal(true).optional(),
+    fix: z
+      .object({
+        oldText: z.string(),
+        newText: z.string(),
+        range: z.object({
+          start: z.object({ line: z.number(), column: z.number() }),
+          end: z.object({ line: z.number(), column: z.number() }),
+        }),
+      })
+      .optional(),
   })
   .catchall(z.unknown());
 

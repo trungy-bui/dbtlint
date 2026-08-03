@@ -1,3 +1,29 @@
+export type SourcePosition = {
+  line: number;
+  column: number;
+};
+
+export type SourceRange = {
+  start: SourcePosition;
+  end: SourcePosition;
+};
+
+export type DeterministicFix = {
+  oldText: string;
+  newText: string;
+  range: SourceRange;
+};
+
+export type SqlfluffEdit = {
+  type?: string;
+  edit?: string;
+  start_line_no?: number;
+  start_line_pos?: number;
+  end_line_no?: number;
+  end_line_pos?: number;
+  [key: string]: unknown;
+};
+
 export type SqlfluffViolation = {
   code?: string;
   description?: string;
@@ -6,6 +32,9 @@ export type SqlfluffViolation = {
   start_line_no?: number;
   start_line_pos?: number;
   sourceLine?: string;
+  fixes?: SqlfluffEdit[];
+  autofixable?: true;
+  fix?: DeterministicFix;
   [key: string]: unknown;
 };
 
