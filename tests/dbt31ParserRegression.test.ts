@@ -13,7 +13,6 @@ import test from "node:test";
 import {
   createSqlfluffLockedConfigContents,
   runLintPipeline,
-  SQLFLUFF_LOCKED_CONFIG_CONTENTS,
 } from "../trigger/lintPipeline";
 import { resolveMacroAllowlist } from "../trigger/macroResolution";
 
@@ -22,6 +21,7 @@ const emissionPath = path.join(
   fixtureRoot,
   "models/staging/stg_energy_emission.sql",
 );
+const testModelPath = path.join(fixtureRoot, "models/staging/test.sql");
 const expectedHashes = new Map([
   [
     "models/staging/stg_energy_consumption.sql",
@@ -34,6 +34,14 @@ const expectedHashes = new Map([
   [
     "models/staging/stg_energy_intermediate.sql",
     "abaf53bbc597b70f63c82170de72c69c6e5fc1cc960f5c29bf0fa2c8f3880e8b",
+  ],
+  [
+    "models/staging/stg_energy_generation.sql",
+    "d1b4676bc371e7070e1f5a855744989c20c4cc001de3459af10eb712e9c98b86",
+  ],
+  [
+    "models/staging/test.sql",
+    "0f522ca80d70d53bf26113e279eecc76cd044c100c375ba929e2608b40a3508b",
   ],
   [
     "macros/format_int.sql",
@@ -49,15 +57,16 @@ function sha256(filePath: string) {
   return createHash("sha256").update(readFileSync(filePath)).digest("hex");
 }
 
-function parserViolations(
+function allParserViolations(
   report: Awaited<ReturnType<typeof runLintPipeline>>["report"],
-  filePath: string,
 ) {
-  const file = report.categories.models.files.find(
-    (candidate) => candidate.filePath === filePath,
+  return Object.values(report.categories).flatMap((category) =>
+    category.files.flatMap((file) =>
+      file.violations
+        .filter(({ code }) => code === "PRS")
+        .map((violation) => ({ filePath: file.filePath, violation })),
+    ),
   );
-  assert.ok(file, `missing lint result for ${filePath}`);
-  return file.violations.filter(({ code }) => code === "PRS");
 }
 
 test("DBT-31 fixture preserves the production artifact bytes and encoding", () => {
@@ -73,6 +82,12 @@ test("DBT-31 fixture preserves the production artifact bytes and encoding", () =
   assert.match(source, /^ {8}e\."Pays" {12}AS country$/m);
   assert.match(source, /^ {8}e\."Filière" {9}AS energy_type$/m);
   assert.match(source, /SELECT \*\nFROM cleaned/);
+
+  const testModel = new TextDecoder("utf-8", { fatal: true }).decode(
+    readFileSync(testModelPath),
+  );
+  assert.match(testModel, /^ {8}e\."Pays" {12}AS country,s$/m);
+  assert.match(testModel, /^ {8}e\."Filière" {9}AS energy_type,$/m);
 });
 
 test("locked SQLFluff config loads the bounded project macro files", () => {
@@ -85,7 +100,7 @@ test("locked SQLFluff config loads the bounded project macro files", () => {
 });
 
 test(
-  "production PRS path distinguishes real SQL errors from unloaded macros",
+  "production lint ignores SQLFluff parser failures for the seven-file DBT-31 project",
   { skip: process.env.RUN_SQLFLUFF_INTEGRATION !== "1" },
   async () => {
     const temporaryRoot = mkdtempSync(path.join(os.tmpdir(), "dbt-31-prs-"));
@@ -100,7 +115,10 @@ test(
       const resolution = resolveMacroAllowlist(projectRoot, 20);
       writeFileSync(
         baselineConfigPath,
-        SQLFLUFF_LOCKED_CONFIG_CONTENTS,
+        createSqlfluffLockedConfigContents(resolution.localMacroPaths).replace(
+          "ignore = parsing\n",
+          "",
+        ),
         "utf8",
       );
       writeFileSync(
@@ -116,12 +134,29 @@ test(
         pythonExecutable,
         allowedMacroVariables: resolution.allowedVariables,
       });
-      assert.match(
-        parserViolations(
-          baseline.report,
-          "models/staging/stg_energy_consumption.sql",
-        )[0]?.description ?? "",
-        /AS twh/,
+      assert.deepEqual(
+        allParserViolations(baseline.report).map(({ filePath, violation }) => [
+          filePath,
+          violation.line_no,
+          violation.description,
+        ]),
+        [
+          [
+            "models/staging/stg_energy_emission.sql",
+            9,
+            "Line 9, Position 9: Found unparsable section: 'e.\"Pays\"            AS country\\n        e...'",
+          ],
+          [
+            "models/staging/stg_energy_intermediate.sql",
+            1,
+            "Line 1, Position 1: Found unparsable section: 'WITH source_generation AS (\\n    SELECT *...'",
+          ],
+          [
+            "models/staging/test.sql",
+            10,
+            "Line 10, Position 10: Found unparsable section: '.\"Filière\"         AS energy_type,\\n     ...'",
+          ],
+        ],
       );
 
       const fixed = await runLintPipeline({
@@ -131,66 +166,9 @@ test(
         pythonExecutable,
         allowedMacroVariables: resolution.allowedVariables,
       });
-      assert.deepEqual(
-        parserViolations(
-          fixed.report,
-          "models/staging/stg_energy_consumption.sql",
-        ),
-        [],
-      );
-
-      const emissionPrs = parserViolations(
-        fixed.report,
-        "models/staging/stg_energy_emission.sql",
-      );
-      assert.equal(emissionPrs.length, 1);
-      assert.equal(emissionPrs[0].line_no, 9);
-      assert.match(emissionPrs[0].description ?? "", /e\."Pays"/);
-
-      const intermediatePrs = parserViolations(
-        fixed.report,
-        "models/staging/stg_energy_intermediate.sql",
-      );
-      assert.equal(intermediatePrs.length, 1);
-      assert.equal(intermediatePrs[0].line_no, 1);
-      assert.match(
-        intermediatePrs[0].description ?? "",
-        /WITH source_generation/,
-      );
-
-      const correctedEmission = readFileSync(
-        path.join(projectRoot, "models/staging/stg_energy_emission.sql"),
-        "utf8",
-      )
-        .replace('AS date\n        e."Pays"', 'AS date,\n        e."Pays"')
-        .replace(
-          'AS country\n        e."Filière"',
-          'AS country,\n        e."Filière"',
-        )
-        .replace(
-          'AS energy_type\n        e."Valeur (Mt)"',
-          'AS energy_type,\n        e."Valeur (Mt)"',
-        );
-      writeFileSync(
-        path.join(projectRoot, "models/staging/stg_energy_emission.sql"),
-        correctedEmission,
-        "utf8",
-      );
-
-      const corrected = await runLintPipeline({
-        rootDirectory: projectRoot,
-        dialect: "snowflake",
-        lockedConfigPath: fixedConfigPath,
-        pythonExecutable,
-        allowedMacroVariables: resolution.allowedVariables,
-      });
-      assert.deepEqual(
-        parserViolations(
-          corrected.report,
-          "models/staging/stg_energy_emission.sql",
-        ),
-        [],
-      );
+      assert.equal(fixed.report.totals.files, 7);
+      assert.equal(fixed.report.totals.errors, 0);
+      assert.deepEqual(allParserViolations(fixed.report), []);
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });
     }
