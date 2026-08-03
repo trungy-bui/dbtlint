@@ -29,6 +29,24 @@ templater = jinja
 apply_dbt_builtins = True
 `;
 
+export function createSqlfluffLockedConfigContents(
+  localMacroPaths: readonly string[] = [],
+) {
+  if (localMacroPaths.length === 0) return SQLFLUFF_LOCKED_CONFIG_CONTENTS;
+
+  const serializedPaths = localMacroPaths.map((macroPath) => {
+    const absolutePath = path.resolve(macroPath);
+    if (/[,\r\n]/.test(absolutePath)) {
+      throw new UserFacingLintFailure(
+        `Project macro path cannot be represented safely in the locked SQLFluff config: ${absolutePath}`,
+      );
+    }
+    return absolutePath.replace(/\\/g, "/");
+  });
+
+  return `${SQLFLUFF_LOCKED_CONFIG_CONTENTS}load_macros_from_path = ${serializedPaths.join(",")}\n`;
+}
+
 const SQLFLUFF_TIMEOUT_MS = 60_000;
 const SQLFLUFF_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 export const SQLFLUFF_BATCH_SIZE = readPositiveIntegerEnv(

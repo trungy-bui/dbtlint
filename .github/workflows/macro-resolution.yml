@@ -6,7 +6,9 @@ on:
       - "trigger/**"
       - "lib/sqlfluff-violations.ts"
       - "tests/macroResolution.test.ts"
+      - "tests/dbt31ParserRegression.test.ts"
       - "test-fixtures/macro-resolution/**"
+      - "test-fixtures/dbt-31/**"
       - "requirement.txt"
       - "package.json"
       - "package-lock.json"
@@ -17,7 +19,9 @@ on:
       - "trigger/**"
       - "lib/sqlfluff-violations.ts"
       - "tests/macroResolution.test.ts"
+      - "tests/dbt31ParserRegression.test.ts"
       - "test-fixtures/macro-resolution/**"
+      - "test-fixtures/dbt-31/**"
       - "requirement.txt"
       - "package.json"
       - "package-lock.json"
@@ -41,7 +45,7 @@ jobs:
           cache-dependency-path: requirement.txt
       - run: npm ci
       - run: python -m pip install -r requirement.txt
-      - name: Test package, top-level, and nested local macro resolution
-        run: npm run test:macro-resolution
+      - name: Test macro resolution and parser regressions
+        run: npm run test:sql-regressions
         env:
           RUN_SQLFLUFF_INTEGRATION: "1"

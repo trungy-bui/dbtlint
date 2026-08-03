@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "biome check",
     "test:macro-resolution": "tsx --test tests/macroResolution.test.ts",
+    "test:sql-regressions": "tsx --test tests/macroResolution.test.ts tests/dbt31ParserRegression.test.ts",
     "trigger:dev": "npx trigger.dev@4.5.3 dev",
     "format": "biome format --write",
     "db:generate": "drizzle-kit generate",
