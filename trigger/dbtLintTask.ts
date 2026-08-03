@@ -33,6 +33,7 @@ import {
 } from "@/lib/validation/lint";
 import {
   createEmptyLintReport,
+  createSqlfluffLockedConfigContents,
   MAX_DIRECTORY_DEPTH,
   MAX_PROJECT_FILES,
   resolvePythonExecutable,
@@ -553,10 +554,9 @@ export const dbtLintTask = schemaTask({
         status: "PROCESSING",
         progress: 18,
       });
-      // The locked Jinja templater cannot execute dbt packages or load
-      // project-local macros, and the untrusted dbt_project.yml is
-      // intentionally quarantined. Parse bounded manifests and local macro
-      // definitions before filtering false undefined-variable findings.
+      // Keep the untrusted dbt_project.yml quarantined. Parse bounded package
+      // manifests for allowlisting and explicitly load bounded project-local
+      // macros into the locked Jinja templater config.
       const macroResolution = await measurePhase(
         timings,
         "macroResolutionMs",
@@ -579,6 +579,11 @@ export const dbtLintTask = schemaTask({
         namespaces: Array.from(macroResolution.namespaces),
         localMacros: Array.from(macroResolution.localMacros),
       });
+      writeFileSync(
+        lockedConfigPath,
+        createSqlfluffLockedConfigContents(macroResolution.localMacroPaths),
+        "utf8",
+      );
 
       updateLintMetadata({
         statusMessage: "Starting lint...",

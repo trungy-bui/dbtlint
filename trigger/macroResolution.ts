@@ -157,7 +157,6 @@ export function resolveMacroAllowlist(
         }
         if (path.extname(entry.name).toLowerCase() !== ".sql") continue;
 
-        result.localMacroPaths.push(entryPath);
         if (stats.size > MAX_LOCAL_MACRO_BYTES) {
           result.warnings.push(
             `Ignoring oversized dbt macro file ${entryPath}`,
@@ -166,9 +165,12 @@ export function resolveMacroAllowlist(
         }
 
         try {
-          for (const macroName of parseLocalMacroNames(
+          const macroNames = parseLocalMacroNames(
             readFileSync(entryPath, "utf8"),
-          )) {
+          );
+          if (macroNames.size === 0) continue;
+          result.localMacroPaths.push(entryPath);
+          for (const macroName of macroNames) {
             result.localMacros.add(macroName);
             result.allowedVariables.add(macroName);
           }

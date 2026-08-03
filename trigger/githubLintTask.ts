@@ -21,6 +21,7 @@ import { replacePullRequestReviewComments } from "@/lib/github/reviews";
 import { githubLintPayload } from "@/lib/validation/github";
 import {
   createEmptyLintReport,
+  createSqlfluffLockedConfigContents,
   MAX_DIRECTORY_DEPTH,
   MAX_PROJECT_FILES,
   MAX_SQL_FILES,
@@ -631,6 +632,11 @@ export const githubLintTask = schemaTask({
       const macroResolution = resolveMacroAllowlist(
         macroResolutionDirectory,
         MAX_DIRECTORY_DEPTH,
+      );
+      writeFileSync(
+        lockedConfigPath,
+        createSqlfluffLockedConfigContents(macroResolution.localMacroPaths),
+        "utf8",
       );
       const macroResolutionWarnings = [
         ...fetchedMacroResolutionFiles.warnings,

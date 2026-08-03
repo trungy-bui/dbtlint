@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# DBT-31 fixtures intentionally preserve production trailing whitespace.
+test-fixtures/dbt-31/**/*.sql whitespace=-blank-at-eol
