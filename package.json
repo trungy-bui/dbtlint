@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "biome check",
+    "lint:dbt31": "tsx scripts/run-dbt31-lint.ts",
     "test:macro-resolution": "tsx --test tests/macroResolution.test.ts",
     "test:sql-regressions": "tsx --test tests/macroResolution.test.ts tests/dbt31ParserRegression.test.ts",
     "trigger:dev": "npx trigger.dev@4.5.3 dev",

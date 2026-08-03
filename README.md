@@ -204,7 +204,7 @@ The worker recursively searches the extracted archive for the first directory na
 
 Uploaded `.sqlfluff`, `pyproject.toml`, `tox.ini`, `setup.cfg`, `dbt_project.yml`, and `profiles.yml` files are renamed before linting. The worker uses a locked Jinja configuration and passes `--dialect snowflake` for scans created through the web API, so project-controlled SQLFluff and dbt configuration does not affect a scan.
 
-SQLFluff violations whose codes begin with `PRS` or `TMP` count as errors; all other violations count as warnings. A scan passes only when the error count is zero. The score is:
+The locked SQLFluff invocation ignores parse-stage violations because uploaded dbt projects can contain incomplete work-in-progress SQL. Execution and templating violations whose codes begin with `TMP` count as errors; all other reported violations count as warnings. A scan passes only when the error count is zero. The score is:
 
 ```text
 round(100 - (errors / files * 15 + warnings / files * 3))

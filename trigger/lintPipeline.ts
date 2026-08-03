@@ -24,6 +24,7 @@ export const MAX_TOTAL_SQL_LINES = 200_000;
 export const MAX_DIRECTORY_DEPTH = 20;
 export const SQLFLUFF_LOCKED_CONFIG_CONTENTS = `[sqlfluff]
 templater = jinja
+ignore = parsing
 
 [sqlfluff:templater:jinja]
 apply_dbt_builtins = True
